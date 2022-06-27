@@ -1,0 +1,73 @@
+Mishpokhe tests
+
+(base) Sasha@b1161-soedinglab mishpokhe_test % cat target_test1.fasta | grep '>'
+
+>MT006214.1 CrAssphage LMMB, complete genome
+(base) Sasha@b1161-soedinglab mishpokhe_test % cat target_test2.fasta | grep '>'
+
+>MW067000.1 CrAssphage sp. C0521BD4, complete genome
+
+These files were put in one normal database (test_db) and one multihitsearch database
+(test_multihit_db)
+
+I also have a unordered set of proteins but there is no extension to use it yet.
+cat query_unord_test.faa | grep '>'
+>QIN93248.1 single stranded DNA-binding protein [CrAssphage LMMB]
+>QIN93249.1 hypothetical protein [CrAssphage LMMB]
+>QIN93250.1 hypothetical protein [CrAssphage LMMB]
+>QIN93251.1 hypothetical protein [CrAssphage LMMB]
+
+# About the unordered set search against clusters
+
+I think I can perform the clustersearch with the target ordered database against target
+and find proteins enriched in clusters. Then I will perform the normal search 
+with the unordered set against these enriched proteins. 
+
+
+# I have changed to have protein target database for the normal search
+(for convenience on this step). So I translated 2 genomes and made a db out of it
+
+prodigal -i target_test1.fasta -a target_test1.faa
+prodigal -i target_test2.fasta -a target_test2.faa
+
+mmseqs createdb target_test1.faa target_test2.faa test_prot_db
+
+# I have to re-make multihitdb as it was not consistent with the prodigal-derived
+prot db (I guess because I took gff from ncbi). But it is still not consistent - 
+184 entries in prot_db and 85+85 in gff files from NCBI, 93+97 from prodigal. REDO!!!
+
+prodigal -f gff -i target_test1.fasta -o target_test1.gff
+prodigal -f gff -i target_test2.fasta -o target_test2.gff
+
+mmseqs multihitdb *.fasta target_test.gff.txt test_multihit_db tmp
+
+
+# For some reasons it did not work well. Forgot to linearize fasta? The problem
+was the clustersearch version. As soon as I compiled it from Ruoshi's fork, everything did fine.
+
+wc -l test_multihit_db
+    2447 test_multihit_db
+
+mv target_test1.gff target_test1_prodigal.gff
+mv target_test2.gff target_test2_prodigal.gff
+
+mv sequence-2.gff3 target_test1.gff
+mv sequence.gff3 target_test2.gff
+
+awk '/^>/ { print (NR==1 ? "" : RS) $0; next } { printf "%s", $0 } END { printf RS }' target_test1.fasta  > target_test1.fasta_lin
+awk '/^>/ { print (NR==1 ? "" : RS) $0; next } { printf "%s", $0 } END { printf RS }' target_test2.fasta  > target_test2.fasta_lin
+awk '/^>/ { print (NR==1 ? "" : RS) $0; next } { printf "%s", $0 } END { printf RS }' target_test1.faa  > target_test1.faa_lin
+awk '/^>/ { print (NR==1 ? "" : RS) $0; next } { printf "%s", $0 } END { printf RS }' target_test2.faa  > target_test2.faa_lin
+
+
+mmseqs createdb target_test1.faa_lin target_test2.faa_lin test_prot_db
+mmseqs multihitdb *.fasta_lin target_test.gff.txt test_multihit_db tmp
+
+mmseqs createdb query_unord_test.faa query_prot_db
+
+# Finally worked well! Except the problems with inconsistency between proteins and 
+gff (164 test_multihit_db, 184 test_prot_db)
+
+mmseqs multihitdb target_test1.fasta_lin target_test1.gff.txt weird_multihit_db tmp
+
+# EXTRACT only CDS for gff???
