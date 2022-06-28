@@ -71,3 +71,19 @@ gff (164 test_multihit_db, 184 test_prot_db)
 mmseqs multihitdb target_test1.fasta_lin target_test1.gff.txt weird_multihit_db tmp
 
 # EXTRACT only CDS for gff???
+
+# How I run it 
+
+python3 /Users/Sasha/Desktop/py_mishpokhe.py
+starting
+type number of iterations
+Enter query_db path: query_prot_db
+Enter target_db path: test_multihit_db
+Enter results file path: py_res
+<__main__.FilePath object at 0x7fed3e617210>
+query_prot_db
+test_multihit_db
+py_res
+Enter query_db path: query_prot_db
+Enter target_db path: test_prot_db
+Enter results file path: py_res

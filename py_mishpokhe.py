@@ -137,18 +137,19 @@ def update_query():
 # the db file, lookup, index and _h
 # What is wrong with the last line in _h? Consists 1 col instead of 2
 # Rewrite accordingly to the new scheme
+# Is this step for query against target approach? THINK
 def add_new_proteins():
     new_prot_id = np.loadtxt(str(cls_files.res + str("_enrich_prot_1iter")))
     target_db = np.genfromtxt(str(cls_files.target_db), dtype = None, delimiter="\t")
     target_db_lookup = np.genfromtxt(str(cls_files.target_db)+str(".lookup"), dtype = None, delimiter="\t", encoding=None)
     target_db_index_tmp = pd.read_csv(str(cls_files.target_db)+str(".index"), sep='\t',header=None)
     # Is it ok to ignore raised errors to ignore problem with the last line??
-    target_db_h_tmp = pd.read_csv(str(cls_files.target_db)+str(".index"), sep='\t',header=None)
+    target_db_h_tmp = pd.read_csv(str(cls_files.target_db)+str("_h"), sep='\t',header=None)
     
     target_db_index = pd.melt(target_db_index_tmp).to_records()
     target_db_h = pd.melt(target_db_h_tmp).to_records()
     
-
+    # SOMETHING is weird with the _h FILE FIX!!!
     target_db_enrich_prot_db = np.take(target_db, new_prot_id.astype(int))
     target_db_enrich_prot_lookup = np.take(target_db_lookup, new_prot_id.astype(int))
     target_db_enrich_prot_index = np.take(target_db_index, new_prot_id.astype(int))
@@ -158,14 +159,43 @@ def add_new_proteins():
     np.savetxt(str(cls_files.res + str("_enrich_prot_db.lookup")), target_db_enrich_prot_lookup, delimiter="\t", fmt='%s')
     np.savetxt(str(cls_files.res + str("_enrich_prot_db.index")), target_db_enrich_prot_index, delimiter="\t", fmt='%s')
     np.savetxt(str(cls_files.res + str("_enrich_prot_db_h")), target_db_enrich_prot_h, delimiter="\t", fmt='%s')
-    # make for multihitdb. Do i need this merge if that's target against target?
-    #subprocess.call(['mmseqs', 'mergedbs', cls_files.target_db,
-     #str(cls_files.target_db+ str("_added")), str(cls_files.res + str("_enrich_prot_db"))])
+    #make for multihitdb. Do i need this merge if that's target against target?
+    # CHECK might not work for other steps\searches because the results db is actually
+    # a part of the real db, not the normal db with all indices
+    subprocess.call(['mmseqs', 'mergedbs', cls_files.target_db,
+     str(cls_files.target_db+ str("_added")), str(cls_files.res + str("_enrich_prot_db"))])
 
 
+# That's for target against target approach
+# improve SPEED
+def get_enrich_cluster_target_prot():
+    f1 = open(str(cls_files.res + str("_enrich_prot_db"))) 
+    f2 = open(str(cls_files.res + str("_enrich_prot_db.lookup")))
+    f3 = open(str(cls_files.res) + str("_enrich_prot.faa"), 'w')
+    l1 = f1.readlines()
+    l2 = f2.readlines()
+    for i1,i2 in zip(l2, l1):
+        f3.writelines(str('>') + i1)
+        f3.writelines(i2)
+    f1.close()
+    f2.close()
+    f3.close()
+    #target_db = np.genfromtxt(str(cls_files.target_db), dtype = None, delimiter="\t")
+    #target_db_lookup = np.genfromtxt(str(cls_files.target_db)+str(".lookup"), dtype = None, delimiter="\t", encoding=None)
+    #pass
+
+
+# Should i remove old results each step? THINK
+# FIX!!! No k-mer could be extracted for the database py_res_enrich_prot.faa_db.Maybe the sequences length is less than 14 residues
 def unordered_against_enriched():
+    #subprocess.call(['mmseqs', 'createdb', str(cls_files.res + str("_enrich_prot.faa")),
+     #str(cls_files.res + str("_enrich_prot.faa_db"))])
+    #subprocess.call(['mmseqs', 'search', norm_files.query_db,
+     #str(cls_files.res + str("_enrich_prot.faa_db")), str(norm_files.res + str("_ag_enriched_target_res")), 'tmp'])
+    subprocess.call(['mmseqs', 'createdb', 'entest.faa',
+     'entest.faa_db'])
     subprocess.call(['mmseqs', 'search', norm_files.query_db,
-     norm_files.target_db, str(norm_files.res + str("_query_ag_enriched_res")), 'tmp', '--search-type', '3'])
+     'entest.faa_db', 'query_ag_entest_res', 'tmp'])
     #pass
 
 
@@ -177,14 +207,23 @@ def main():
     #run_clustersearch()
     #run_search()
     #count_matches_proportion()
+
+    # SCORE calculation did not work! FIX!!!
+
     #calculate_score()
+
+    #get_enrich_cluster_target_prot()
+
+    # Is this step for query against target approach? Well, still useful to get proteins as 
+    #it constructs the db of the enriched proteins
+
+    #add_new_proteins()
 
     # Part 2 to find query proteins matches to target cluster-enriched proteins
     # and to add the matches to the query
 
     unordered_against_enriched()
     #update_query()
-    #add_new_proteins()
 
     #pass
 
@@ -202,7 +241,7 @@ if __name__ == "__main__":
     # it asks twice for the file paths, for multihitdb for 
     # the clustersearch and normal db for the normal search
     # that's for TARGET all against all
-    # CHANGE to not ask for query and target because they are the same
+    # query is the same, CHANGE to not ask about it
     cls_files = FilePath.get_path()
     print(cls_files)
     print(cls_files.query_db)
