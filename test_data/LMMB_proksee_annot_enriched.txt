@@ -1,0 +1,8 @@
+name	type	start	stop	strand
+Tail_tubular_prot	ENRICHED	58342	59334		-
+Hypothetical	ENRICHED	94558	95157	-
+Hypothetical	ENRICHED	95801	96340	-
+Plasmid_rep_init_prot_RepL	ENRICHED	97010	97765	-
+dUTP_diphosphatase	ENRICHED	23296	24357	+
+Endonuclease	ENRICHED	24377	24697	+
+Intron-encoded_HNH_endonuc	ENRICHED	24769	25623	+
