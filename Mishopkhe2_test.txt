@@ -1,0 +1,2 @@
+The same test (query_prot_db, test_prot_db).
+The results file is called py2_res
