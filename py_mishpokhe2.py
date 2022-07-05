@@ -72,11 +72,12 @@ class ResultsMapping:
      Mapping results to their coordinates and strands
 
      """
-     def __init__(self, search_result_file, target_db_lookup, target_db_h, res_map_to_header):
+     def __init__(self, search_result_file, target_db_lookup, target_db_h, res_map_to_header, ind_list):
         self.search_result_file = search_result_file
         self.target_db_lookup = target_db_lookup
         self.target_db_h = target_db_h
         self.res_map_to_header = res_map_to_header
+        self.ind_list = ind_list
 
 
      @classmethod
@@ -119,13 +120,33 @@ def find_clusters():
     # CHECK if score max cluster set up correct
     score_max_cluster = 0
     # OPTIMIZE how to set the strand penalty
-    d_strand_flip_penalty = 2
-    for i in results.iloc[:, 0].size:
+    d_strand_flip_penalty = 0.5
+    score_min_cluster = 0
+    score_i_minus_1_cluster = 0
+    # CHECK if correct
+    strand = str(mapped_results.iloc[0, 2])
+    if re.findall('\+', strand)==[]:
+        init_strand= '-'
+    if re.findall('\-', strand)==[]:
+        init_strand= '+'
+    print(init_strand)
+
+    print(len(results.iloc[:, 0]))
+    print(results.iloc[:, 0])
+    for i in range(0, len(results.iloc[:, 0])-1):
         print(i)
-        score_x_i = results.iloc[i, 3]
-        # FIX how to initialize this score
-        score_i_minus_1_cluster = 0.1
-        f_strand_flip = mapped_results.iloc[i, 2]
+        print(results.iloc[i, :])
+        score_x_i = float(results.iloc[i, 3])
+        # CHECK in evalue section how to initialize this score
+        strand = str(mapped_results.iloc[i, 2])
+        # CHECK if that's strand of the previous gene or next
+        if re.findall('\+', strand)==init_strand:
+            f_strand_flip = 0
+        if re.findall('\-', strand)==init_strand:
+            f_strand_flip = 0
+        else:
+            f_strand_flip = 1
+        
         if (score_i_minus_1_cluster - f_strand_flip*d_strand_flip_penalty + score_x_i) > max(0, score_x_i):
             score_i_cluster = score_i_minus_1_cluster - f_strand_flip*d_strand_flip_penalty + score_x_i
             if score_i_cluster > score_max_cluster:
