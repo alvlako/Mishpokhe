@@ -107,6 +107,7 @@ class ResultsMapping:
 # DELETE header from pandas dataframes from ResultMapping class object
 def find_clusters():
 
+    # FIX order the results by target prot ID
     mapped_results = mapped_res.res_map_to_header
     results = mapped_res.search_result_file
     index_list = mapped_res.ind_list
@@ -129,6 +130,9 @@ def find_clusters():
     score_min_cluster = 0
     score_i_minus_1_cluster = 0.1
 
+    # CHECK, ASK Johannes
+    gap_penalty = 100
+
     i_0_cluster_start = 0 
     i_1_cluster_end = 0
     # CHECK if correct
@@ -143,7 +147,7 @@ def find_clusters():
 
     # CHECK it now ignores the last line, is it a constant feature to
     # have empty line at the ened of the results file???
-    for i in range(0, len(results.iloc[:, 0])-1):
+    for i in range(0, len(results.iloc[:, 0])):
         print(i)
         #print(results.iloc[[i]])
         score_x_i = float(results.iloc[i,3])
@@ -151,6 +155,8 @@ def find_clusters():
         score_x_i = -np.log(score_x_i)
         # CHECK in evalue section how to initialize this score
         strand = str(mapped_results.iloc[i,1])
+        gap = abs(int(mapped_results.iloc[i,2]) - int(mapped_results.iloc[i-1,2])) - 1
+        print('gap =', gap)
         # CHECK if that's strand of the previous gene or next
         if ''.join(re.findall('\+', strand))==init_strand:
             f_strand_flip = 0
@@ -175,9 +181,11 @@ def find_clusters():
         print('  ')
         print(score_i_minus_1_cluster - f_strand_flip*d_strand_flip_penalty + score_x_i)
         print(max(0, score_x_i))
-        if (score_i_minus_1_cluster - f_strand_flip*d_strand_flip_penalty + score_x_i) > max(0, score_x_i):
-            score_i_cluster = score_i_minus_1_cluster - f_strand_flip*d_strand_flip_penalty + score_x_i
+        # CHECK gap penalty
+        if (score_i_minus_1_cluster - f_strand_flip*d_strand_flip_penalty - gap_penalty*gap + score_x_i) > max(0, score_x_i):
+            score_i_cluster = score_i_minus_1_cluster - f_strand_flip*d_strand_flip_penalty - gap_penalty*gap + score_x_i
             print('proceed', score_i_cluster, score_max_cluster)
+            print('score i-1', score_i_minus_1_cluster)
             
             if score_i_cluster > score_max_cluster:
                 print('first')
@@ -198,7 +206,8 @@ def find_clusters():
                 score_max_cluster = 0
         print('max and min scores', score_max_cluster, score_min_cluster)
         print('cluster coord', i_0_cluster_start, i_1_cluster_end)
-    print('cluster coord', i_0_cluster_start, i_1_cluster_end)
+        print(cluster_matches)
+
     if score_max_cluster > score_min_cluster:
         print('2nd append')
         cluster_matches.append((i_0_cluster_start,
