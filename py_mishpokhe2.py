@@ -104,12 +104,16 @@ class ResultsMapping:
 # FIX !!!!!! some real ids are read as NaN
 # FIX ! to process not the initial results but the best hit results
 # CHECK whether you need to change the scores
+# DELETE header from pandas dataframes from ResultMapping class object
 def find_clusters():
 
     mapped_results = mapped_res.res_map_to_header
     results = mapped_res.search_result_file
     index_list = mapped_res.ind_list
+    # to fix the problem with the nan coming from reading the table
+    results = results[results.iloc[:, 0].notna()]
     print(results)
+    print('mapped results')
     print(mapped_results)
     print(index_list)
 
@@ -121,45 +125,82 @@ def find_clusters():
     score_max_cluster = 0
     # OPTIMIZE how to set the strand penalty
     d_strand_flip_penalty = 0.5
+    # CHECK if it was set up correctly
     score_min_cluster = 0
-    score_i_minus_1_cluster = 0
+    score_i_minus_1_cluster = 0.1
+
+    i_0_cluster_start = 0 
+    i_1_cluster_end = 0
     # CHECK if correct
-    strand = str(mapped_results.iloc[0, 2])
+    strand = str(mapped_results.iloc[0,1])
+    print('strand is')
+    print(strand)
     if re.findall('\+', strand)==[]:
         init_strand= '-'
     if re.findall('\-', strand)==[]:
         init_strand= '+'
     print(init_strand)
 
-    print(len(results.iloc[:, 0]))
-    print(results.iloc[:, 0])
+    # CHECK it now ignores the last line, is it a constant feature to
+    # have empty line at the ened of the results file???
     for i in range(0, len(results.iloc[:, 0])-1):
         print(i)
-        print(results.iloc[i, :])
-        score_x_i = float(results.iloc[i, 3])
+        #print(results.iloc[[i]])
+        score_x_i = float(results.iloc[i,3])
+        # FIX temporary solution to make score_x_i to overweight other scores to get significant clusters
+        score_x_i = -np.log(score_x_i)
         # CHECK in evalue section how to initialize this score
-        strand = str(mapped_results.iloc[i, 2])
+        strand = str(mapped_results.iloc[i,1])
         # CHECK if that's strand of the previous gene or next
-        if re.findall('\+', strand)==init_strand:
+        if ''.join(re.findall('\+', strand))==init_strand:
             f_strand_flip = 0
-        if re.findall('\-', strand)==init_strand:
-            f_strand_flip = 0
+            print('same strand')
         else:
-            f_strand_flip = 1
+            if ''.join(re.findall('\-', strand))==init_strand:
+                f_strand_flip = 0
+                print('same strand')
+            else:
+                f_strand_flip = 1
         
+        # updating previous gene strand (current gene = previous for next for loop iter)
+        if re.findall('\+', strand)==[]:
+            init_strand= '-'
+        if re.findall('\-', strand)==[]:
+            init_strand= '+'
+        
+        print('scores')
+        print(score_i_minus_1_cluster)
+        print(f_strand_flip*d_strand_flip_penalty)
+        print(score_x_i)
+        print('  ')
+        print(score_i_minus_1_cluster - f_strand_flip*d_strand_flip_penalty + score_x_i)
+        print(max(0, score_x_i))
         if (score_i_minus_1_cluster - f_strand_flip*d_strand_flip_penalty + score_x_i) > max(0, score_x_i):
             score_i_cluster = score_i_minus_1_cluster - f_strand_flip*d_strand_flip_penalty + score_x_i
+            print('proceed', score_i_cluster, score_max_cluster)
+            
             if score_i_cluster > score_max_cluster:
-                score_i_cluster = score_i_cluster
-                i_1_cluster_end = i
-            else:
-                score_i_cluster = score_x_i
-                i_0_cluster_start = i
-                if score_max_cluster > score_min_cluster:
-                    cluster_matches.append((i_0_cluster_start,
-                    i_1_cluster_end, score_max_cluster))
-                    score_max_cluster = 0
+                print('first')
+                score_max_cluster = score_i_cluster
+                # CHECK if correct, CHANGE to get right coord
+                i_1_cluster_end = str(mapped_results.iloc[i,1])
+                # CHECK changing of score_i_minus_1_cluster
+                score_i_minus_1_cluster = score_i_cluster
+        else:
+            print('second')
+            score_i_cluster = score_x_i
+            # CHECK if correct, CHANGE to get right coord
+            i_0_cluster_start = str(mapped_results.iloc[i,1])
+            if score_max_cluster > score_min_cluster:
+                print('1st append')
+                cluster_matches.append((i_0_cluster_start,
+                i_1_cluster_end, score_max_cluster))
+                score_max_cluster = 0
+        print('max and min scores', score_max_cluster, score_min_cluster)
+        print('cluster coord', i_0_cluster_start, i_1_cluster_end)
+    print('cluster coord', i_0_cluster_start, i_1_cluster_end)
     if score_max_cluster > score_min_cluster:
+        print('2nd append')
         cluster_matches.append((i_0_cluster_start,
          i_1_cluster_end, score_max_cluster))
     print(cluster_matches)
