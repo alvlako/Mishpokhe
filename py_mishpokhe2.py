@@ -133,7 +133,8 @@ def find_clusters():
     # CHECK, ASK Johannes
     gap_penalty = 100
 
-    i_0_cluster_start = 0 
+    # CHECK if correct (esp if cluster does not start from the 1st gene)
+    i_0_cluster_start = str(mapped_results.iloc[0,1])[:str(mapped_results.iloc[0,1]).find(''.join(re.findall('\+|\-', str(mapped_results.iloc[0,1]))))]
     i_1_cluster_end = 0
     # CHECK if correct
     strand = str(mapped_results.iloc[0,1])
@@ -203,13 +204,15 @@ def find_clusters():
             # CHECK, maybe I have to take i-1 coord? otherwise
             # it seems like I take the left coord of 1st non-cluster
             # prot - ASK Johannes
-            # CHANGE to more well-looking finding of a strand/coord
-            i_0_cluster_start = str(mapped_results.iloc[i,1])[:str(mapped_results.iloc[i,1]).find(''.join(re.findall('\+|\-', str(mapped_results.iloc[i,1]))))]
+            
             if score_max_cluster > score_min_cluster:
                 print('1st append')
                 cluster_matches.append((i_0_cluster_start,
                 i_1_cluster_end, score_max_cluster))
                 score_max_cluster = 0
+            # CHECK if ok to shift it here from above if 
+            # CHANGE to more well-looking finding of a strand/coord
+            i_0_cluster_start = str(mapped_results.iloc[i,1])[:str(mapped_results.iloc[i,1]).find(''.join(re.findall('\+|\-', str(mapped_results.iloc[i,1]))))]
         print('max and min scores', score_max_cluster, score_min_cluster)
         print('cluster coord', i_0_cluster_start, i_1_cluster_end)
         print(cluster_matches)
