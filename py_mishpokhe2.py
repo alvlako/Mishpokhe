@@ -158,6 +158,7 @@ def find_clusters():
         gap = abs(int(mapped_results.iloc[i,2]) - int(mapped_results.iloc[i-1,2])) - 1
         print('gap =', gap)
         # CHECK if that's strand of the previous gene or next
+        # FIX with OR statement (re.findall('\+|\-', test))
         if ''.join(re.findall('\+', strand))==init_strand:
             f_strand_flip = 0
             print('same strand')
@@ -190,15 +191,20 @@ def find_clusters():
             if score_i_cluster > score_max_cluster:
                 print('first')
                 score_max_cluster = score_i_cluster
-                # CHECK if correct, CHANGE to get right coord
-                i_1_cluster_end = str(mapped_results.iloc[i,1])
+                # CHECK if correct, CHANGE to look better
+                #i_1_cluster_end = str(mapped_results.iloc[i,1])
+                i_1_cluster_end = str(mapped_results.iloc[i,1])[str(mapped_results.iloc[i,1]).find(''.join(re.findall('\+|\-', str(mapped_results.iloc[i,1]))))+1:]
                 # CHECK changing of score_i_minus_1_cluster
                 score_i_minus_1_cluster = score_i_cluster
         else:
             print('second')
             score_i_cluster = score_x_i
             # CHECK if correct, CHANGE to get right coord
-            i_0_cluster_start = str(mapped_results.iloc[i,1])
+            # CHECK, maybe I have to take i-1 coord? otherwise
+            # it seems like I take the left coord of 1st non-cluster
+            # prot - ASK Johannes
+            # CHANGE to more well-looking finding of a strand/coord
+            i_0_cluster_start = str(mapped_results.iloc[i,1])[:str(mapped_results.iloc[i,1]).find(''.join(re.findall('\+|\-', str(mapped_results.iloc[i,1]))))]
             if score_max_cluster > score_min_cluster:
                 print('1st append')
                 cluster_matches.append((i_0_cluster_start,
