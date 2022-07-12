@@ -67,9 +67,13 @@ def run_search():
 # CHECK if it quaranteed that indices in results file are same order as in lookup (also in order) 
 # AND in _h and the order is always the same
 # FIX !!!!!! some real ids are read as NaN
+# FIX to read normal db_h, not multihitdb_h
+# CHECK if it is target proteins, not query
 class ResultsMapping:
      """
-     Mapping results to their coordinates and strands
+     Mapping results to their coordinates and strands. Produces file
+     with 0 column with NaNs (FIX!!!), 1 column with coordinates and strand,
+     ind column with the internal id of the protein
 
      """
      def __init__(self, search_result_file, target_db_lookup, target_db_h, res_map_to_header, ind_list):
@@ -105,6 +109,7 @@ class ResultsMapping:
 # FIX ! to process not the initial results but the best hit results
 # CHECK whether you need to change the scores
 # DELETE header from pandas dataframes from ResultMapping class object
+# Set the scores not to e-values column but to 0
 def find_clusters():
 
     # FIX order the results by target prot ID
@@ -221,11 +226,18 @@ def find_clusters():
         print('2nd append')
         cluster_matches.append((i_0_cluster_start,
          i_1_cluster_end, score_max_cluster))
+    # add more to cluster matches table? prot id?
     print(cluster_matches)
+    # ADD return of the changed ResultsMapping object? (with added scores?)
     return cluster_matches
 
 
-def update_scores():
+# it re-defines the scores which I have got in the first iteration 
+# CHECK if i have to read some combined\changed file of ResultsMapping
+def update_scores_and_flip_penalty(cluster_matches):
+    significant_clusters = cluster_matches 
+    mapped_results = mapped_res.res_map_to_header
+    results = mapped_res.search_result_file
     pass
 
 
@@ -250,7 +262,7 @@ def main():
     #print(mapped_res.res_map_to_header)
 
     cluster_matches = find_clusters()
-    #update_scores()
+    #update_scores_and_flip_penalty(cluster_matches)
     #update_query_profiles()
     #add_new_proteins()
     pass
