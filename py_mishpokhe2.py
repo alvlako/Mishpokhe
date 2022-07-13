@@ -234,10 +234,30 @@ def find_clusters():
 
 # it re-defines the scores which I have got in the first iteration 
 # CHECK if i have to read some combined\changed file of ResultsMapping
-def update_scores_and_flip_penalty(cluster_matches):
+# ADD s0 
+def update_scores_for_cluster_matches(cluster_matches):
     significant_clusters = cluster_matches 
+    # ADD query id to mapped results
     mapped_results = mapped_res.res_map_to_header
     results = mapped_res.search_result_file
+    # iterate through query ids in mapped results (ADD this column)
+    # CHECK if these are right columns
+    L = len(significant_clusters)
+    print(L)
+    bias = 0
+    for query_id in mapped_results.iloc[:,3]:
+        print(query_id)
+        m_x = mapped_results.iloc[:,3][mapped_results.iloc[:,3] == query_id].shape[0]
+        M_x = results.iloc[:,0][results.iloc[:,0] == query_id].shape[0]
+        # CHECK if true
+        l = m_x
+        print(m_x, M_x, l)
+        score_x = np.log(np.divide(np.divide(m_x, l), np.divide(M_x, L))) - bias
+    pass
+
+
+def set_strand_flip_penaly():
+    
     pass
 
 
@@ -262,7 +282,9 @@ def main():
     #print(mapped_res.res_map_to_header)
 
     cluster_matches = find_clusters()
-    #update_scores_and_flip_penalty(cluster_matches)
+    # CHECK if it is optimal to divide scores update to few functions
+    #update_scores_for_cluster_matches(cluster_matches)
+    #set_strand_flip_penaly()
     #update_query_profiles()
     #add_new_proteins()
     pass
