@@ -55,10 +55,10 @@ def run_search():
      files.target_db,
      files.res + '_prof_search',
      'tmp', '-a'])
-    # FIX something wrong local id (4294967295) >= db size (4)
-    #subprocess.call(['mmseqs', 'convertalis', files.query_db + '_clu' + '_rep' + '_profile',
-     #files.target_db, files.res + '_prof_search',
-      #files.res + '_prof_search' +'.m8'])
+    # convert to convenient format
+    subprocess.call(['mmseqs', 'convertalis', files.query_db + '_clu' + '_rep' + '_profile',
+     files.target_db, files.res + '_prof_search',
+      files.res + '_prof_search' +'.m8'])
 
 
 # The n of prots in db matches the n of gff CDS CDS!!! entries
@@ -67,7 +67,7 @@ def run_search():
 # CHECK if it quaranteed that indices in results file are same order as in lookup (also in order) 
 # AND in _h and the order is always the same
 # FIX !!!!!! some real ids are read as NaN
-# FIX to read normal db_h, not multihitdb_h
+# currently it is search used the normal db for target
 # CHECK if it is target proteins, not query
 class ResultsMapping:
      """
@@ -76,6 +76,7 @@ class ResultsMapping:
      ind column with the internal id of the protein
 
      """
+     # the results file is currently m8 file from normal db search
      def __init__(self, search_result_file, target_db_lookup, target_db_h, res_map_to_header, ind_list):
         self.search_result_file = search_result_file
         self.target_db_lookup = target_db_lookup
@@ -86,20 +87,30 @@ class ResultsMapping:
 
      @classmethod
      def map_target_to_coord(self):
+        print('mapping results')
         #search_result_file = pd.read_csv(str(files.res + '_prof_search'), dtype={'int':'float'}, sep='\t')
-        search_result_file = pd.read_csv('/Users/Sasha/Documents/GitHub/mishpokhe_test/py2_multihit_res', dtype={'int':'float'}, sep='\t')
-        # given the target db is multihitdb. Do i need lookup?
+        #search_result_file = pd.read_csv('/Users/Sasha/Documents/GitHub/mishpokhe_test/py2_multihit_res', dtype={'int':'float'}, sep='\t')
+        search_result_file = pd.read_csv('/Users/Sasha/Documents/GitHub/mishpokhe_test/py_norm_res_prof_search.m8', dtype={'str':'float'}, sep='\t')
+        print(search_result_file)
+        # Do i need lookup?
         target_db_lookup = np.genfromtxt(str(files.target_db)+str(".lookup"), dtype = None, delimiter="\t", encoding=None)
-        target_db_h = pd.read_csv(str(files.target_db)+str("_h"), sep='\t',header=None)
+        target_db_h = pd.read_csv(str(files.target_db)+str("_h"), sep=' # ',header=None)
         #print(search_result_file.iloc[:, 0])
-        #print(target_db_h)
-        ind_list = search_result_file.iloc[:, 0].dropna().astype(int)
+        #print(target_db_h.iloc[:, 0])
+        ##ind_list = search_result_file.iloc[:, 0].dropna().astype(int)
         #print(ind_list)
-        res_map_to_header = target_db_h.iloc[ind_list]
-        #print(type(ind_list))
-        res_map_to_header['ind'] = ind_list.values
-        #print(res_map_to_header)
-        return self(search_result_file, target_db_lookup, target_db_h, res_map_to_header, ind_list)
+        # get target proteins real ids
+        real_id_list = search_result_file.iloc[:, 1]
+        print(real_id_list)
+        # map by 1st (0) column with real ids from search res
+        #print(target_db_h.loc[target_db_h.iloc[:, 0].astype(str) == 'MT006214.1_1'])
+        res_map_to_header = target_db_h.loc[target_db_h.iloc[:, 0].astype(str).isin(real_id_list)]
+        ##res_map_to_header['ind'] = ind_list.values
+        # get target proteins real ids
+
+        print(res_map_to_header)
+        ##return self(search_result_file, target_db_lookup, target_db_h, res_map_to_header, ind_list)
+        pass
 
 
 
@@ -256,8 +267,8 @@ def update_scores_for_cluster_matches(cluster_matches):
     pass
 
 
-def set_strand_flip_penaly():
-    
+def set_strand_flip_penalty():
+
     pass
 
 
@@ -281,10 +292,10 @@ def main():
     #mapped_res = ResultsMapping.map_target_to_coord()
     #print(mapped_res.res_map_to_header)
 
-    cluster_matches = find_clusters()
+    #cluster_matches = find_clusters()
     # CHECK if it is optimal to divide scores update to few functions
     #update_scores_for_cluster_matches(cluster_matches)
-    #set_strand_flip_penaly()
+    #set_strand_flip_penalty()
     #update_query_profiles()
     #add_new_proteins()
     pass
