@@ -143,7 +143,7 @@ def find_clusters():
     print(results)
     print('mapped results')
     print(mapped_results)
-    print(index_list)
+    print("index list", index_list)
 
     #Algorithm 1 - iterate through target prot
     print(results.iloc[:, 0].size)
@@ -173,11 +173,16 @@ def find_clusters():
 
     # CHECK it now ignores the last line, is it a constant feature to
     # have empty line at the ened of the results file???
+    # FIX to iterate through genes in genome, not through all the genes
+    # FIX different order of seqs in results and mapped results
+    # CHECK diff number of lines in results and mapped res??
     for i in range(0, len(results.iloc[:, 0])):
         print(i)
+        print(mapped_results["ID"].values[i])
         #print(results.iloc[[i]])
         # CHANGE this score (to 0 and 1 for 1st iter?)
-        score_x_i = float(results.iloc[i,10])
+        #score_x_i = float(results.iloc[i,10])
+        score_x_i = 1
         # FIX temporary solution to make score_x_i to overweight other scores to get significant clusters
         score_x_i = -np.log(score_x_i)
         # CHECK in evalue section how to initialize this score
@@ -189,6 +194,7 @@ def find_clusters():
         print('gap =', gap)
         # CHECK if that's strand of the previous gene or next
         # FIX with OR statement (re.findall('\+|\-', test))
+        # FIX something wrong the first str = init gives "different strand"
         if strand == init_strand:
             f_strand_flip = 0
             print('same strand')
@@ -217,9 +223,10 @@ def find_clusters():
                 score_max_cluster = score_i_cluster
                 # CHECK if correct, CHANGE to look better
                 #i_1_cluster_end = str(mapped_results.iloc[i,1])
-                i_1_cluster_end = int(mapped_results["coord2"].values[0])
+                i_1_cluster_end = int(mapped_results["coord2"].values[i])
                 # CHECK changing of score_i_minus_1_cluster
                 score_i_minus_1_cluster = score_i_cluster
+                print('upd prev cluster score', score_i_minus_1_cluster)
         else:
             print('second')
             score_i_cluster = score_x_i
@@ -235,7 +242,7 @@ def find_clusters():
                 score_max_cluster = 0
             # CHECK if ok to shift it here from above if 
             # CHANGE to more well-looking finding of a strand/coord
-            i_0_cluster_start = int(mapped_results["coord1"].values[0])
+            i_0_cluster_start = int(mapped_results["coord1"].values[i])
         print('max and min scores', score_max_cluster, score_min_cluster)
         print('cluster coord', i_0_cluster_start, i_1_cluster_end)
         print(cluster_matches)
