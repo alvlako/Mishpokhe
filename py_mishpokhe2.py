@@ -69,6 +69,7 @@ def run_search():
 # FIX !!!!!! some real ids are read as NaN
 # currently it is search used the normal db for target
 # CHECK if it is target proteins, not query
+pd.set_option('display.max_columns', None)
 class ResultsMapping:
      """
      Mapping results to their coordinates and strands. Produces file
@@ -94,23 +95,30 @@ class ResultsMapping:
         print(search_result_file)
         # Do i need lookup?
         target_db_lookup = np.genfromtxt(str(files.target_db)+str(".lookup"), dtype = None, delimiter="\t", encoding=None)
-        target_db_h = pd.read_csv(str(files.target_db)+str("_h"), sep=' # ',header=None)
+        target_db_h = pd.read_csv(str(files.target_db)+str("_h"), sep='\s+#\s+', header=None, engine='python')
         #print(search_result_file.iloc[:, 0])
-        #print(target_db_h.iloc[:, 0])
+        
+        target_db_h.columns = ["ID", "coord1", "coord2", "strand","comment"]
+        # CHECK if this pattern enough to remove?
+        target_db_h["ID"] = target_db_h["ID"].str.replace('\x00', '')
+        
         ##ind_list = search_result_file.iloc[:, 0].dropna().astype(int)
         #print(ind_list)
         # get target proteins real ids
         real_id_list = search_result_file.iloc[:, 1]
-        print(real_id_list)
+        print("real ids list", real_id_list)
         # map by 1st (0) column with real ids from search res
-        #print(target_db_h.loc[target_db_h.iloc[:, 0].astype(str) == 'MT006214.1_1'])
+        # print(target_db_h.loc[target_db_h.iloc[:, 0].astype(str) == 'MT006214.1_1'])
         res_map_to_header = target_db_h.loc[target_db_h.iloc[:, 0].astype(str).isin(real_id_list)]
         ##res_map_to_header['ind'] = ind_list.values
         # get target proteins real ids
 
+        # CLEAN
+        ind_list = real_id_list
+
         print(res_map_to_header)
-        ##return self(search_result_file, target_db_lookup, target_db_h, res_map_to_header, ind_list)
-        pass
+        return self(search_result_file, target_db_lookup, target_db_h, res_map_to_header, ind_list)
+        #pass
 
 
 
@@ -121,6 +129,9 @@ class ResultsMapping:
 # CHECK whether you need to change the scores
 # DELETE header from pandas dataframes from ResultMapping class object
 # Set the scores not to e-values column but to 0
+# Now that is for the processing of norm search res, so indices from
+# the mapped results might be not consistent with gene order
+# THINK if multihitdb better
 def find_clusters():
 
     # FIX order the results by target prot ID
@@ -147,19 +158,17 @@ def find_clusters():
     score_i_minus_1_cluster = 0.1
 
     # CHECK, ASK Johannes
-    gap_penalty = 100
+    gap_penalty = 0.0001
 
     # CHECK if correct (esp if cluster does not start from the 1st gene)
-    i_0_cluster_start = str(mapped_results.iloc[0,1])[:str(mapped_results.iloc[0,1]).find(''.join(re.findall('\+|\-', str(mapped_results.iloc[0,1]))))]
-    i_1_cluster_end = 0
+    i_0_cluster_start = int(mapped_results["coord1"].values[0])
+    pd.set_option('display.max_columns', None)
+    #print(mapped_results)
+    print("cluster start", i_0_cluster_start)
+    i_1_cluster_end = int(mapped_results["coord2"].values[0])
     # CHECK if correct
-    strand = str(mapped_results.iloc[0,1])
+    init_strand = str(mapped_results["strand"].values[0])
     print('strand is')
-    print(strand)
-    if re.findall('\+', strand)==[]:
-        init_strand= '-'
-    if re.findall('\-', strand)==[]:
-        init_strand= '+'
     print(init_strand)
 
     # CHECK it now ignores the last line, is it a constant feature to
@@ -167,35 +176,33 @@ def find_clusters():
     for i in range(0, len(results.iloc[:, 0])):
         print(i)
         #print(results.iloc[[i]])
-        score_x_i = float(results.iloc[i,3])
+        # CHANGE this score (to 0 and 1 for 1st iter?)
+        score_x_i = float(results.iloc[i,10])
         # FIX temporary solution to make score_x_i to overweight other scores to get significant clusters
         score_x_i = -np.log(score_x_i)
         # CHECK in evalue section how to initialize this score
-        strand = str(mapped_results.iloc[i,1])
-        gap = abs(int(mapped_results.iloc[i,2]) - int(mapped_results.iloc[i-1,2])) - 1
+        # CHECK if -1 (and other potential values) properly read
+        strand = int(mapped_results["strand"].values[i])
+        print("strand is", strand)
+        # CHECK if gap = genes number would be better
+        gap = abs(int(mapped_results["coord1"].values[i])- int((mapped_results["coord2"].values[i-1]))) - 1
         print('gap =', gap)
         # CHECK if that's strand of the previous gene or next
         # FIX with OR statement (re.findall('\+|\-', test))
-        if ''.join(re.findall('\+', strand))==init_strand:
+        if strand == init_strand:
             f_strand_flip = 0
             print('same strand')
         else:
-            if ''.join(re.findall('\-', strand))==init_strand:
-                f_strand_flip = 0
-                print('same strand')
-            else:
-                f_strand_flip = 1
+            print('different strand')
+            f_strand_flip = 1
         
         # updating previous gene strand (current gene = previous for next for loop iter)
-        if re.findall('\+', strand)==[]:
-            init_strand= '-'
-        if re.findall('\-', strand)==[]:
-            init_strand= '+'
+        init_strand= strand
         
         print('scores')
-        print(score_i_minus_1_cluster)
-        print(f_strand_flip*d_strand_flip_penalty)
-        print(score_x_i)
+        print('prev cluster score', score_i_minus_1_cluster)
+        print('strand flip', f_strand_flip*d_strand_flip_penalty)
+        print('current score', score_x_i)
         print('  ')
         print(score_i_minus_1_cluster - f_strand_flip*d_strand_flip_penalty + score_x_i)
         print(max(0, score_x_i))
@@ -210,7 +217,7 @@ def find_clusters():
                 score_max_cluster = score_i_cluster
                 # CHECK if correct, CHANGE to look better
                 #i_1_cluster_end = str(mapped_results.iloc[i,1])
-                i_1_cluster_end = str(mapped_results.iloc[i,1])[str(mapped_results.iloc[i,1]).find(''.join(re.findall('\+|\-', str(mapped_results.iloc[i,1]))))+1:]
+                i_1_cluster_end = int(mapped_results["coord2"].values[0])
                 # CHECK changing of score_i_minus_1_cluster
                 score_i_minus_1_cluster = score_i_cluster
         else:
@@ -228,7 +235,7 @@ def find_clusters():
                 score_max_cluster = 0
             # CHECK if ok to shift it here from above if 
             # CHANGE to more well-looking finding of a strand/coord
-            i_0_cluster_start = str(mapped_results.iloc[i,1])[:str(mapped_results.iloc[i,1]).find(''.join(re.findall('\+|\-', str(mapped_results.iloc[i,1]))))]
+            i_0_cluster_start = int(mapped_results["coord1"].values[0])
         print('max and min scores', score_max_cluster, score_min_cluster)
         print('cluster coord', i_0_cluster_start, i_1_cluster_end)
         print(cluster_matches)
@@ -290,9 +297,8 @@ def main():
     # this class is to have order and strand for target proteins
     # FIX best query hit is needed
     #mapped_res = ResultsMapping.map_target_to_coord()
-    #print(mapped_res.res_map_to_header)
 
-    #cluster_matches = find_clusters()
+    cluster_matches = find_clusters()
     # CHECK if it is optimal to divide scores update to few functions
     #update_scores_for_cluster_matches(cluster_matches)
     #set_strand_flip_penalty()
