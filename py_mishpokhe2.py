@@ -176,6 +176,8 @@ def find_clusters():
     # FIX to iterate through genes in genome, not through all the genes
     # FIX different order of seqs in results and mapped results
     # CHECK diff number of lines in results and mapped res??
+    # CHECK whether mapped results are always ordered
+    # CHECK why i itereate through results, not mapped results
     for i in range(0, len(results.iloc[:, 0])):
         print(i)
         print(mapped_results["ID"].values[i])
@@ -234,15 +236,15 @@ def find_clusters():
             # CHECK, maybe I have to take i-1 coord? otherwise
             # it seems like I take the left coord of 1st non-cluster
             # prot - ASK Johannes
+            #i_0_cluster_start = int(mapped_results["coord1"].values[i])
             
             if score_max_cluster > score_min_cluster:
                 print('1st append')
                 cluster_matches.append((i_0_cluster_start,
                 i_1_cluster_end, score_max_cluster))
                 score_max_cluster = 0
-            # CHECK if ok to shift it here from above if 
-            # CHANGE to more well-looking finding of a strand/coord
             i_0_cluster_start = int(mapped_results["coord1"].values[i])
+       
         print('max and min scores', score_max_cluster, score_min_cluster)
         print('cluster coord', i_0_cluster_start, i_1_cluster_end)
         print(cluster_matches)
@@ -252,7 +254,7 @@ def find_clusters():
         cluster_matches.append((i_0_cluster_start,
          i_1_cluster_end, score_max_cluster))
     # add more to cluster matches table? prot id?
-    print(cluster_matches)
+    #print(cluster_matches)
     # ADD return of the changed ResultsMapping object? (with added scores?)
     return cluster_matches
 
