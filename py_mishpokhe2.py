@@ -69,6 +69,7 @@ def run_search():
 # FIX !!!!!! some real ids are read as NaN
 # currently it is search used the normal db for target
 # CHECK if it is target proteins, not query
+# FIX the 1st line of res.m8 is not taken because became a header
 pd.set_option('display.max_columns', None)
 class ResultsMapping:
      """
@@ -98,6 +99,7 @@ class ResultsMapping:
         target_db_h = pd.read_csv(str(files.target_db)+str("_h"), sep='\s+#\s+', header=None, engine='python')
         #print(search_result_file.iloc[:, 0])
         
+        # RENAME ID to target_ID
         target_db_h.columns = ["ID", "coord1", "coord2", "strand","comment"]
         # CHECK if this pattern enough to remove?
         target_db_h["ID"] = target_db_h["ID"].str.replace('\x00', '')
@@ -109,7 +111,17 @@ class ResultsMapping:
         print("real ids list", real_id_list)
         # map by 1st (0) column with real ids from search res
         # print(target_db_h.loc[target_db_h.iloc[:, 0].astype(str) == 'MT006214.1_1'])
-        res_map_to_header = target_db_h.loc[target_db_h.iloc[:, 0].astype(str).isin(real_id_list)]
+        tmp_res_map_to_header = target_db_h.loc[target_db_h.iloc[:, 0].astype(str).isin(real_id_list)]
+        # NOTe - isin makes sorting, so the next lines to get to the original lines order
+        # that is to link proper query ids to the other info
+        tmp_res_map_to_header['sort_cat'] = pd.Categorical(tmp_res_map_to_header['ID'], categories=real_id_list, ordered=True)
+        tmp_res_map_to_header.sort_values('sort_cat', inplace=True)
+        tmp_res_map_to_header.reset_index(inplace=True)
+        tmp_res_map_to_header['query_ID'] = search_result_file.iloc[:, 0]
+
+        # sort it back again to iterate via by order in the next step
+        res_map_to_header = tmp_res_map_to_header.sort_values(by=['ID'])
+
         ##res_map_to_header['ind'] = ind_list.values
         # get target proteins real ids
 
@@ -273,12 +285,13 @@ def update_scores_for_cluster_matches(cluster_matches):
     results = mapped_res.search_result_file
     # iterate through query ids in mapped results (ADD this column)
     # CHECK if these are right columns
-    L = len(significant_clusters)
-    print(L)
+    # CHECK if the query and target assignment is correct
+    K = len(significant_clusters)
+    print(K)
     bias = 0
-    for query_id in mapped_results.iloc[:,3]:
+    for query_id in mapped_results['query_ID']]:
         print(query_id)
-        m_x = mapped_results.iloc[:,3][mapped_results.iloc[:,3] == query_id].shape[0]
+        m_x = mapped_results["ID"][mapped_results["ID"] == query_id].shape[0]
         M_x = results.iloc[:,0][results.iloc[:,0] == query_id].shape[0]
         # CHECK if true
         l = m_x
