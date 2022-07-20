@@ -69,7 +69,6 @@ def run_search():
 # FIX !!!!!! some real ids are read as NaN
 # currently it is search used the normal db for target
 # CHECK if it is target proteins, not query
-# FIX the 1st line of res.m8 is not taken because became a header
 pd.set_option('display.max_columns', None)
 class ResultsMapping:
      """
@@ -92,7 +91,7 @@ class ResultsMapping:
         print('mapping results')
         #search_result_file = pd.read_csv(str(files.res + '_prof_search'), dtype={'int':'float'}, sep='\t')
         #search_result_file = pd.read_csv('/Users/Sasha/Documents/GitHub/mishpokhe_test/py2_multihit_res', dtype={'int':'float'}, sep='\t')
-        search_result_file = pd.read_csv('/Users/Sasha/Documents/GitHub/mishpokhe_test/py_norm_res_prof_search.m8', dtype={'str':'float'}, sep='\t')
+        search_result_file = pd.read_csv('/Users/Sasha/Documents/GitHub/mishpokhe_test/py_norm_res_prof_search.m8', dtype={'str':'float'}, sep='\t', header = None)
         print(search_result_file)
         # Do i need lookup?
         target_db_lookup = np.genfromtxt(str(files.target_db)+str(".lookup"), dtype = None, delimiter="\t", encoding=None)
@@ -134,6 +133,7 @@ class ResultsMapping:
 
 
 
+# FIX FIX FIX !!!!!!!! it doesnt let clusters >2 genes (or check)
 # ?? is it correct that L is set not of all the target proteins
 # but only those which were matched and got to results???
 # FIX !!!!!! some real ids are read as NaN
@@ -146,7 +146,6 @@ class ResultsMapping:
 # THINK if multihitdb better
 def find_clusters():
 
-    # FIX order the results by target prot ID
     mapped_results = mapped_res.res_map_to_header
     results = mapped_res.search_result_file
     index_list = mapped_res.ind_list
@@ -186,9 +185,6 @@ def find_clusters():
     # CHECK it now ignores the last line, is it a constant feature to
     # have empty line at the ened of the results file???
     # FIX to iterate through genes in genome, not through all the genes
-    # FIX different order of seqs in results and mapped results
-    # CHECK diff number of lines in results and mapped res??
-    # CHECK whether mapped results are always ordered
     # CHECK why i itereate through results, not mapped results
     for i in range(0, len(results.iloc[:, 0])):
         print(i)
@@ -278,6 +274,7 @@ def find_clusters():
 # it re-defines the scores which I have got in the first iteration 
 # CHECK if i have to read some combined\changed file of ResultsMapping
 # ADD s0 
+# ADD algorithm for prots with no cluster matches
 def update_scores_for_cluster_matches(cluster_matches):
     significant_clusters = cluster_matches 
     # ADD query id to mapped results
@@ -287,16 +284,17 @@ def update_scores_for_cluster_matches(cluster_matches):
     # CHECK if these are right columns
     # CHECK if the query and target assignment is correct
     K = len(significant_clusters)
-    print(K)
+    # FIX to be variable
+    l = 4
+    print("K, l", K, l)
     bias = 0
-    for query_id in mapped_results['query_ID']]:
+    for query_id in mapped_results['query_ID']:
         print(query_id)
-        m_x = mapped_results["ID"][mapped_results["ID"] == query_id].shape[0]
+        m_x = mapped_results['query_ID'][mapped_results['query_ID'] == query_id].shape[0]
         M_x = results.iloc[:,0][results.iloc[:,0] == query_id].shape[0]
         # CHECK if true
-        l = m_x
-        print(m_x, M_x, l)
-        score_x = np.log(np.divide(np.divide(m_x, l), np.divide(M_x, L))) - bias
+        print("m_x, M_x", m_x, M_x)
+        #score_x = np.log(np.divide(np.divide(m_x, l), np.divide(M_x, L))) - bias
     pass
 
 
@@ -327,7 +325,7 @@ def main():
     cluster_matches = find_clusters()
     print(cluster_matches)
     # CHECK if it is optimal to divide scores update to few functions
-    #update_scores_for_cluster_matches(cluster_matches)
+    update_scores_for_cluster_matches(cluster_matches)
     #set_strand_flip_penalty()
     #update_query_profiles()
     #add_new_proteins()
