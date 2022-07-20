@@ -186,7 +186,7 @@ def find_clusters():
         #score_x_i = float(results.iloc[i,10])
         score_x_i = 1
         # FIX temporary solution to make score_x_i to overweight other scores to get significant clusters
-        score_x_i = -np.log(score_x_i)
+        #score_x_i = -np.log(score_x_i)
         # CHECK in evalue section how to initialize this score
         # CHECK if -1 (and other potential values) properly read
         strand = int(mapped_results["strand"].values[i])
@@ -238,7 +238,7 @@ def find_clusters():
             # it seems like I take the left coord of 1st non-cluster
             # prot - ASK Johannes
             # THINK if the next line here or below
-            # i_0_cluster_start = int(mapped_results["coord1"].values[i])
+            #i_0_cluster_start = int(mapped_results["coord1"].values[i])
             
             print(score_max_cluster, score_min_cluster)
             if score_max_cluster > score_min_cluster:
@@ -247,6 +247,7 @@ def find_clusters():
                 i_1_cluster_end, score_max_cluster))
                 score_max_cluster = 0
             # THINK if it is okay to be here or above
+            # for some reasons if here it gives proper result
             i_0_cluster_start = int(mapped_results["coord1"].values[i])
        
         print('max and min scores', score_max_cluster, score_min_cluster)
