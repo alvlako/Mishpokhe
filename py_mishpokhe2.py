@@ -227,7 +227,8 @@ def find_clusters():
                 #i_1_cluster_end = str(mapped_results.iloc[i,1])
                 i_1_cluster_end = int(mapped_results["coord2"].values[i])
                 # CHECK changing of score_i_minus_1_cluster
-                score_i_minus_1_cluster = score_i_cluster
+                # CHECK why did add this? it is not in the Johannes pseudocode
+                #score_i_minus_1_cluster = score_i_cluster
                 print('upd prev cluster score', score_i_minus_1_cluster)
         else:
             print('second')
@@ -236,25 +237,27 @@ def find_clusters():
             # CHECK, maybe I have to take i-1 coord? otherwise
             # it seems like I take the left coord of 1st non-cluster
             # prot - ASK Johannes
-            #i_0_cluster_start = int(mapped_results["coord1"].values[i])
+            # THINK if the next line here or below
+            # i_0_cluster_start = int(mapped_results["coord1"].values[i])
             
+            print(score_max_cluster, score_min_cluster)
             if score_max_cluster > score_min_cluster:
                 print('1st append')
                 cluster_matches.append((i_0_cluster_start,
                 i_1_cluster_end, score_max_cluster))
                 score_max_cluster = 0
+            # THINK if it is okay to be here or above
             i_0_cluster_start = int(mapped_results["coord1"].values[i])
        
         print('max and min scores', score_max_cluster, score_min_cluster)
         print('cluster coord', i_0_cluster_start, i_1_cluster_end)
-        print(cluster_matches)
+        print('cluster matches', cluster_matches)
 
     if score_max_cluster > score_min_cluster:
         print('2nd append')
         cluster_matches.append((i_0_cluster_start,
          i_1_cluster_end, score_max_cluster))
     # add more to cluster matches table? prot id?
-    #print(cluster_matches)
     # ADD return of the changed ResultsMapping object? (with added scores?)
     return cluster_matches
 
@@ -308,6 +311,7 @@ def main():
     #mapped_res = ResultsMapping.map_target_to_coord()
 
     cluster_matches = find_clusters()
+    print(cluster_matches)
     # CHECK if it is optimal to divide scores update to few functions
     #update_scores_for_cluster_matches(cluster_matches)
     #set_strand_flip_penalty()
