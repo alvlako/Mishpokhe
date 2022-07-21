@@ -183,8 +183,8 @@ def find_clusters():
     print('strand is')
     print(init_strand)
 
-    #query_genes_ids = []
-    #target_genes_ids = []
+    query_genes_ids = []
+    target_genes_ids = []
 
     # CHECK it now ignores the last line, is it a constant feature to
     # have empty line at the ened of the results file???
@@ -245,9 +245,9 @@ def find_clusters():
                 #score_i_minus_1_cluster = score_i_cluster
                 print('upd prev cluster score', score_i_minus_1_cluster)
 
-                last_target_gene = mapped_results["ID"].values[i]
-                #query_genes_ids.append(mapped_results["query_ID"].values[i])
-                #target_genes_ids.append(mapped_results["ID"].values[i])
+                #last_target_gene = mapped_results["ID"].values[i]
+                query_genes_ids.append(mapped_results["query_ID"].values[i])
+                target_genes_ids.append(mapped_results["ID"].values[i])
 
         else:
             print('second')
@@ -264,13 +264,18 @@ def find_clusters():
             if score_max_cluster > score_min_cluster:
                 print('1st append')
                 cluster_matches.append((i_0_cluster_start,
-                i_1_cluster_end, score_max_cluster, first_target_gene, last_target_gene))
+                i_1_cluster_end, score_max_cluster,
+                query_genes_ids, target_genes_ids))
                 score_max_cluster = 0
             # THINK if it is okay to be here or above
             # for some reasons if here it gives proper result
             i_0_cluster_start = int(mapped_results["coord1"].values[i])
 
-            first_target_gene = mapped_results["ID"].values[i]
+            #first_target_gene = mapped_results["ID"].values[i]
+            query_genes_ids = []
+            query_genes_ids.append(mapped_results["query_ID"].values[i])
+            target_genes_ids = []
+            target_genes_ids.append(mapped_results["ID"].values[i])
             #query_genes_ids.append(mapped_results["query_ID"].values[i])
             #target_genes_ids.append(mapped_results["ID"].values[i])
        
@@ -281,7 +286,8 @@ def find_clusters():
     if score_max_cluster > score_min_cluster:
         print('2nd append')
         cluster_matches.append((i_0_cluster_start,
-         i_1_cluster_end, score_max_cluster, first_target_gene, last_target_gene))
+         i_1_cluster_end, score_max_cluster, 
+         query_genes_ids, target_genes_ids))
     # add more to cluster matches table? prot id?
     # ADD return of the changed ResultsMapping object? (with added scores?)
     return cluster_matches
@@ -300,7 +306,7 @@ def update_scores_for_cluster_matches(cluster_matches):
     results = mapped_res.search_result_file
 
     # CHECK\do better: extracting prots corresponding to the cluster
-    
+
 
     # CHECK if these are right columns
     # CHECK if the query and target assignment is correct
