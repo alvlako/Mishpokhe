@@ -305,23 +305,37 @@ def update_scores_for_cluster_matches(cluster_matches):
     mapped_results = mapped_res.res_map_to_header
     results = mapped_res.search_result_file
 
-    # CHECK\do better: extracting prots corresponding to the cluster
-
-
     # CHECK if these are right columns
     # CHECK if the query and target assignment is correct
     K = len(significant_clusters)
-    # FIX to be variable
-    l = 6
-    print("K, l", K, l)
+    # FIX to be variable taken from number of prots in target
+    L = 184
+    
     bias = 0
+    sign_clusters_df = pd.DataFrame(significant_clusters)
+    sign_clusters_df.columns = ["coord1", "coord2", "score",
+    "query_prots", "target_prots"]
+
+    # Should cluster prots be done better?
+    cluster_prots = pd.DataFrame()
+    cluster_prots['query_id'] = sign_clusters_df['query_prots'].explode()
+    cluster_prots['target_id'] = sign_clusters_df['target_prots'].explode()
+
+    l = len(cluster_prots)
+
+    print("K, L, l", K, L, l)
+    
+    print(sign_clusters_df)
+    print(cluster_prots)
+    # ? FIX iterate not throught results but through initial query + target
     for query_id in mapped_results['query_ID']:
         print(query_id)
-        m_x = mapped_results['query_ID'][mapped_results['query_ID'] == query_id].shape[0]
-        M_x = results.iloc[:,0][results.iloc[:,0] == query_id].shape[0]
-        # CHECK if true
-        print("m_x, M_x", m_x, M_x)
-        #score_x = np.log(np.divide(np.divide(m_x, l), np.divide(M_x, L))) - bias
+        M_x = mapped_results['query_ID'][mapped_results['query_ID'] == query_id].shape[0]
+        m_x = cluster_prots[cluster_prots['query_id'] == query_id]['query_id'].count()
+
+        print("M_x, m_x", M_x, m_x)
+        score_x = np.log(np.divide(np.divide(m_x, l), np.divide(M_x, L))) - bias
+        print(score_x)
     pass
 
 
