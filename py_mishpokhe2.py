@@ -144,6 +144,7 @@ class ResultsMapping:
 # Now that is for the processing of norm search res, so indices from
 # the mapped results might be not consistent with gene order
 # THINK if multihitdb better
+# FIX genes ids retrieval
 def find_clusters():
 
     mapped_results = mapped_res.res_map_to_header
@@ -182,10 +183,14 @@ def find_clusters():
     print('strand is')
     print(init_strand)
 
+    #query_genes_ids = []
+    #target_genes_ids = []
+
     # CHECK it now ignores the last line, is it a constant feature to
     # have empty line at the ened of the results file???
     # FIX to iterate through genes in genome, not through all the genes
     # CHECK why i itereate through results, not mapped results
+    # FIX genes ids retrieval
     for i in range(0, len(results.iloc[:, 0])):
         print(i)
         print(mapped_results["ID"].values[i])
@@ -222,6 +227,7 @@ def find_clusters():
         print('  ')
         print(score_i_minus_1_cluster - f_strand_flip*d_strand_flip_penalty + score_x_i)
         print(max(0, score_x_i))
+
         # CHECK gap penalty
         if (score_i_minus_1_cluster - f_strand_flip*d_strand_flip_penalty - gap_penalty*gap + score_x_i) > max(0, score_x_i):
             score_i_cluster = score_i_minus_1_cluster - f_strand_flip*d_strand_flip_penalty - gap_penalty*gap + score_x_i
@@ -238,9 +244,15 @@ def find_clusters():
                 # CHECK why did add this? it is not in the Johannes pseudocode
                 #score_i_minus_1_cluster = score_i_cluster
                 print('upd prev cluster score', score_i_minus_1_cluster)
+
+                last_target_gene = mapped_results["ID"].values[i]
+                #query_genes_ids.append(mapped_results["query_ID"].values[i])
+                #target_genes_ids.append(mapped_results["ID"].values[i])
+
         else:
             print('second')
             score_i_cluster = score_x_i
+
             # CHECK if correct, CHANGE to get right coord
             # CHECK, maybe I have to take i-1 coord? otherwise
             # it seems like I take the left coord of 1st non-cluster
@@ -252,11 +264,15 @@ def find_clusters():
             if score_max_cluster > score_min_cluster:
                 print('1st append')
                 cluster_matches.append((i_0_cluster_start,
-                i_1_cluster_end, score_max_cluster))
+                i_1_cluster_end, score_max_cluster, first_target_gene, last_target_gene))
                 score_max_cluster = 0
             # THINK if it is okay to be here or above
             # for some reasons if here it gives proper result
             i_0_cluster_start = int(mapped_results["coord1"].values[i])
+
+            first_target_gene = mapped_results["ID"].values[i]
+            #query_genes_ids.append(mapped_results["query_ID"].values[i])
+            #target_genes_ids.append(mapped_results["ID"].values[i])
        
         print('max and min scores', score_max_cluster, score_min_cluster)
         print('cluster coord', i_0_cluster_start, i_1_cluster_end)
@@ -265,7 +281,7 @@ def find_clusters():
     if score_max_cluster > score_min_cluster:
         print('2nd append')
         cluster_matches.append((i_0_cluster_start,
-         i_1_cluster_end, score_max_cluster))
+         i_1_cluster_end, score_max_cluster, first_target_gene, last_target_gene))
     # add more to cluster matches table? prot id?
     # ADD return of the changed ResultsMapping object? (with added scores?)
     return cluster_matches
@@ -274,18 +290,23 @@ def find_clusters():
 # it re-defines the scores which I have got in the first iteration 
 # CHECK if i have to read some combined\changed file of ResultsMapping
 # ADD s0 
+# ADD besthit and significant clusters determination?
 # ADD algorithm for prots with no cluster matches
 def update_scores_for_cluster_matches(cluster_matches):
+    # CHANGE for really significant clusters, not as it is?
     significant_clusters = cluster_matches 
     # ADD query id to mapped results
     mapped_results = mapped_res.res_map_to_header
     results = mapped_res.search_result_file
-    # iterate through query ids in mapped results (ADD this column)
+
+    # CHECK\do better: extracting prots corresponding to the cluster
+    
+
     # CHECK if these are right columns
     # CHECK if the query and target assignment is correct
     K = len(significant_clusters)
     # FIX to be variable
-    l = 4
+    l = 6
     print("K, l", K, l)
     bias = 0
     for query_id in mapped_results['query_ID']:
