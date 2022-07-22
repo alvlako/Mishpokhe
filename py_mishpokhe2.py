@@ -146,6 +146,8 @@ class ResultsMapping:
 # the mapped results might be not consistent with gene order
 # THINK if multihitdb better
 # FIX genes ids retrieval
+# FIX to not get clusters from different genomes
+# CHECK all the scores
 def find_clusters():
 
     mapped_results = mapped_res.res_map_to_header
@@ -218,6 +220,15 @@ def find_clusters():
         else:
             print('different strand')
             f_strand_flip = 1
+
+        # to check whether proteins are from the same genome
+        # THINK if it should be done better
+        # also it relies on having "." in prot id
+        # CHECK if I should compare with the prev prot
+        print(mapped_results["ID"].values[i].split(".")[0])
+        # is this gap enough for different genomes?
+        if mapped_results["ID"].values[i].split(".")[0] != mapped_results["ID"].values[i-1].split(".")[0]:
+            gap = 100000
         
         # updating previous gene strand (current gene = previous for next for loop iter)
         init_strand= strand
@@ -283,7 +294,8 @@ def find_clusters():
             prots_strands.append(mapped_results["strand"].values[i])
             #query_genes_ids.append(mapped_results["query_ID"].values[i])
             #target_genes_ids.append(mapped_results["ID"].values[i])
-       
+        # CHECK if correct, not as in latex
+        score_i_minus_1_cluster = score_i_cluster
         print('max and min scores', score_max_cluster, score_min_cluster)
         print('cluster coord', i_0_cluster_start, i_1_cluster_end)
         print('cluster matches', cluster_matches)
@@ -408,7 +420,7 @@ def main():
     print(cluster_matches)
     # CHECK if it is optimal to divide scores update to few functions
     update_scores_for_cluster_matches(cluster_matches)
-    set_strand_flip_penalty(cluster_matches)
+    #set_strand_flip_penalty(cluster_matches)
     #update_query_profiles()
     #add_new_proteins()
     pass
