@@ -351,13 +351,32 @@ def set_strand_flip_penalty(cluster_matches):
     # this just delete the consecutive duplicates, therefore I can cound 
     # how many switches between strands are in the file (1 1 -1 -1 1 -> 1 -1 1)
     F = len([key for key, _group in itertools.groupby(target_db_h["strand"])]) - 1
-    print(F)
+    print("F = ", F)
     # CHANGE to not duplicate update_scores
     significant_clusters = cluster_matches
     sign_clusters_df = pd.DataFrame(significant_clusters)
     sign_clusters_df.columns = ["coord1", "coord2", "score",
     "query_prots", "target_prots", "strand"]
     print(sign_clusters_df)
+    f = 0
+    # this should count number of flips in each cluster
+    # think how to speed up this step
+    for cluster_strands in sign_clusters_df["strand"]:
+        n_flips_cluster = len([key for key, _group in itertools.groupby(cluster_strands)]) - 1
+        f = f + n_flips_cluster
+    print("f = ", f)
+    # change to not duplicate scores updating
+    K = len(significant_clusters)
+    cluster_prots = pd.DataFrame()
+    cluster_prots['query_id'] = sign_clusters_df['query_prots'].explode()
+    l = len(cluster_prots)
+    print("K, l = ", K, l)
+    # CHANGE to be variable taken from target proteome data
+    L = 184
+    # ASK Johannes how to set up strand flip penalty if there are no
+    # flips in clustersearch, f=0 and log doesnt exist
+    d = np.log(np.divide(np.divide(f, (l - K)), np.divide(F, (L - 1))))
+    print(d)
     pass
 
 
