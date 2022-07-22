@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 
+import itertools
 import os
 import re
 import subprocess
@@ -336,11 +337,23 @@ def update_scores_for_cluster_matches(cluster_matches):
         print("M_x, m_x", M_x, m_x)
         score_x = np.log(np.divide(np.divide(m_x, l), np.divide(M_x, L))) - bias
         print(score_x)
+        # ADD s0 for prots with no match
     pass
 
 
-def set_strand_flip_penalty():
-
+def set_strand_flip_penalty(cluster_matches):
+    target_db_h = mapped_res.target_db_h
+    print(target_db_h)
+    # this just delete the consecutive duplicates, therefore I can cound 
+    # how many switches between strands are in the file (1 1 -1 -1 1 -> 1 -1 1)
+    F = len([key for key, _group in itertools.groupby(target_db_h["strand"])]) - 1
+    print(F)
+    # CHANGE to not duplicate update_scores
+    significant_clusters = cluster_matches
+    sign_clusters_df = pd.DataFrame(significant_clusters)
+    sign_clusters_df.columns = ["coord1", "coord2", "score",
+    "query_prots", "target_prots"]
+    print(sign_clusters_df)
     pass
 
 
@@ -367,7 +380,7 @@ def main():
     print(cluster_matches)
     # CHECK if it is optimal to divide scores update to few functions
     update_scores_for_cluster_matches(cluster_matches)
-    #set_strand_flip_penalty()
+    set_strand_flip_penalty(cluster_matches)
     #update_query_profiles()
     #add_new_proteins()
     pass
