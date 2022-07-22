@@ -385,6 +385,7 @@ def set_strand_flip_penalty(cluster_matches):
 
 
 def update_query_profiles():
+    # CHECK if it is the efficicient and fast way to update it
     pass
 
 
