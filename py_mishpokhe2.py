@@ -375,6 +375,10 @@ def set_strand_flip_penalty(cluster_matches):
     L = 184
     # ASK Johannes how to set up strand flip penalty if there are no
     # flips in clustersearch, f=0 and log doesnt exist
+    # current solution is to set f = F/100000, just to make it minimun
+    # in comparison
+    if f == 0:
+        f = F/100000
     d = np.log(np.divide(np.divide(f, (l - K)), np.divide(F, (L - 1))))
     print(d)
     pass
