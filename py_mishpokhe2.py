@@ -186,6 +186,7 @@ def find_clusters():
 
     query_genes_ids = []
     target_genes_ids = []
+    prots_strands = []
 
     # CHECK it now ignores the last line, is it a constant feature to
     # have empty line at the ened of the results file???
@@ -249,6 +250,7 @@ def find_clusters():
                 #last_target_gene = mapped_results["ID"].values[i]
                 query_genes_ids.append(mapped_results["query_ID"].values[i])
                 target_genes_ids.append(mapped_results["ID"].values[i])
+                prots_strands.append(mapped_results["strand"].values[i])
 
         else:
             print('second')
@@ -266,7 +268,7 @@ def find_clusters():
                 print('1st append')
                 cluster_matches.append((i_0_cluster_start,
                 i_1_cluster_end, score_max_cluster,
-                query_genes_ids, target_genes_ids))
+                query_genes_ids, target_genes_ids, prots_strands))
                 score_max_cluster = 0
             # THINK if it is okay to be here or above
             # for some reasons if here it gives proper result
@@ -277,6 +279,8 @@ def find_clusters():
             query_genes_ids.append(mapped_results["query_ID"].values[i])
             target_genes_ids = []
             target_genes_ids.append(mapped_results["ID"].values[i])
+            prots_strands = []
+            prots_strands.append(mapped_results["strand"].values[i])
             #query_genes_ids.append(mapped_results["query_ID"].values[i])
             #target_genes_ids.append(mapped_results["ID"].values[i])
        
@@ -288,7 +292,7 @@ def find_clusters():
         print('2nd append')
         cluster_matches.append((i_0_cluster_start,
          i_1_cluster_end, score_max_cluster, 
-         query_genes_ids, target_genes_ids))
+         query_genes_ids, target_genes_ids, prots_strands))
     # add more to cluster matches table? prot id?
     # ADD return of the changed ResultsMapping object? (with added scores?)
     return cluster_matches
@@ -315,7 +319,7 @@ def update_scores_for_cluster_matches(cluster_matches):
     bias = 0
     sign_clusters_df = pd.DataFrame(significant_clusters)
     sign_clusters_df.columns = ["coord1", "coord2", "score",
-    "query_prots", "target_prots"]
+    "query_prots", "target_prots", "strand"]
 
     # Should cluster prots be done better?
     cluster_prots = pd.DataFrame()
@@ -352,7 +356,7 @@ def set_strand_flip_penalty(cluster_matches):
     significant_clusters = cluster_matches
     sign_clusters_df = pd.DataFrame(significant_clusters)
     sign_clusters_df.columns = ["coord1", "coord2", "score",
-    "query_prots", "target_prots"]
+    "query_prots", "target_prots", "strand"]
     print(sign_clusters_df)
     pass
 
