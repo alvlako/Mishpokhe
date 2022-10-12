@@ -4,6 +4,7 @@ import pandas as pd
 import itertools
 import os
 import re
+import sh
 import subprocess
 
 # version 2 accordingly to the written in the proposal
@@ -357,6 +358,11 @@ def update_scores_for_cluster_matches(cluster_matches):
     pass
 
 
+# after completing this function, DELETE the function above?
+def calculate_karlin_stat(cluster_matches):
+    pass
+
+
 def set_strand_flip_penalty(cluster_matches):
     target_db_h = mapped_res.target_db_h
     print(target_db_h)
@@ -393,15 +399,150 @@ def set_strand_flip_penalty(cluster_matches):
         f = F/100000
     d = np.log(np.divide(np.divide(f, (l - K)), np.divide(F, (L - 1))))
     print(d)
+    # is it a good place to return?
+    # CHECK if these are really significant clusters
+    return(sign_clusters_df)
+    #pass
+
+# function to initialize score for new proteins from neighbourhood
+# should potentially be called in update_query_profiles_add_proteins function?
+# ASK Johannes what order should it be done, if I initialize scores for proteins or profiles
+def initialize_new_prot_score():
     pass
 
 
-def update_query_profiles():
-    # CHECK if it is the efficicient and fast way to update it
+# THINK about writing already to a file in subprocess Popen
+def update_query_profiles_add_proteins(sign_clusters_df):
+    print('updating query profile started')
+    # CHECK if only the significant clusters are used
+    # getting the target prots matched to query
+    print('significant (?) clusters table')
+    print(sign_clusters_df)
+    
+    # calling initial fasta for target and query
+    # CHANGE it to not ask user again
+    query_fasta = input('Enter query_sequences (fasta) path: ')
+    target_fasta = input('Enter target_sequence (fasta) path: ')
+
+    # adding matched target prots to the query set to make the profiles again
+    # THINK if it is a good way to add all matched target prots to all queries and run clustering again
+
+    # extracting the left and the right edges proteins for clusters
+    print(sign_clusters_df['target_prots'])
+    # extracting proteins matched, within and in +3 left and right neighbourhood of the clusters
+    ##target_clusters_within = open("target_clusters_within", "w")
+    target_clusters_neighbourhood = open("target_clusters_neighbourhood", "w")
+    for target_prot_cluster in sign_clusters_df['target_prots']:
+        target_prot_left = target_prot_cluster[0]
+        target_prot_right = target_prot_cluster[-1]
+        print('left and right proteins per cycle')
+        print(target_prot_left, target_prot_right)
+        # extracting header + seq lines between left and right edge proteins in cluster
+        # all prots within cluster extracted, but the rightest dont have seq line after this step, only header
+        within = subprocess.Popen(['sed', '-n', '/%s /,/%s /p' %(target_prot_left, target_prot_right) + ' ', target_fasta], stdout=subprocess.PIPE)
+        target_clusters_within, error = within.communicate()
+        # extracting 3 prots before and after + seq line for the last prot of the cluster
+        # pipes are to get rid of rightest and leftest prots headers
+        #subprocess.call(['grep', '-A7', target_prot_right + ' ', target_fasta], stdout=target_clusters_neighbourhood)
+        # filtering only concrete genome in db, CHECK if correct for all formats
+        # Does it limit the formats option? So I somehow rely on the fact that I have a protein ID 
+        # of the format “MW067000.1_2”, and genome ID is of the format “MW067000.1”.
+        genome_id = target_prot_right.split('_')[0]
+        p1_left = subprocess.Popen(['grep', genome_id, target_fasta], stdout=subprocess.PIPE)
+        p2_left = subprocess.Popen(['grep', '-B6', target_prot_left + ' ', target_fasta], stdin=p1_left.stdout, stdout=subprocess.PIPE)
+        # dont communicate if you dont want the pipe to be closed
+        #print(p2_left.communicate())
+        p3_left = subprocess.Popen(['grep', '-v', target_prot_left], stdin=p2_left.stdout, stdout=subprocess.PIPE)
+        p1_left.stdout.close()
+        p2_left.stdout.close()
+        output_left,err_left = p3_left.communicate()
+        print("left prots")
+        print(output_left.decode("utf-8"))
+        # counting how many proteins I got (in case if it is the end or the start of the file)
+        left_prots_extracted_n = output_left.decode("utf-8").count('>')
+        print(left_prots_extracted_n)
+        # CHANGE later for variable how many prots to extract? 
+        # -1 is added to use it later in tail command
+        left_prots_remained_to_extract_n_lines = str((3 - left_prots_extracted_n)*2*(-1))
+        # extract remaining number of proteins from another end of the file if any
+        if left_prots_remained_to_extract_n_lines != '0':
+            p1_from_end = subprocess.Popen(['grep', genome_id, target_fasta], stdout=subprocess.PIPE)
+            p2_from_end = subprocess.Popen(['tail',  left_prots_remained_to_extract_n_lines, target_fasta], stdin=p1_from_end.stdout, stdout=subprocess.PIPE)
+            output_file_end,err_file_end = p2_from_end.communicate()
+            print('end of the file')
+            print(left_prots_remained_to_extract_n_lines)
+            print(output_file_end)
+            p1_from_end.stdout.close()
+            target_clusters_neighbourhood.write(output_file_end.decode("utf-8"))
+
+
+        p1_right = subprocess.Popen(['grep', genome_id, target_fasta], stdout=subprocess.PIPE)
+        p3 = subprocess.Popen(['grep', '-A7', target_prot_right + ' ', target_fasta], stdin=p1_right.stdout, stdout=subprocess.PIPE)
+        p4 = subprocess.Popen(['grep', '-v', target_prot_right], stdin=p3.stdout, stdout=subprocess.PIPE)
+        output_right,err_right = p4.communicate()
+        p1_right.stdout.close()
+        p3.stdout.close()
+        #print(output_right.decode("utf-8"))
+
+        right_prots_extracted_n = output_right.decode("utf-8").count('>')
+        print(right_prots_extracted_n)
+        right_prots_remained_to_extract_n_lines = str((3 - right_prots_extracted_n)*2*(-1))
+        # extract remaining number of proteins from another end of the file if any
+        if right_prots_remained_to_extract_n_lines != '0':
+            p1_from_begin = subprocess.Popen(['grep', genome_id, target_fasta], stdout=subprocess.PIPE)
+            p2_from_begin = subprocess.Popen(['head',  right_prots_remained_to_extract_n_lines, target_fasta], stdin=p1_from_begin.stdout, stdout=subprocess.PIPE)
+            output_file_begin,err_file_begin = p2_from_begin.communicate()
+            p1_from_begin.stdout.close()
+            target_clusters_neighbourhood.write(output_file_begin.decode("utf-8"))
+
+
+        
+        target_clusters_neighbourhood.write(output_left.decode("utf-8"))
+        target_clusters_neighbourhood.write(target_clusters_within.decode("utf-8"))
+        target_clusters_neighbourhood.write(output_right.decode("utf-8"))
+        
+        # DOES NOT WORK correctly as it looks via the whole file, so you can get another genome prots on edges
+    ##target_clusters_within.close()
+    target_clusters_neighbourhood.close()
+    
+    # CHECK if you can make faster
+    # CHECK if you need to delete duplicates from target prots
+    
+
+    #making a new query db
+    # THINK if I want not to renew the file but make a separate file for each iteration
+    ##subprocess.call(['mmseqs', 'createdb', 'query_fasta_copy_iter', 'query_fasta_copy_iter_db'])
+
     pass
 
+# CHECK if I should merge it to the prev step???
+def add_new_proteins(sign_clusters_df):
+    # CHECK if these are really significant clusters, not just clusters
+    # extracting the left and the right edges proteins for clusters
+    print('significant (?) clusters table')
+    #print(sign_clusters_df)
+    print(sign_clusters_df['target_prots'])
+    # extracting proteins within and in +3 left and right neighbourhood of the clusters
+    target_clusters_neighbourhood = open("target_clusters_neighbourhood", "w")
+    for target_prot_cluster in sign_clusters_df['target_prots']:
+        target_prot_left = target_prot_cluster[0]
+        target_prot_right = target_prot_cluster[-1]
+        print(target_prot_left, target_prot_right)
 
-def add_new_proteins():
+    matched_targets = open("matched_targets", "w")
+    for target_prot in query_target_prots["target"]:
+        subprocess.call(['grep', '-A1', target_prot + ' ', target_fasta], stdout=matched_targets)
+    matched_targets.close()
+    #matched_targets = open("targets", "r")
+    # THINK if I want not to renew the file but make a separate file for each iteration
+    query_fasta_copy_iter = open("query_fasta_copy_iter", "w")
+    subprocess.call(['cat', query_fasta], stdout=query_fasta_copy_iter)
+    query_fasta_copy_iter.close()
+    query_fasta_copy_iter = open("query_fasta_copy_iter", "a")
+    subprocess.call(['cat', 'matched_targets'], stdout=query_fasta_copy_iter)
+    matched_targets.close()
+    query_fasta_copy_iter.close()
+        
     pass
 
 
@@ -414,15 +555,25 @@ def main():
 
     # this class is to have order and strand for target proteins
     # FIX best query hit is needed
-    #mapped_res = ResultsMapping.map_target_to_coord()
+    mapped_res = ResultsMapping.map_target_to_coord()
 
     cluster_matches = find_clusters()
     print(cluster_matches)
     # CHECK if it is optimal to divide scores update to few functions
-    update_scores_for_cluster_matches(cluster_matches)
-    #set_strand_flip_penalty(cluster_matches)
-    #update_query_profiles()
-    #add_new_proteins()
+
+    #update_scores_for_cluster_matches(cluster_matches)
+    #calculate_karlin_stat()
+
+    set_strand_flip_penalty(cluster_matches)
+    sign_clusters_df = set_strand_flip_penalty(cluster_matches)
+
+    # function to initialize score for new proteins from neighbourhood
+    # should potentially be called in update_query_profiles_add_proteins function?
+    #initialize_new_prot_score()
+
+
+    # update_query_profiles and add_proteins are merged
+    update_query_profiles_add_proteins(sign_clusters_df)
     pass
 
 
@@ -434,6 +585,7 @@ if __name__ == "__main__":
     #iterations = int(input())
     iterations = 1
 
+    # ADD check if file exists!!!
     files = FilePath.get_path()
     print(files.query_db)
     print(files.target_db)
