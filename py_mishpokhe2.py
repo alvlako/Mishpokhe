@@ -626,11 +626,20 @@ def make_new_profiles(sign_clusters_df):
     # ASK Ruoshi if I really need to cluster and how to make MSA properly
     # CHECK if I can take cluster results from the first steps? 90% ident?
     # CHECK format output
-    subprocess.call(['mmseqs', 'align', files.query_db, files.query_db,
-     files.query_db + '_clu', files.query_db + '_clu' + '_msa_align'])
+    subprocess.call(['mmseqs', 'search', 
+    files.query_db, files.query_db, 'query_ag_query_search_for_msa_res', 'tmp', '--max-seq-id', '0.8',
+     '-a'])
     subprocess.call(['mmseqs', 'convertalis', files.query_db, files.query_db,
-     files.query_db + '_clu_msa_align', files.query_db + '_clu' + '_msa_align' +'.m8',
+     'query_ag_query_search_for_msa_res', 'query_ag_query_search_for_msa_res' +'.m8',
       '--format-output', 'pident,qcov'])
+    subprocess.call(['mmseqs', 'convertalis', files.query_db, files.query_db,
+     'query_ag_query_search_for_msa_res', 'query_ag_query_search_for_msa_res' +'_full.m8',])
+    subprocess.call(['mmseqs', 'align', files.query_db, files.query_db,
+     'query_ag_query_search_for_msa_res', 'query_ag_query_search_for_msa_res' + '_msa_align'])
+    subprocess.call(['mmseqs', 'convertalis', files.query_db, files.query_db,
+     'query_ag_query_search_for_msa_res' + '_msa_align', files.query_db + '_msa_align' +'.m8',
+      '--format-output', 'pident,qcov'])
+    
     # mmseqs convertalis db db alnres alnres.tab
     MSA_ident_qcov_file = pd.read_csv(files.query_db + '_clu' + '_msa_align' +'.m8', dtype={'str':'float'},
      sep='\t', header = None)
@@ -640,6 +649,8 @@ def make_new_profiles(sign_clusters_df):
     mu_cov = MSA_ident_qcov_file.loc[:,1].mean()
     sigma_ident = MSA_ident_qcov_file.loc[:,0].std()
     sigma_cov = MSA_ident_qcov_file.loc[:,1].std()
+
+    # ASK Johannes about MSA and if I should actually use mash or is there something in MMseqs2
 
     print('parameters for clustering', mu_ident, mu_cov, sigma_ident, sigma_cov)
 
@@ -748,6 +759,8 @@ def initialize_new_prot_score():
     target_clusters_neighbourhood_signif_prots = open("target_clusters_neighbourhood_signif_prots", "w")
 
     # iterate through all profile representatives
+    # CHECK or ASK if i should iterate through all members or through representatives? and then just
+    # update the clustering db?
     for prof_id in np.unique(neighbourhood_db_profiles[:, 0]):
         print(prof_id)
         m_x = np.count_nonzero(search_neighb_ag_neighb_result_file[:, 0] == prof_id)
@@ -760,12 +773,17 @@ def initialize_new_prot_score():
         # choosing only those which are above threshold, extracting seqs for them and writing to file
         threshold = -10
         if score_x > threshold:
+            # writing profile id to the file together with the score
             target_clusters_neighbourhood_prof_mishpokhe_scores.write(str(prof_id) +'\t'+str(score_x)+'\n')
-            # finding this seq id in file, extracting seq to prepare file to build significant profiles
-            prot_seqs = subprocess.Popen(['grep', '-A1', prof_id + ' ',
-             'target_clusters_neighbourhood'], stdout=subprocess.PIPE)
-            seqs, error = prot_seqs.communicate()
-            target_clusters_neighbourhood_signif_prots.write(seqs.decode("utf-8"))
+            # finding not only representatives but also members of the cluster
+            rows=np.where(neighbourhood_db_profiles[:, 0] == prof_id)
+            print(neighbourhood_db_profiles[rows])
+            for prot_id in neighbourhood_db_profiles[rows][:,1]:
+                # finding this seq id in file, extracting seq to prepare file to build significant profiles
+                prot_seqs = subprocess.Popen(['grep', '-A1', prot_id + ' ',
+                 'target_clusters_neighbourhood'], stdout=subprocess.PIPE)
+                seqs, error = prot_seqs.communicate()
+                target_clusters_neighbourhood_signif_prots.write(seqs.decode("utf-8"))
     target_clusters_neighbourhood_prof_mishpokhe_scores.close()
     target_clusters_neighbourhood_signif_prots.close()
 
@@ -788,6 +806,7 @@ def combine_all_profiles():
      'target_clusters_neighbourhood_signif_prots.db', 'iter_match_neighb_prots.db'])
     subprocess.call(['mmseqs', 'concatdbs', files.query_db, 'iter_match_neighb_prots.db',
      'iter_all_prots.db' ])
+    # CHECK or ASK if the order is normal (see lab notes)
     
 
 
@@ -825,15 +844,16 @@ def main():
     sign_clusters_df = set_strand_flip_penalty(cluster_matches)
 
     # FIX THERE ERRORS and PROBLEMS
+    # FIX to extract left prots directly and also prots from within the cluster (not matches)
     #extract_proteins_cluster_neighborhood(sign_clusters_df)
     #update_query_profiles()
     #add_new_proteins()
-    #make_new_profiles(sign_clusters_df)
+    make_new_profiles(sign_clusters_df)
 
     # function to initialize score for new proteins from neighbourhood
     # should potentially be called in update_query_profiles_add_proteins function?
     #initialize_new_prot_score()
-    combine_all_profiles()
+    #combine_all_profiles()
 
     #generate_mmseqs_ffindex(sign_clusters_df)
     pass
