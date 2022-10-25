@@ -1,3 +1,4 @@
+from sys import stdout
 import numpy as np
 import pandas as pd
 
@@ -50,6 +51,7 @@ def make_profiles():
 
 # add options?
 # CHECK if its right to search query profiles against target
+# ADD besthit
 def run_search():
     print('running mmseqs profile search')
     subprocess.call(['mmseqs', 'search', 
@@ -215,6 +217,7 @@ def find_clusters():
         # CHECK if that's strand of the previous gene or next
         # FIX with OR statement (re.findall('\+|\-', test))
         # FIX something wrong the first str = init gives "different strand"
+        # FIX use another, calculated strand flip penalty (d) in the next iterations
         if strand == init_strand:
             f_strand_flip = 0
             print('same strand')
@@ -333,6 +336,9 @@ def update_scores_for_cluster_matches(cluster_matches):
     sign_clusters_df = pd.DataFrame(significant_clusters)
     sign_clusters_df.columns = ["coord1", "coord2", "score",
     "query_prots", "target_prots", "strand"]
+    sign_clusters_df['new_score_enrich'] = 0
+    # MAKE faster?
+    sign_clusters_df['queries_string'] = [','.join(map(str, l)) for l in sign_clusters_df['query_prots']]
 
     # Should cluster prots be done better?
     cluster_prots = pd.DataFrame()
@@ -343,26 +349,54 @@ def update_scores_for_cluster_matches(cluster_matches):
 
     print("K, L, l", K, L, l)
     
+    print('sign_clusters_df')
     print(sign_clusters_df)
+    print('cluster_prots')
     print(cluster_prots)
+    print('mapped results')
+    print(mapped_results)
     # ? FIX iterate not throught results but through initial query + target
-    for query_id in mapped_results['query_ID']:
+    # CHECK if leaving only unique entries is correct
+    for query_id in mapped_results['query_ID'].unique():
         print(query_id)
         M_x = mapped_results['query_ID'][mapped_results['query_ID'] == query_id].shape[0]
         m_x = cluster_prots[cluster_prots['query_id'] == query_id]['query_id'].count()
-
+        # in this case M_x and m_x are equal as there were no single hits. 
+        # CHECK with other data where would be hits not only in clusters
         print("M_x, m_x", M_x, m_x)
         score_x = np.log(np.divide(np.divide(m_x, l), np.divide(M_x, L))) - bias
         print(score_x)
+
+        # MAKE faster?
+        # adding score of the query prot to get summarized score for the cluster
+        # CHECK if correct
+        sign_clusters_df.loc[sign_clusters_df['queries_string'].str.contains(query_id),
+        'new_score_enrich'] = sign_clusters_df.loc[sign_clusters_df['queries_string'].str.contains(query_id),
+        'new_score_enrich'] + score_x
+
+
+
         # ADD s0 for prots with no match
-    pass
+    print(sign_clusters_df)
+    return(sign_clusters_df)
 
 
 # after completing this function, DELETE the function above?
-def calculate_karlin_stat(cluster_matches):
+# the problem for cmake is -maccumulate-outgoing-args from Makefile of cloned basplice repo
+# CFLAGS=         -Wall -g -funroll-loops -march=nocona -maccumulate-outgoing-args
+def calculate_karlin_stat(significant_cluster_df_enriched):
+    print('using c code for e-value')
+    import ctypes
+    # load shared object of glibc
+    glibc = ctypes.CDLL('/Users/Sasha/Documents/GitHub/mishpokhe_test/basplice_karlinaltschul')
+    # load path into c-type char-array
+    path = ctypes.c_char_p(b'/bin/sh')
+    # execute 'system' from glibc
+    glibc.system(path)
     pass
 
 
+# ASK where strand flip penalty goes? next iter?
 def set_strand_flip_penalty(cluster_matches):
     target_db_h = mapped_res.target_db_h
     print(target_db_h)
@@ -404,15 +438,9 @@ def set_strand_flip_penalty(cluster_matches):
     return(sign_clusters_df)
     #pass
 
-# function to initialize score for new proteins from neighbourhood
-# should potentially be called in update_query_profiles_add_proteins function?
-# ASK Johannes what order should it be done, if I initialize scores for proteins or profiles
-def initialize_new_prot_score():
-    pass
-
 
 # THINK about writing already to a file in subprocess Popen
-def update_query_profiles_add_proteins(sign_clusters_df):
+def extract_proteins_cluster_neighborhood(sign_clusters_df):
     print('updating query profile started')
     # CHECK if only the significant clusters are used
     # getting the target prots matched to query
@@ -432,7 +460,19 @@ def update_query_profiles_add_proteins(sign_clusters_df):
     # extracting proteins matched, within and in +3 left and right neighbourhood of the clusters
     ##target_clusters_within = open("target_clusters_within", "w")
     target_clusters_neighbourhood = open("target_clusters_neighbourhood", "w")
+    target_clusters_matches = open("target_clusters_matches", "w")
     for target_prot_cluster in sign_clusters_df['target_prots']:
+        # MAKE faster
+        # that is to save cluster prots ids and grep with them to find cluster matches sequences and 
+        # exclude them from new within cluster prots
+        target_protID_cluster_file = open("target_protID_cluster_file", "w")
+        print(*target_prot_cluster)
+        # MAKE faster
+        for protID in target_prot_cluster:
+            # whitespace added to grep e.g. 1_1 but not 1_12, 1_13 etc
+            target_protID_cluster_file.write(protID + ' ' + '\n')
+        target_protID_cluster_file.close()
+
         target_prot_left = target_prot_cluster[0]
         target_prot_right = target_prot_cluster[-1]
         print('left and right proteins per cycle')
@@ -440,7 +480,24 @@ def update_query_profiles_add_proteins(sign_clusters_df):
         # extracting header + seq lines between left and right edge proteins in cluster
         # all prots within cluster extracted, but the rightest dont have seq line after this step, only header
         within = subprocess.Popen(['sed', '-n', '/%s /,/%s /p' %(target_prot_left, target_prot_right) + ' ', target_fasta], stdout=subprocess.PIPE)
+        
+        
+        # FIX FIX FIX
+        #remov_pat = '-- "^--$"'
+        #print(remov_pat)
+        #p_matches_in_cluster = subprocess.Popen(['grep', '-A1', '-F', '-f', 'target_protID_cluster_file', target_fasta, ], stdout=subprocess.PIPE, encoding='utf-8')
+        #p2_matches_in_cluster = subprocess.Popen(['grep', '-v', '--'], stdin=p_matches_in_cluster, stdout=subprocess.PIPE, encoding='utf-8')
+        #p_matches_in_cluster.stdout.close()
+        #print(("the commandline is {}".format(p_matches_in_cluster.args)))
+        #print('these are matches in cluster')
+        #matches_in_cluster, err_cl = p2_matches_in_cluster.communicate()
+        #print(err_cl)
+        #print(matches_in_cluster)
+
+
+
         target_clusters_within, error = within.communicate()
+        #target_clusters_within = within
         # extracting 3 prots before and after + seq line for the last prot of the cluster
         # pipes are to get rid of rightest and leftest prots headers
         #subprocess.call(['grep', '-A7', target_prot_right + ' ', target_fasta], stdout=target_clusters_neighbourhood)
@@ -449,6 +506,7 @@ def update_query_profiles_add_proteins(sign_clusters_df):
         # of the format “MW067000.1_2”, and genome ID is of the format “MW067000.1”.
         genome_id = target_prot_right.split('_')[0]
         p1_left = subprocess.Popen(['grep', genome_id, target_fasta], stdout=subprocess.PIPE)
+        # CHECK IF CORRECT!!!!
         p2_left = subprocess.Popen(['grep', '-B6', target_prot_left + ' ', target_fasta], stdin=p1_left.stdout, stdout=subprocess.PIPE)
         # dont communicate if you dont want the pipe to be closed
         #print(p2_left.communicate())
@@ -464,8 +522,9 @@ def update_query_profiles_add_proteins(sign_clusters_df):
         # CHANGE later for variable how many prots to extract? 
         # -1 is added to use it later in tail command
         left_prots_remained_to_extract_n_lines = str((3 - left_prots_extracted_n)*2*(-1))
+        print("remained", left_prots_remained_to_extract_n_lines)
         # extract remaining number of proteins from another end of the file if any
-        if left_prots_remained_to_extract_n_lines != '0':
+        if int(left_prots_remained_to_extract_n_lines) > 0:
             p1_from_end = subprocess.Popen(['grep', genome_id, target_fasta], stdout=subprocess.PIPE)
             p2_from_end = subprocess.Popen(['tail',  left_prots_remained_to_extract_n_lines, target_fasta], stdin=p1_from_end.stdout, stdout=subprocess.PIPE)
             output_file_end,err_file_end = p2_from_end.communicate()
@@ -477,6 +536,7 @@ def update_query_profiles_add_proteins(sign_clusters_df):
 
 
         p1_right = subprocess.Popen(['grep', genome_id, target_fasta], stdout=subprocess.PIPE)
+        # CHECK IF CORRECT!!!!
         p3 = subprocess.Popen(['grep', '-A7', target_prot_right + ' ', target_fasta], stdin=p1_right.stdout, stdout=subprocess.PIPE)
         p4 = subprocess.Popen(['grep', '-v', target_prot_right], stdin=p3.stdout, stdout=subprocess.PIPE)
         output_right,err_right = p4.communicate()
@@ -498,12 +558,16 @@ def update_query_profiles_add_proteins(sign_clusters_df):
 
         
         target_clusters_neighbourhood.write(output_left.decode("utf-8"))
-        target_clusters_neighbourhood.write(target_clusters_within.decode("utf-8"))
         target_clusters_neighbourhood.write(output_right.decode("utf-8"))
+
+        # FIX!
+        #target_clusters_matches.write(matches_in_cluster)
         
         # DOES NOT WORK correctly as it looks via the whole file, so you can get another genome prots on edges
     ##target_clusters_within.close()
     target_clusters_neighbourhood.close()
+    # FIX!
+    #target_clusters_matches.close()
     
     # CHECK if you can make faster
     # CHECK if you need to delete duplicates from target prots
@@ -515,19 +579,13 @@ def update_query_profiles_add_proteins(sign_clusters_df):
 
     pass
 
+
+def update_query_profiles():
+    pass
+
 # CHECK if I should merge it to the prev step???
+# FIX Not really, unmerge it back
 def add_new_proteins(sign_clusters_df):
-    # CHECK if these are really significant clusters, not just clusters
-    # extracting the left and the right edges proteins for clusters
-    print('significant (?) clusters table')
-    #print(sign_clusters_df)
-    print(sign_clusters_df['target_prots'])
-    # extracting proteins within and in +3 left and right neighbourhood of the clusters
-    target_clusters_neighbourhood = open("target_clusters_neighbourhood", "w")
-    for target_prot_cluster in sign_clusters_df['target_prots']:
-        target_prot_left = target_prot_cluster[0]
-        target_prot_right = target_prot_cluster[-1]
-        print(target_prot_left, target_prot_right)
 
     matched_targets = open("matched_targets", "w")
     for target_prot in query_target_prots["target"]:
@@ -546,6 +604,145 @@ def add_new_proteins(sign_clusters_df):
     pass
 
 
+def make_new_profiles(sign_clusters_df):
+    # THINK if i need to merge these profiles with the initial query ones
+    z_clust = float(input('Enter z_clust: '))
+    # find identity and cov threshold for clustering from initial query set
+    # MAKE faster and in another step??
+    # ASK Ruoshi if I really need to cluster and how to make MSA properly
+    # CHECK if I can take cluster results from the first steps? 90% ident?
+    # CHECK format output
+    subprocess.call(['mmseqs', 'align', files.query_db, files.query_db,
+     files.query_db + '_clu', files.query_db + '_clu' + '_msa_align'])
+    subprocess.call(['mmseqs', 'convertalis', files.query_db, files.query_db,
+     files.query_db + '_clu_msa_align', files.query_db + '_clu' + '_msa_align' +'.m8',
+      '--format-output', 'pident,qcov'])
+    # mmseqs convertalis db db alnres alnres.tab
+    MSA_ident_qcov_file = pd.read_csv(files.query_db + '_clu' + '_msa_align' +'.m8', dtype={'str':'float'},
+     sep='\t', header = None)
+    print(MSA_ident_qcov_file)
+
+    mu_ident = MSA_ident_qcov_file.loc[:,0].mean()
+    mu_cov = MSA_ident_qcov_file.loc[:,1].mean()
+    sigma_ident = MSA_ident_qcov_file.loc[:,0].std()
+    sigma_cov = MSA_ident_qcov_file.loc[:,1].std()
+
+    print('parameters for clustering', mu_ident, mu_cov, sigma_ident, sigma_cov)
+
+    clust_ident = mu_ident - z_clust*sigma_ident
+    clust_cov = mu_cov - z_clust*sigma_cov
+
+    # FIX later the above steps and remove the below
+
+    clust_ident = 0.8
+    clust_cov = 0.8
+
+    # MAKE it to delete all previous mmseqs2 files before making new ones?
+    print('making NEW query profiles')
+    subprocess.call(['mmseqs', 'createdb', 'target_clusters_neighbourhood',
+     'target_clusters_neighbourhood.db'])
+    subprocess.call(['mmseqs', 'cluster', 'target_clusters_neighbourhood.db',
+     'target_clusters_neighbourhood.db' + '_clu',
+     'tmp', '--min-seq-id', str(clust_ident), '-c', str(clust_cov)])
+    
+    # initializing scores and filtering clustering results
+    # ASK if it is okay to get the scores for proteins, not clusters/profiles
+    # ASK if it is okay to filter accordingly to the score at the step of clusters, not profiles
+    subprocess.call(['mmseqs', 'createtsv', 'target_clusters_neighbourhood.db',
+     'target_clusters_neighbourhood.db', 'target_clusters_neighbourhood.db' + '_clu',
+      'target_clusters_neighbourhood.db' + '_clu' + '.tsv'])
+
+    subprocess.call(['mmseqs', 'createsubdb', 'target_clusters_neighbourhood.db' + '_clu',
+     'target_clusters_neighbourhood.db', 'target_clusters_neighbourhood.db' + '_clu' + '_rep'])
+    subprocess.call(['mmseqs', 'createsubdb', 'target_clusters_neighbourhood.db' + '_clu',
+     'target_clusters_neighbourhood.db' + '_h',
+      'target_clusters_neighbourhood.db' + '_clu' + '_rep' + '_h'])
+    
+    # making profiles
+    subprocess.call(['mmseqs', 'result2profile', 'target_clusters_neighbourhood.db' + '_clu' + '_rep',
+     'target_clusters_neighbourhood.db', 'target_clusters_neighbourhood.db' + '_clu',
+      'target_clusters_neighbourhood.db' + '_clu' + '_rep' + '_profile' ])
+
+    # ADD ADD ADD score initialization and removal of below threshold!!!
+    #prots = open("target_clusters_neighbourhood", "r")
+
+
+# function to initialize score for new protein profiles from neighbourhood
+# should potentially be called in update_query_profiles_add_proteins function?
+# ASK if I need to search again and do everything like for the matches to get the enrich scores?
+# ASK if I can just do it in the next iter with all the other profiles
+# ASK if now I calculate the enrichment scores correctly
+# ASK Johannes what order should it be done, if I initialize scores for proteins or profiles
+def initialize_new_prot_score():
+    # searching neighbourhood cluster proteins against themselves to find for each protein 
+    # how many matches are in clusters
+    # CHECK if using neighbourhood file here is ok
+    subprocess.call(['mmseqs', 'search', 
+    'target_clusters_neighbourhood.db' + '_clu' + '_rep' + '_profile',
+     'target_clusters_neighbourhood.db',
+     'target_clusters_neighbourhood.db_res' + '_prof_search',
+     'tmp', '-a'])
+    # searching neighbourhood cluster proteins against target db to find for each protein 
+    # how many matches are NOT in clusters
+    subprocess.call(['mmseqs', 'search', 
+    'target_clusters_neighbourhood.db' + '_clu' + '_rep' + '_profile',
+     files.target_db,
+     'target_clusters_neighbourhood.db_ag_target_res' + '_prof_search',
+     'tmp', '-a'])
+    
+    # converting to convenient format
+    subprocess.call(['mmseqs', 'convertalis',
+     'target_clusters_neighbourhood.db' + '_clu' + '_rep' + '_profile',
+     'target_clusters_neighbourhood.db', 'target_clusters_neighbourhood.db_res' + '_prof_search',
+      'target_clusters_neighbourhood.db_res' + '_prof_search' +'.m8'])
+
+    subprocess.call(['mmseqs', 'convertalis',
+     'target_clusters_neighbourhood.db' + '_clu' + '_rep' + '_profile',
+     files.target_db, 'target_clusters_neighbourhood.db_ag_target_res' + '_prof_search',
+      'target_clusters_neighbourhood.db_ag_target_res' + '_prof_search' +'.m8'])
+
+    # FIX ADD best match???
+    
+    # load profile file for neighbourhood prots to iterate through them
+    # THINK about format and how to iterate and write scores better
+    neighbourhood_db_profiles = np.genfromtxt('target_clusters_neighbourhood.db' + '_clu.tsv',
+     dtype = None, delimiter="\t", encoding=None)
+    # iterating through all neighbourhood prots to give them scores
+    print(neighbourhood_db_profiles)
+    
+    # CHECK if I should remove self-matches from neighbourhood ag neighbourhood (I guess not)
+    search_neighb_ag_neighb_result_file = pd.read_csv('target_clusters_neighbourhood.db' + '_res_prof_search.m8',
+     dtype={'str':'float'}, sep='\t', header = None) 
+    # CHECK if it is fast
+    search_neighb_ag_neighb_result_file = search_neighb_ag_neighb_result_file.to_numpy()
+    print(search_neighb_ag_neighb_result_file[:5])
+    print('printing against target neighbourhood results')
+    search_neighb_ag_target_result_file = pd.read_csv('target_clusters_neighbourhood.db' + '_ag_target_res_prof_search.m8',
+     dtype={'str':'float'}, sep='\t', header = None) 
+    search_neighb_ag_target_result_file = search_neighb_ag_target_result_file.to_numpy()
+    print(search_neighb_ag_target_result_file[:5])
+    # FIX CHECK add also number of prots which were also matches in cluster? they are not in
+    # neighbourhood file
+    l = search_neighb_ag_neighb_result_file[:, 0].size
+    L = search_neighb_ag_target_result_file[:, 0].size
+    # FIX bias to be read from input
+    bias = 0
+
+    # iterate through all profile representatives
+    for prof_id in np.unique(neighbourhood_db_profiles[:, 0]):
+        print(prof_id)
+        m_x = np.count_nonzero(search_neighb_ag_neighb_result_file[:, 0] == prof_id)
+        M_x = m_x + np.count_nonzero(search_neighb_ag_target_result_file[:, 0] == prof_id)
+        print(m_x, M_x)
+        score_x = np.log(np.divide(np.divide(m_x, l), np.divide(M_x, L))) - bias
+        print(score_x)
+    
+
+
+def generate_mmseqs_ffindex(sign_clusters_df):
+    pass
+
+
 def main():
     #make_profiles()
 
@@ -561,19 +758,31 @@ def main():
     print(cluster_matches)
     # CHECK if it is optimal to divide scores update to few functions
 
+    # REMOVE duplicated function calling?
+    # REMOVE these functions?
     #update_scores_for_cluster_matches(cluster_matches)
-    #calculate_karlin_stat()
+    #significant_cluster_df_enriched = update_scores_for_cluster_matches(cluster_matches)
+    #print(significant_cluster_df_enriched)
+    
+    #significant_cluster_df_enriched = update_scores_for_cluster_matches(cluster_matches)
+    #calculate_karlin_stat(significant_cluster_df_enriched)
 
-    set_strand_flip_penalty(cluster_matches)
-    sign_clusters_df = set_strand_flip_penalty(cluster_matches)
+    # CHANGE notation for significant clusters??
+
+    #set_strand_flip_penalty(cluster_matches)
+    #sign_clusters_df = set_strand_flip_penalty(cluster_matches)
+
+    # FIX THERE ERRORS and PROBLEMS
+    #extract_proteins_cluster_neighborhood(sign_clusters_df)
+    #update_query_profiles()
+    #add_new_proteins()
+    #make_new_profiles(sign_clusters_df)
 
     # function to initialize score for new proteins from neighbourhood
     # should potentially be called in update_query_profiles_add_proteins function?
-    #initialize_new_prot_score()
+    initialize_new_prot_score()
 
-
-    # update_query_profiles and add_proteins are merged
-    update_query_profiles_add_proteins(sign_clusters_df)
+    #generate_mmseqs_ffindex(sign_clusters_df)
     pass
 
 
