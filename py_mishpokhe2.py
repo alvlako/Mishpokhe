@@ -626,18 +626,10 @@ def make_new_profiles(sign_clusters_df):
     # ASK Ruoshi if I really need to cluster and how to make MSA properly
     # CHECK if I can take cluster results from the first steps? 90% ident?
     # CHECK format output
-    subprocess.call(['mmseqs', 'search', 
-    files.query_db, files.query_db, 'query_ag_query_search_for_msa_res', 'tmp', '--max-seq-id', '0.8',
-     '-a'])
-    subprocess.call(['mmseqs', 'convertalis', files.query_db, files.query_db,
-     'query_ag_query_search_for_msa_res', 'query_ag_query_search_for_msa_res' +'.m8',
-      '--format-output', 'pident,qcov'])
-    subprocess.call(['mmseqs', 'convertalis', files.query_db, files.query_db,
-     'query_ag_query_search_for_msa_res', 'query_ag_query_search_for_msa_res' +'_full.m8',])
     subprocess.call(['mmseqs', 'align', files.query_db, files.query_db,
-     'query_ag_query_search_for_msa_res', 'query_ag_query_search_for_msa_res' + '_msa_align'])
+     files.query_db + '_clu', files.query_db + '_clu' + '_msa_align'])
     subprocess.call(['mmseqs', 'convertalis', files.query_db, files.query_db,
-     'query_ag_query_search_for_msa_res' + '_msa_align', files.query_db + '_msa_align' +'.m8',
+     files.query_db + '_clu_msa_align', files.query_db + '_clu' + '_msa_align' +'.m8',
       '--format-output', 'pident,qcov'])
     
     # mmseqs convertalis db db alnres alnres.tab
@@ -651,16 +643,20 @@ def make_new_profiles(sign_clusters_df):
     sigma_cov = MSA_ident_qcov_file.loc[:,1].std()
 
     # ASK Johannes about MSA and if I should actually use mash or is there something in MMseqs2
+    # ASK that what if we start from 1 cluster prots, there will be singleton clusters and 100% identical MSAs
+    # there should be a mode to start from only 1 set
 
-    print('parameters for clustering', mu_ident, mu_cov, sigma_ident, sigma_cov)
+    print('parameters for clustering', (mu_ident / 100), mu_cov, sigma_ident, sigma_cov)
 
-    clust_ident = mu_ident - z_clust*sigma_ident
-    clust_cov = mu_cov - z_clust*sigma_cov
-
-    # FIX later the above steps and remove the below
-
-    clust_ident = 0.8
-    clust_cov = 0.8
+    # CHECK if that's good threshold
+    if mu_ident > 90:
+        clust_ident = 0.8
+    else:
+        clust_ident = (mu_ident / 100) - z_clust*sigma_ident
+    if mu_cov > 0.9:
+        clust_cov = 0.8
+    else:
+        clust_cov = mu_cov - z_clust*sigma_cov
 
     # MAKE it to delete all previous mmseqs2 files before making new ones?
     print('making NEW query profiles')
