@@ -385,8 +385,7 @@ def update_scores_for_cluster_matches(cluster_matches):
 
 
 # after completing this function, DELETE the function above?
-# the problem for cmake is -maccumulate-outgoing-args from Makefile of cloned basplice repo
-# CFLAGS=         -Wall -g -funroll-loops -march=nocona -maccumulate-outgoing-args
+# ADD A*log2(enrich_score)
 def calculate_karlin_stat(significant_cluster_df_enriched):
     print('using c code for Karlin-Altschul statistics')
 
@@ -404,8 +403,16 @@ def calculate_karlin_stat(significant_cluster_df_enriched):
     # REMOVE later, just for current test
     enrich_scores = np.append(enrich_scores, 5.3)
     enrich_scores = np.append(enrich_scores, -2.5)
+    enrich_scores = np.append(enrich_scores, -2.5)
     enrich_scores = np.append(enrich_scores, -3.5)
     enrich_scores = np.append(enrich_scores, -3.5)
+    enrich_scores = np.append(enrich_scores, 6.5)
+    enrich_scores = np.append(enrich_scores, 9.0)
+    enrich_scores = np.append(enrich_scores, 9.0)
+    enrich_scores = np.append(enrich_scores, 9.0)
+    enrich_scores = np.append(enrich_scores, 9.0)
+    enrich_scores = np.append(enrich_scores, 9.0)
+    enrich_scores = np.append(enrich_scores, 7.88)
 
 
 
@@ -459,7 +466,7 @@ def calculate_karlin_stat(significant_cluster_df_enriched):
     array_width_koef = 2
     # ASK Johannes why I need log2 and where to make these scores conversions
     # THINK if it is slow
-    # FIX how it works, all the scores should be in this format
+    # FIX how it works, all the scores should be in this format, no just ignored
     if unique_scores[0] != 0:
         if unique_scores[0] >0:
             min_score = round(array_width_koef*np.log2(unique_scores[0]))
@@ -499,7 +506,7 @@ def calculate_karlin_stat(significant_cluster_df_enriched):
     BlastKarlin_K = my_functions.BlastKarlinLHtoK(pointer_to_middle, min_score, max_score,
      BlastKarlin_lambda, BlastKarlin_H)
     print('K', BlastKarlin_K)
-    return(BlastKarlin_lambda, BlastKarlin_Ks)
+    return(BlastKarlin_lambda, BlastKarlin_K)
 
 
 
@@ -546,10 +553,20 @@ def set_strand_flip_penalty(cluster_matches):
 
 
 # ASK Johannes if in e-value calculations the L should actually be the L, not like L*L
-def calculate_e_value(stat_lambda, stat_K):
+def calculate_e_value(stat_lambda, stat_K, significant_cluster_df_enriched):
     # FIX to be variable taken from number of prots in target
+    print('calculating e-value')
     L = 184
-    pass
+    print(significant_cluster_df_enriched)
+    stat_lambda = stat_lambda.value
+    print(stat_lambda, stat_K)
+    significant_cluster_df_enriched["e-value"] = 0
+    for r in range(0, len(significant_cluster_df_enriched.index)):
+        print(r)
+        enrich_score = significant_cluster_df_enriched["new_score_enrich"][r]
+        significant_cluster_df_enriched["e-value"][r] = stat_K*L*np.exp(stat_lambda*(-1)*enrich_score)
+    print(significant_cluster_df_enriched)
+    return significant_cluster_df_enriched
 
 
 
@@ -946,7 +963,7 @@ def main():
     
     significant_cluster_df_enriched = update_scores_for_cluster_matches(cluster_matches)
     stat_lambda, stat_K = calculate_karlin_stat(significant_cluster_df_enriched)
-    calculate_e_value(stat_lambda, stat_K)
+    calculate_e_value(stat_lambda, stat_K, significant_cluster_df_enriched)
 
     # CHANGE notation for significant clusters??
 
