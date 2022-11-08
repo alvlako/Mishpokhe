@@ -1,4 +1,5 @@
-from sys import stdout
+import ctypes as ct
+from ctypes import *
 import numpy as np
 import pandas as pd
 
@@ -7,6 +8,7 @@ import os
 import re
 import sh
 import subprocess
+from sys import stdout
 
 # version 2 accordingly to the written in the proposal
 
@@ -386,15 +388,119 @@ def update_scores_for_cluster_matches(cluster_matches):
 # the problem for cmake is -maccumulate-outgoing-args from Makefile of cloned basplice repo
 # CFLAGS=         -Wall -g -funroll-loops -march=nocona -maccumulate-outgoing-args
 def calculate_karlin_stat(significant_cluster_df_enriched):
-    print('using c code for e-value')
-    import ctypes
-    # load shared object of glibc
-    glibc = ctypes.CDLL('/Users/Sasha/Documents/GitHub/mishpokhe_test/basplice_karlinaltschul')
-    # load path into c-type char-array
-    path = ctypes.c_char_p(b'/bin/sh')
-    # execute 'system' from glibc
-    glibc.system(path)
-    pass
+    print('using c code for Karlin-Altschul statistics')
+
+    enrich_scores = significant_cluster_df_enriched["new_score_enrich"].to_numpy()
+    print('len', len(enrich_scores))
+
+    if 0 not in enrich_scores:
+        no_0 = True
+        enrich_scores = np.append(enrich_scores, 0)
+    else:
+        no_0 = False
+    
+    print('no_0', no_0)
+
+    # REMOVE later, just for current test
+    enrich_scores = np.append(enrich_scores, 5.3)
+    enrich_scores = np.append(enrich_scores, -2.5)
+    enrich_scores = np.append(enrich_scores, -3.5)
+    enrich_scores = np.append(enrich_scores, -3.5)
+
+
+
+    print(enrich_scores)
+    # ASK Johannes if I done the scores correctly
+    unique_scores, score_counts = np.unique(enrich_scores, return_counts=True)
+    print(unique_scores)
+    print(score_counts)
+    print('len', len(enrich_scores))
+    
+    score_prob = score_counts / len(enrich_scores)
+    print(score_prob)
+
+    # figure out why round works weird so -3.5 > 4, -2.5 > 2
+    scores_table = np.column_stack((np.round(unique_scores, decimals=0), score_prob))
+    print(scores_table)
+    # MAKE faster!
+    prev_int_val = int(scores_table[0][0])
+    curr_row_ind = 0
+    for i in scores_table:
+        print('start inserting')
+        print('int_val', prev_int_val)
+        print('i', i)
+        # CHECK what negative value in times_insert what do (seems like does nothing correctly)
+        times_insert = int(i[0]) - prev_int_val - 1
+        print('times_insert', times_insert)
+        
+        for j in range(0, times_insert):
+            insert_index = np.where(np.all(scores_table==i,axis=1))[0][0]
+            print('insert_index', insert_index)
+            int_to_insert = prev_int_val + j + 1
+            scores_table = np.insert(scores_table, insert_index, np.array((int_to_insert, 0)), 0)  
+            j = j + 1
+        prev_int_val = int(i[0])
+        curr_row_ind = curr_row_ind + 1
+        print(scores_table)
+    
+    unique_scores = scores_table[:,0]
+    score_prob = scores_table[:,1]
+
+    if no_0 == True:
+        index_of_0 = np.where(unique_scores == 0)[0][0]
+        score_prob[index_of_0] = 0
+    print('final uniq and prob', unique_scores, score_prob)
+
+
+    subprocess.call(['cc', '-fPIC', '-shared', '-o', 'karlin_c.so', 'karlin_c.c'])
+    so_file = "karlin_c.so"
+    my_functions = CDLL(so_file)
+    arr = score_prob
+    array_width_koef = 2
+    # ASK Johannes why I need log2 and where to make these scores conversions
+    # THINK if it is slow
+    # FIX how it works, all the scores should be in this format
+    if unique_scores[0] != 0:
+        if unique_scores[0] >0:
+            min_score = round(array_width_koef*np.log2(unique_scores[0]))
+        else:
+            min_score = round(array_width_koef*np.log2(abs(unique_scores[0])))*-1
+    else:
+        min_score = 0
+    max_score = round(array_width_koef*np.log2(unique_scores[len(unique_scores)-1]))
+    # REMOVE or FIX, all scores should be in the same format (log and so on)
+    min_score = int(np.min(unique_scores))
+    max_score = int(np.max(unique_scores))
+    print('min and max', min_score, max_score)
+
+    
+    print("index_of_0", index_of_0)
+    pointer_to_middle = arr[index_of_0:].ctypes.data_as(ct.POINTER(ct.c_double))
+    print(pointer_to_middle.contents)
+    
+    my_functions.BlastKarlinLambdaNR.argtypes = [POINTER(c_double),c_int32, c_int32]
+    my_functions.BlastKarlinLambdaNR.restype = c_double
+    BlastKarlin_lambda = my_functions.BlastKarlinLambdaNR(pointer_to_middle, min_score, max_score)
+    print("lambda", BlastKarlin_lambda)
+    BlastKarlin_lambda = ct.c_double(BlastKarlin_lambda)
+    
+    
+    
+    print(pointer_to_middle.contents)
+    
+    my_functions.BlastKarlinLtoH.restype = c_double
+    BlastKarlin_H = my_functions.BlastKarlinLtoH(pointer_to_middle, min_score, max_score,
+     BlastKarlin_lambda)
+    print('H', BlastKarlin_H)
+    BlastKarlin_H = ct.c_double(BlastKarlin_H)
+    
+
+    my_functions.BlastKarlinLHtoK.restype = c_double
+    BlastKarlin_K = my_functions.BlastKarlinLHtoK(pointer_to_middle, min_score, max_score,
+     BlastKarlin_lambda, BlastKarlin_H)
+    print('K', BlastKarlin_K)
+    return(BlastKarlin_lambda, BlastKarlin_Ks)
+
 
 
 # ASK where strand flip penalty goes? next iter?
@@ -437,7 +543,14 @@ def set_strand_flip_penalty(cluster_matches):
     # is it a good place to return?
     # CHECK if these are really significant clusters
     return(sign_clusters_df)
-    #pass
+
+
+# ASK Johannes if in e-value calculations the L should actually be the L, not like L*L
+def calculate_e_value(stat_lambda, stat_K):
+    # FIX to be variable taken from number of prots in target
+    L = 184
+    pass
+
 
 
 # THINK about writing already to a file in subprocess Popen
@@ -831,20 +944,21 @@ def main():
     #significant_cluster_df_enriched = update_scores_for_cluster_matches(cluster_matches)
     #print(significant_cluster_df_enriched)
     
-    #significant_cluster_df_enriched = update_scores_for_cluster_matches(cluster_matches)
-    #calculate_karlin_stat(significant_cluster_df_enriched)
+    significant_cluster_df_enriched = update_scores_for_cluster_matches(cluster_matches)
+    stat_lambda, stat_K = calculate_karlin_stat(significant_cluster_df_enriched)
+    calculate_e_value(stat_lambda, stat_K)
 
     # CHANGE notation for significant clusters??
 
     #set_strand_flip_penalty(cluster_matches)
-    sign_clusters_df = set_strand_flip_penalty(cluster_matches)
+    #sign_clusters_df = set_strand_flip_penalty(cluster_matches)
 
     # FIX THERE ERRORS and PROBLEMS
     # FIX to extract left prots directly and also prots from within the cluster (not matches)
     #extract_proteins_cluster_neighborhood(sign_clusters_df)
     #update_query_profiles()
     #add_new_proteins()
-    make_new_profiles(sign_clusters_df)
+    #make_new_profiles(sign_clusters_df)
 
     # function to initialize score for new proteins from neighbourhood
     # should potentially be called in update_query_profiles_add_proteins function?
