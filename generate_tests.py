@@ -34,7 +34,8 @@ for i in range(0, n_enries):
     i = i + 1
 
 
-mapped_results = pd.DataFrame(
+def return_mapped_res():
+    mapped_results = pd.DataFrame(
     {'index': df_index,
      'ID': target_ids,
      'coord1': df_coord1,
@@ -44,6 +45,36 @@ mapped_results = pd.DataFrame(
      'sort_cat': df_sort_cat,
      'query_ID': query_ids,
     })
+    return (mapped_results)
 
-pd.set_option('display.max_rows', len(mapped_results))
-print(mapped_results)
+# Testing
+
+import sys
+import os
+sys.path.append(os.path.abspath('/Users/Sasha/Desktop'))
+
+import py_mishpokhe2 as msh
+
+mapped_res = return_mapped_res()
+
+cluster_matches = msh.find_clusters()
+print(cluster_matches)
+
+print(x)
+
+significant_cluster_df_enriched = msh.update_scores_for_cluster_matches(cluster_matches)
+print(significant_cluster_df_enriched)
+    
+stat_lambda, stat_K = msh.calculate_karlin_stat(significant_cluster_df_enriched)
+msh.calculate_e_value(stat_lambda, stat_K, significant_cluster_df_enriched)
+
+msh.set_strand_flip_penalty(cluster_matches)
+sign_clusters_df = msh.set_strand_flip_penalty(cluster_matches)
+
+msh.extract_proteins_cluster_neighborhood(sign_clusters_df)
+msh.update_query_profiles()
+msh.add_new_proteins()
+msh.make_new_profiles(sign_clusters_df)
+
+msh.initialize_new_prot_score()
+msh.combine_all_profiles()
