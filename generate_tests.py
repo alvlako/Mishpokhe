@@ -3,49 +3,62 @@ import pandas as pd
 
 import itertools
 import random
+import string
 import subprocess
 
 
 # This script simulate mapping results used in py_mishpokhe2.py for testing
 
-n_enries = 100
+n_query_entries = 25
+n_target_entries = 300
 
-df_index = list(range(0, n_enries))
-df_comment = list(range(0, n_enries))
-df_sort_cat = list(range(0, n_enries))
+test_query_prot_file = open('test_query_prot.faa', 'w')
 
-
-target_ids = list(range(0, n_enries))
-query_ids = list(range(0, round(n_enries/10))) + 2*random.sample(range(0, round(n_enries/10)),  round(n_enries/10/2))+ list(range(0, round(n_enries/10)))+ 4*random.choices(range(0, round(n_enries/10)), k = round(n_enries/10))+ 3*list(range(0, round(n_enries/10))) 
-
-df_strand =  round(n_enries/10)*[0] + 2*random.choices(range(0, 1),  k = round(n_enries/10/2))+ round(n_enries/10)*[1] + 4*random.choices(range(0, 1), k = round(n_enries/10))+ 3*round(n_enries/10)*[1]
-
-df_coord1 = list()
-df_coord2 = list()
-start = 0
-width = 10
-for i in range(0, n_enries):
-    coord1 = random.randrange(start, width)
-    df_coord1.append(coord1)
-    coord2 = coord1 + random.randrange(500, 1000)
-    df_coord2.append(coord2)
-    start = coord2 + 1
-    width = coord2 + 1000
+aa_list = 'A,R,N,D,C,Q,E,G,H,I,L,K,M,F,P,O,S,U,T,W,Y,V,B,Z,J'.split(',')
+print(aa_list)
+queries_list = []
+j = 0
+fasta_header = 0
+for i in range(round(n_query_entries/6)):
+    seq_len = random.choice(range(40, 500))
+    print('seq', seq_len)
+    represent_seq = ''.join(random.choices(aa_list, k = seq_len)) + '*'
+    print(len(represent_seq))
+    queries_list.append(represent_seq)
     i = i + 1
+    j = j + 1
+    # If you want to label members by cluster (rep), it can be done on this step
+    for m in range(round(n_query_entries/(n_query_entries/6))-1):
+        fasta_header = fasta_header + 1
+        test_query_prot_file.write('>SimulatedTEST'+ str(fasta_header) + '\n')
+
+        add_seq_len = random.choice(range(2, 50))
+        member_seq = represent_seq[0:random.choice(range(seq_len-20))] + ''.join(random.choices(aa_list, k = add_seq_len)) + '*'
+        queries_list.append(member_seq)
+        test_query_prot_file.write(member_seq + '\n')
+        m = m + 1
+        j = j + 1
+        print('j',j)
+        print('n', n_query_entries)
+while j < n_query_entries:
+    fasta_header = fasta_header + 1
+    test_query_prot_file.write('>SimulatedTEST'+ str(fasta_header) + '\n')
+    
+    add_seq_len = random.choice(range(2, 50))
+    member_seq = represent_seq[0:random.choice(range(seq_len-20))] + ''.join(random.choices(aa_list, k = add_seq_len)) + '*'
+    queries_list.append(member_seq)
+    test_query_prot_file.write(member_seq + '\n')
+    j = j + 1
+    print('j',j)
+    print('n', n_query_entries)
+    
+test_query_prot_file.close()
+print(queries_list)
+print(len(queries_list))
 
 
-def return_mapped_res():
-    mapped_results = pd.DataFrame(
-    {'index': df_index,
-     'ID': target_ids,
-     'coord1': df_coord1,
-     'coord2': df_coord2,
-     'strand': df_strand,
-     'comment': df_comment,
-     'sort_cat': df_sort_cat,
-     'query_ID': query_ids,
-    })
-    return (mapped_results)
+print(x)
+
 
 # Testing
 
@@ -60,7 +73,7 @@ mapped_res = return_mapped_res()
 cluster_matches = msh.find_clusters()
 print(cluster_matches)
 
-print(x)
+
 
 significant_cluster_df_enriched = msh.update_scores_for_cluster_matches(cluster_matches)
 print(significant_cluster_df_enriched)
