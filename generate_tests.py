@@ -22,7 +22,7 @@ fasta_header = 0
 for i in range(round(n_query_entries/6)):
     seq_len = random.choice(range(40, 500))
     print('seq', seq_len)
-    represent_seq = ''.join(random.choices(aa_list, k = seq_len)) + '*'
+    represent_seq = 'M' + ''.join(random.choices(aa_list, k = seq_len)) + '*'
     print(len(represent_seq))
     queries_list.append(represent_seq)
     i = i + 1
