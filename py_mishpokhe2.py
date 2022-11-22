@@ -8,9 +8,124 @@ import os
 import re
 import sh
 import subprocess
+import sys
 from sys import stdout
 
 # version 2 accordingly to the written in the proposal
+
+# TESTING
+
+print('making test data')
+import numpy as np
+import pandas as pd
+
+import itertools
+import random
+import subprocess
+
+
+# This script simulate mapping results used in py_mishpokhe2.py for testing
+
+n_enries = 20
+
+df_index = list(range(0, n_enries))
+df_comment = list(range(0, n_enries))
+df_sort_cat = list(range(0, n_enries))
+
+
+target_ids = list(range(0, n_enries))
+# insert at some points in target_ids the matches not going correctly by order
+target_ids[0] = n_enries + 1
+target_ids[round(n_enries/10):round((n_enries/10)*2)] = random.choices(range(0, round(n_enries/10)), k = round(n_enries/10))
+target_ids[round(n_enries/3):n_enries] = random.choices(range(0, round(n_enries/10)), k = round(n_enries/3*2))
+
+target_ids = [33,1,2,3,4,11,23,7,8,9,56, 57, 1, 9, 23, 1, 33, 34, 35, 36]
+
+# no need to make query ids so complicated as they are not important for mishpokhe
+query_ids = 10* list(range(0, round(n_enries/10))) 
+#+ 2*random.sample(range(0, round(n_enries/10)),  round(n_enries/10/2)) +
+#+ 4*random.choices(range(0, round(n_enries/10)), k = round(n_enries/10))+
+
+df_strand =  round(n_enries/10)*[0] + 2*random.choices(range(0, 1),  k = round(n_enries/10/2))+ round(n_enries/10)*[1] + 4*random.choices(range(0, 1), k = round(n_enries/10))+ 3*round(n_enries/10)*[1]
+#del(df_strand[0])
+
+df_coord1 = list()
+df_coord2 = list()
+start = 0
+width = 10
+for i in range(0, n_enries):
+    coord1 = random.randrange(start, width)
+    df_coord1.append(coord1)
+    coord2 = coord1 + random.randrange(500, 1000)
+    df_coord2.append(coord2)
+    start = coord2 + 1
+    width = coord2 + 1000
+    i = i + 1
+
+
+print('len_quer',len(query_ids))
+print('len_target',len(target_ids))
+print('len(df_index)', len(df_index))
+print('len(coord1)', len(df_coord1))
+print('len(coord2)', len(df_coord2))
+print('len(strand)', len(df_strand))
+
+def return_mapped_res():
+    mapped_results = pd.DataFrame(
+    {'index': df_index,
+    'ID': target_ids,
+    'coord1': df_coord1,
+    'coord2': df_coord2,
+    'strand': df_strand,
+    'comment': df_comment,
+    'sort_cat': df_sort_cat,
+    'query_ID': query_ids,
+    })
+    return (mapped_results)
+
+
+mapped_res_test = return_mapped_res()
+
+mapped_res_test.to_csv('curr_simul_test.tsv', sep = '\t')
+
+print("test results matches")
+print("test results matches")
+print("test results matches")
+print("test results matches", mapped_res_test)
+
+
+
+#mapped_results = mapped_res.res_map_to_header
+#results = mapped_res.search_result_file
+#index_list = mapped_res.ind_list
+
+class TestingMappedRes:
+    """
+    Makes some files simulating ResultsMapping output
+    from py_mishpokhe2.py
+
+    """
+    # the results file is currently m8 file from normal db search
+    def __init__(self, search_result_file, res_map_to_header,ind_list):
+        self.search_result_file = search_result_file
+        #self.target_db_lookup = target_db_lookup
+        #self.target_db_h = target_db_h
+        self.res_map_to_header = res_map_to_header
+        self.ind_list = ind_list
+
+
+    @classmethod
+    def get_item(self):
+        # 1st column is for ID (target id)
+        search_result_file = mapped_res_test.iloc[:, 1].to_frame()
+        res_map_to_header = mapped_res_test
+        # 7th column is for quiery_ids
+        ind_list = mapped_res_test.iloc[:, 7]
+        return self(search_result_file, res_map_to_header, ind_list)
+
+
+
+# TESTING - end
 
 class FilePath:
      """
@@ -155,11 +270,16 @@ class ResultsMapping:
 # CHECK all the scores
 def find_clusters():
 
+    #mapped_res = TestingMappedRes.get_item()
+    #print('class output mapped res', mapped_res.res_map_to_header)
+
     mapped_results = mapped_res.res_map_to_header
     results = mapped_res.search_result_file
     index_list = mapped_res.ind_list
+
     # to fix the problem with the nan coming from reading the table
     results = results[results.iloc[:, 0].notna()]
+
     print(results)
     print('mapped results')
     print(mapped_results)
@@ -167,6 +287,7 @@ def find_clusters():
 
     #Algorithm 1 - iterate through target prot
     print(results.iloc[:, 0].size)
+
 
     cluster_matches = list()
     # CHECK if score max cluster set up correct
@@ -178,7 +299,7 @@ def find_clusters():
     score_i_minus_1_cluster = 0.1
 
     # CHECK, ASK Johannes
-    gap_penalty = 0.0001
+    gap_penalty = 0.5
 
     # CHECK if correct (esp if cluster does not start from the 1st gene)
     i_0_cluster_start = int(mapped_results["coord1"].values[0])
@@ -195,14 +316,15 @@ def find_clusters():
     target_genes_ids = []
     prots_strands = []
 
-    # CHECK it now ignores the last line, is it a constant feature to
     # have empty line at the ened of the results file???
     # FIX to iterate through genes in genome, not through all the genes
     # CHECK why i itereate through results, not mapped results
     # FIX genes ids retrieval
-    for i in range(0, len(results.iloc[:, 0])):
+    for i in range(1, len(results.iloc[:, 0])):
+        print('NEW ITER FINDS CLUSTERS')
+        print('prev targets list', target_genes_ids)
         print(i)
-        print(mapped_results["ID"].values[i])
+        print("target id is", mapped_results["ID"].values[i])
         #print(results.iloc[[i]])
         # CHANGE this score (to 0 and 1 for 1st iter?)
         #score_x_i = float(results.iloc[i,10])
@@ -213,14 +335,15 @@ def find_clusters():
         # CHECK if -1 (and other potential values) properly read
         strand = int(mapped_results["strand"].values[i])
         print("strand is", strand)
-        # CHECK if gap = genes number would be better
-        gap = abs(int(mapped_results["coord1"].values[i])- int((mapped_results["coord2"].values[i-1]))) - 1
+        # gap is changed to use genes number, not the coord difference
+        #gap = abs(int(mapped_results["coord1"].values[i])- int((mapped_results["coord2"].values[i-1]))) - 1
+        gap = abs(int(mapped_results["ID"].values[i])- int((mapped_results["ID"].values[i-1])))
         print('gap =', gap)
         # CHECK if that's strand of the previous gene or next
         # FIX with OR statement (re.findall('\+|\-', test))
         # FIX something wrong the first str = init gives "different strand"
         # FIX use another, calculated strand flip penalty (d) in the next iterations
-        if strand == init_strand:
+        if strand == int(mapped_results["strand"].values[i-1]):
             f_strand_flip = 0
             print('same strand')
         else:
@@ -231,10 +354,13 @@ def find_clusters():
         # THINK if it should be done better
         # also it relies on having "." in prot id
         # CHECK if I should compare with the prev prot
-        print(mapped_results["ID"].values[i].split(".")[0])
-        # is this gap enough for different genomes?
-        if mapped_results["ID"].values[i].split(".")[0] != mapped_results["ID"].values[i-1].split(".")[0]:
-            gap = 100000
+        # UNCOMMENT!!! commented only for testing
+        #print(mapped_results["ID"].values[i].split(".")[0])
+        # THINK is this gap enough for different genomes?
+        # THINk what to do with different other formats?
+        # UNCOMMENT!!! commented only for testing
+        #if mapped_results["ID"].values[i].split(".")[0] != mapped_results["ID"].values[i-1].split(".")[0]:
+            #gap = 100000
         
         # updating previous gene strand (current gene = previous for next for loop iter)
         init_strand= strand
@@ -242,9 +368,11 @@ def find_clusters():
         print('scores')
         print('prev cluster score', score_i_minus_1_cluster)
         print('strand flip', f_strand_flip*d_strand_flip_penalty)
+        print('gap penalty*gap', gap_penalty*gap)
         print('current score', score_x_i)
         print('  ')
         print(score_i_minus_1_cluster - f_strand_flip*d_strand_flip_penalty + score_x_i)
+        print('potential enrich score', score_i_minus_1_cluster - f_strand_flip*d_strand_flip_penalty - gap_penalty*gap + score_x_i)
         print(max(0, score_x_i))
 
         # CHECK gap penalty
@@ -282,6 +410,10 @@ def find_clusters():
             
             print(score_max_cluster, score_min_cluster)
             if score_max_cluster > score_min_cluster:
+                #query_genes_ids.append(mapped_results["query_ID"].values[i])
+                #target_genes_ids.append(mapped_results["ID"].values[i])
+                #prots_strands.append(mapped_results["strand"].values[i])
+                #i_1_cluster_end = int(mapped_results["coord2"].values[i])
                 print('1st append')
                 cluster_matches.append((i_0_cluster_start,
                 i_1_cluster_end, score_max_cluster,
@@ -332,7 +464,7 @@ def update_scores_for_cluster_matches(cluster_matches):
     # CHECK if the query and target assignment is correct
     K = len(significant_clusters)
     # FIX to be variable taken from number of prots in target
-    L = 184
+    L = 20
     
     bias = 0
     sign_clusters_df = pd.DataFrame(significant_clusters)
@@ -349,6 +481,9 @@ def update_scores_for_cluster_matches(cluster_matches):
 
     l = len(cluster_prots)
 
+    # CHANGE later, THINK
+    bias = 0.1
+
     print("K, L, l", K, L, l)
     
     print('sign_clusters_df')
@@ -359,6 +494,10 @@ def update_scores_for_cluster_matches(cluster_matches):
     print(mapped_results)
     # ? FIX iterate not throught results but through initial query + target
     # CHECK if leaving only unique entries is correct
+    # pseudocounts are added with parameter aplha_pseudocount
+    aplha_pseudocount = 0.001
+    x_number_of_queries = len(mapped_results['query_ID'].unique())
+    print('x_number_of_queries', x_number_of_queries)
     for query_id in mapped_results['query_ID'].unique():
         print(query_id)
         M_x = mapped_results['query_ID'][mapped_results['query_ID'] == query_id].shape[0]
@@ -366,14 +505,17 @@ def update_scores_for_cluster_matches(cluster_matches):
         # in this case M_x and m_x are equal as there were no single hits. 
         # CHECK with other data where would be hits not only in clusters
         print("M_x, m_x", M_x, m_x)
-        score_x = np.log(np.divide(np.divide(m_x, l), np.divide(M_x, L))) - bias
+        # using pseudocounts for m_x/l proportion to avoid zeros in log
+        cluster_prot_proportion = np.divide(m_x, l)
+        cluster_prot_proportion = np.divide((m_x+aplha_pseudocount), (l + x_number_of_queries*aplha_pseudocount))
+        score_x = np.log(np.divide(cluster_prot_proportion, np.divide(M_x, L))) - bias
         print(score_x)
 
         # MAKE faster?
         # adding score of the query prot to get summarized score for the cluster
         # CHECK if correct
-        sign_clusters_df.loc[sign_clusters_df['queries_string'].str.contains(query_id),
-        'new_score_enrich'] = sign_clusters_df.loc[sign_clusters_df['queries_string'].str.contains(query_id),
+        sign_clusters_df.loc[sign_clusters_df['queries_string'].str.contains(str(query_id)),
+        'new_score_enrich'] = sign_clusters_df.loc[sign_clusters_df['queries_string'].str.contains(str(query_id)),
         'new_score_enrich'] + score_x
 
         # FIX figure out how to set b and threshold for prot to be enriched in cluster
@@ -385,7 +527,6 @@ def update_scores_for_cluster_matches(cluster_matches):
 
 
 # after completing this function, DELETE the function above?
-# ADD A*log2(enrich_score)
 def calculate_karlin_stat(significant_cluster_df_enriched):
     print('using c code for Karlin-Altschul statistics')
 
@@ -401,25 +542,39 @@ def calculate_karlin_stat(significant_cluster_df_enriched):
     print('no_0', no_0)
 
     # REMOVE later, just for current test
-    enrich_scores = np.append(enrich_scores, 5.3)
-    enrich_scores = np.append(enrich_scores, -2.5)
-    enrich_scores = np.append(enrich_scores, -2.5)
-    enrich_scores = np.append(enrich_scores, -3.5)
-    enrich_scores = np.append(enrich_scores, -3.5)
-    enrich_scores = np.append(enrich_scores, 6.5)
-    enrich_scores = np.append(enrich_scores, 9.0)
-    enrich_scores = np.append(enrich_scores, 9.0)
-    enrich_scores = np.append(enrich_scores, 9.0)
-    enrich_scores = np.append(enrich_scores, 9.0)
-    enrich_scores = np.append(enrich_scores, 9.0)
-    enrich_scores = np.append(enrich_scores, 7.88)
-
 
 
     print(enrich_scores)
     # ASK Johannes if I done the scores correctly
-    unique_scores, score_counts = np.unique(enrich_scores, return_counts=True)
+     # # expand unique scores in order to have larger range of integer, wider range to calc e-value
+    # # multipliying param for log-scores
+    mult_param = 5
+    # # to log the negative values and return their sign
+    # # ASK Johannes if it is a good idea
+    # # THINK!
+
+    # ASK Johannes, REMOVE later, that's just to fix problem with log when m_x = 0
+    # ASK how to fix -inf in logs
+
+    #unique_scores_signs = np.sign(enrich_scores)
+    #print('signs', unique_scores_signs)
+    unique_scores = mult_param*enrich_scores
+    #unique_scores[unique_scores == float("-inf")] = 0
+    #print('log scores', unique_scores)
+    #unique_scores = unique_scores*unique_scores_signs
+    #unique_scores[np.isnan(unique_scores)] = 0
+    #unique_scores[unique_scores == float("-inf")] = 0
+    unique_scores = np.sort(unique_scores)
+    print('multiplied, sorted', unique_scores)
+
+    unique_scores = np.round(unique_scores, decimals=0)
+    unique_scores, score_counts = np.unique(unique_scores, return_counts=True)
+    unique_scores = unique_scores.astype(int)
     print(unique_scores)
+    print("len of scores", len(unique_scores))
+
+   
+
     print(score_counts)
     print('len', len(enrich_scores))
     
@@ -429,7 +584,9 @@ def calculate_karlin_stat(significant_cluster_df_enriched):
     # figure out why round works weird so -3.5 > 4, -2.5 > 2
     scores_table = np.column_stack((np.round(unique_scores, decimals=0), score_prob))
     print(scores_table)
+    #print(x)
     # MAKE faster!
+    # the loop to insert missed integers (should be one by one) to scores and 0 to correspond. probs
     prev_int_val = int(scores_table[0][0])
     curr_row_ind = 0
     for i in scores_table:
@@ -463,18 +620,21 @@ def calculate_karlin_stat(significant_cluster_df_enriched):
     so_file = "karlin_c.so"
     my_functions = CDLL(so_file)
     arr = score_prob
-    array_width_koef = 2
+    array_width_koef = 1
     # ASK Johannes why I need log2 and where to make these scores conversions
     # THINK if it is slow
     # FIX how it works, all the scores should be in this format, no just ignored
-    if unique_scores[0] != 0:
-        if unique_scores[0] >0:
-            min_score = round(array_width_koef*np.log2(unique_scores[0]))
-        else:
-            min_score = round(array_width_koef*np.log2(abs(unique_scores[0])))*-1
-    else:
-        min_score = 0
-    max_score = round(array_width_koef*np.log2(unique_scores[len(unique_scores)-1]))
+    # THINK if I need it given I have it above, maybe remove it
+
+    # if unique_scores[0] != 0:
+    #     if unique_scores[0] >0:
+    #         min_score = round(array_width_koef*np.log2(unique_scores[0]))
+    #     else:
+    #         min_score = round(array_width_koef*np.log2(abs(unique_scores[0])))*-1
+    # else:
+    #     min_score = 0
+    # max_score = round(array_width_koef*np.log2(unique_scores[len(unique_scores)-1]))
+
     # REMOVE or FIX, all scores should be in the same format (log and so on)
     min_score = int(np.min(unique_scores))
     max_score = int(np.max(unique_scores))
@@ -538,7 +698,7 @@ def set_strand_flip_penalty(cluster_matches):
     l = len(cluster_prots)
     print("K, l = ", K, l)
     # CHANGE to be variable taken from target proteome data
-    L = 184
+    L = 20
     # ASK Johannes how to set up strand flip penalty if there are no
     # flips in clustersearch, f=0 and log doesnt exist
     # current solution is to set f = F/100000, just to make it minimun
@@ -556,15 +716,21 @@ def set_strand_flip_penalty(cluster_matches):
 def calculate_e_value(stat_lambda, stat_K, significant_cluster_df_enriched):
     # FIX to be variable taken from number of prots in target
     print('calculating e-value')
-    L = 184
+    L = 20
     print(significant_cluster_df_enriched)
     stat_lambda = stat_lambda.value
     print(stat_lambda, stat_K)
     significant_cluster_df_enriched["e-value"] = 0
+    # PUT in correct place
+    pd.options.display.float_format = '{:,.4f}'.format
     for r in range(0, len(significant_cluster_df_enriched.index)):
         print(r)
         enrich_score = significant_cluster_df_enriched["new_score_enrich"][r]
-        significant_cluster_df_enriched["e-value"][r] = stat_K*L*np.exp(stat_lambda*(-1)*enrich_score)
+        evalue = stat_K*L*np.exp(stat_lambda*(-1)*enrich_score)
+        significant_cluster_df_enriched.iat[r, significant_cluster_df_enriched.columns.get_loc("e-value")] = float(evalue)
+        print('eval =', evalue)
+    
+    significant_cluster_df_enriched.to_csv('sign_clusters_enrich_stat', sep = '\t', index = False)
     print(significant_cluster_df_enriched)
     return significant_cluster_df_enriched
 
@@ -949,7 +1115,9 @@ def main():
 
     # this class is to have order and strand for target proteins
     # FIX best query hit is needed
-    mapped_res = ResultsMapping.map_target_to_coord()
+    
+    # real mapping, uncomment? DELETE? as there are duplicates of this command in init
+    #mapped_res = ResultsMapping.map_target_to_coord()
 
     cluster_matches = find_clusters()
     print(cluster_matches)
@@ -983,7 +1151,6 @@ def main():
     #combine_all_profiles()
 
     #generate_mmseqs_ffindex(sign_clusters_df)
-    pass
 
 
 if __name__ == "__main__":
@@ -1001,7 +1168,16 @@ if __name__ == "__main__":
     print(files.res)
 
     # FIX to be the right order of functions (should be after run_search())
-    mapped_res = ResultsMapping.map_target_to_coord()
+
+    # UNCOMMENT, real mapping!
+    #mapped_res = ResultsMapping.map_target_to_coord()
+
+    # REMOVE later
+    # TEST map res data
+    mapped_res = TestingMappedRes.get_item()
+    print('class output mapped res', mapped_res.res_map_to_header)
+
+    
 
     while iterations > 0:
         main()
