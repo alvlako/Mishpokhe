@@ -40,9 +40,10 @@ target_ids[round(n_enries/10):round((n_enries/10)*2)] = random.choices(range(0, 
 target_ids[round(n_enries/3):n_enries] = random.choices(range(0, round(n_enries/10)), k = round(n_enries/3*2))
 
 target_ids = [33,1,2,3,4,11,23,7,8,9,56, 57, 1, 9, 23, 1, 33, 34, 35, 36]
+#,399, 100, 123, 234, 937, 444, 1001, 677]
 
 # no need to make query ids so complicated as they are not important for mishpokhe
-query_ids = 10* list(range(0, round(n_enries/10))) 
+query_ids = list(range(0, round(n_enries))) 
 #+ 2*random.sample(range(0, round(n_enries/10)),  round(n_enries/10/2)) +
 #+ 4*random.choices(range(0, round(n_enries/10)), k = round(n_enries/10))+
 
@@ -471,6 +472,8 @@ def update_scores_for_cluster_matches(cluster_matches):
     sign_clusters_df.columns = ["coord1", "coord2", "score",
     "query_prots", "target_prots", "strand"]
     sign_clusters_df['new_score_enrich'] = 0
+    sign_clusters_df['list_new_scoreS_enrich'] = 0
+
     # MAKE faster?
     sign_clusters_df['queries_string'] = [','.join(map(str, l)) for l in sign_clusters_df['query_prots']]
 
@@ -509,7 +512,7 @@ def update_scores_for_cluster_matches(cluster_matches):
         cluster_prot_proportion = np.divide(m_x, l)
         cluster_prot_proportion = np.divide((m_x+aplha_pseudocount), (l + x_number_of_queries*aplha_pseudocount))
         score_x = np.log(np.divide(cluster_prot_proportion, np.divide(M_x, L))) - bias
-        print(score_x)
+        print("updated score for q", query_id, "is", score_x)
 
         # MAKE faster?
         # adding score of the query prot to get summarized score for the cluster
@@ -517,7 +520,10 @@ def update_scores_for_cluster_matches(cluster_matches):
         sign_clusters_df.loc[sign_clusters_df['queries_string'].str.contains(str(query_id)),
         'new_score_enrich'] = sign_clusters_df.loc[sign_clusters_df['queries_string'].str.contains(str(query_id)),
         'new_score_enrich'] + score_x
-
+        sign_clusters_df.loc[sign_clusters_df['queries_string'].str.contains(str(query_id)),
+        'list_new_scoreS_enrich'] = sign_clusters_df.loc[sign_clusters_df['queries_string'].str.contains(str(query_id)),
+        'list_new_scoreS_enrich'].astype(str) + ',' + str(score_x)
+        #print(sign_clusters_df['list_new_scoreS_enrich'])
         # FIX figure out how to set b and threshold for prot to be enriched in cluster
         # ADD file to store scores corresponding to profiles
 
@@ -526,11 +532,66 @@ def update_scores_for_cluster_matches(cluster_matches):
     return(sign_clusters_df)
 
 
-# after completing this function, DELETE the function above?
-def calculate_karlin_stat(significant_cluster_df_enriched):
+# CHANGE to not duplicate so much the func above
+def calculate_karlin_stat(cluster_matches, mapped_results):
     print('using c code for Karlin-Altschul statistics')
 
-    enrich_scores = significant_cluster_df_enriched["new_score_enrich"].to_numpy()
+    # ASK Johannes if that's ok that I calculated enrich scores for all search results,
+    # not only the clusters
+
+    print('calculating prob for each match')
+    print('mapped results')
+    print(mapped_results)
+
+    all_enrich_scores = []
+
+    significant_clusters = cluster_matches 
+
+    # CHECK if these are right columns
+    # CHECK if the query and target assignment is correct
+    K = len(significant_clusters)
+    # FIX to be variable taken from number of prots in target
+    L = 20
+    
+    bias = 0
+    sign_clusters_df = pd.DataFrame(significant_clusters)
+    sign_clusters_df.columns = ["coord1", "coord2", "score",
+    "query_prots", "target_prots", "strand"]
+
+    K = len(significant_clusters)
+    # FIX to be variable taken from number of prots in target
+    L = 20
+    bias = 0
+
+    cluster_prots = pd.DataFrame()
+    cluster_prots['query_id'] = sign_clusters_df['query_prots'].explode()
+    cluster_prots['target_id'] = sign_clusters_df['target_prots'].explode()
+
+    l = len(cluster_prots)
+    aplha_pseudocount = 0.001
+    
+    # CHECK if it is right that in case of all res probs I should iterate through target
+    # NOT through query as in example above
+    n_target = len(mapped_results['ID'].unique())
+    for target_id in mapped_results['ID'].unique():
+        print(target_id)
+        M_x = mapped_results['ID'][mapped_results['ID'] == target_id].shape[0]
+        m_x = cluster_prots[cluster_prots['target_id'] == target_id]['target_id'].count()
+        # in this case M_x and m_x are equal as there were no single hits. 
+        # CHECK with other data where would be hits not only in clusters
+        print("M_x, m_x", M_x, m_x)
+        # using pseudocounts for m_x/l proportion to avoid zeros in log
+        cluster_prot_proportion = np.divide(m_x, l)
+        cluster_prot_proportion = np.divide((m_x+aplha_pseudocount), (l + n_target*aplha_pseudocount))
+        score_x = np.log(np.divide(cluster_prot_proportion, np.divide(M_x, L))) - bias
+        print("updated score for t", target_id, "is", score_x)
+        all_enrich_scores.append(score_x)
+    
+    print('scores for all res', all_enrich_scores)
+
+
+
+    enrich_scores = np.array(all_enrich_scores)
     print('len', len(enrich_scores))
 
     if 0 not in enrich_scores:
@@ -548,7 +609,7 @@ def calculate_karlin_stat(significant_cluster_df_enriched):
     # ASK Johannes if I done the scores correctly
      # # expand unique scores in order to have larger range of integer, wider range to calc e-value
     # # multipliying param for log-scores
-    mult_param = 5
+    mult_param = 4
     # # to log the negative values and return their sign
     # # ASK Johannes if it is a good idea
     # # THINK!
@@ -559,11 +620,6 @@ def calculate_karlin_stat(significant_cluster_df_enriched):
     #unique_scores_signs = np.sign(enrich_scores)
     #print('signs', unique_scores_signs)
     unique_scores = mult_param*enrich_scores
-    #unique_scores[unique_scores == float("-inf")] = 0
-    #print('log scores', unique_scores)
-    #unique_scores = unique_scores*unique_scores_signs
-    #unique_scores[np.isnan(unique_scores)] = 0
-    #unique_scores[unique_scores == float("-inf")] = 0
     unique_scores = np.sort(unique_scores)
     print('multiplied, sorted', unique_scores)
 
@@ -715,6 +771,8 @@ def set_strand_flip_penalty(cluster_matches):
 # ASK Johannes if in e-value calculations the L should actually be the L, not like L*L
 def calculate_e_value(stat_lambda, stat_K, significant_cluster_df_enriched):
     # FIX to be variable taken from number of prots in target
+    # CHANGE it to be linked and the same with the used in calculate_karlin_stat
+    mult_param = 4
     print('calculating e-value')
     L = 20
     print(significant_cluster_df_enriched)
@@ -726,7 +784,15 @@ def calculate_e_value(stat_lambda, stat_K, significant_cluster_df_enriched):
     for r in range(0, len(significant_cluster_df_enriched.index)):
         print(r)
         enrich_score = significant_cluster_df_enriched["new_score_enrich"][r]
-        evalue = stat_K*L*np.exp(stat_lambda*(-1)*enrich_score)
+        # REMOVE if not needed
+        enrich_scores_list = significant_cluster_df_enriched["list_new_scoreS_enrich"][r].split(',')
+        # CHANGE to delete 0 happened with creation of pandas column
+        del(enrich_scores_list[0])
+        # converting enrich score as for karlin stats calculation
+        conv_enrich_score = int(np.round(enrich_score*mult_param, decimals = 0))
+        print(conv_enrich_score)
+        # is it okay if that's a sum?
+        evalue = stat_K*L*np.exp(stat_lambda*(-1)*conv_enrich_score)
         significant_cluster_df_enriched.iat[r, significant_cluster_df_enriched.columns.get_loc("e-value")] = float(evalue)
         print('eval =', evalue)
     
@@ -1130,7 +1196,8 @@ def main():
     #print(significant_cluster_df_enriched)
     
     significant_cluster_df_enriched = update_scores_for_cluster_matches(cluster_matches)
-    stat_lambda, stat_K = calculate_karlin_stat(significant_cluster_df_enriched)
+    mapped_results = mapped_res.res_map_to_header
+    stat_lambda, stat_K = calculate_karlin_stat(cluster_matches, mapped_results)
     calculate_e_value(stat_lambda, stat_K, significant_cluster_df_enriched)
 
     # CHANGE notation for significant clusters??
