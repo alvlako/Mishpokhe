@@ -26,7 +26,7 @@ import subprocess
 
 # This script simulate mapping results used in py_mishpokhe2.py for testing
 
-n_enries = 20
+n_enries = 163
 
 df_index = list(range(0, n_enries))
 df_comment = list(range(0, n_enries))
@@ -39,15 +39,19 @@ target_ids[0] = n_enries + 1
 target_ids[round(n_enries/10):round((n_enries/10)*2)] = random.choices(range(0, round(n_enries/10)), k = round(n_enries/10))
 target_ids[round(n_enries/3):n_enries] = random.choices(range(0, round(n_enries/10)), k = round(n_enries/3*2))
 
-target_ids = [33,1,2,3,4,11,23,7,8,9,56, 57, 1, 9, 23, 1, 33, 34, 35, 36]
-#,399, 100, 123, 234, 937, 444, 1001, 677]
+#target_ids = [33,1,2,3,4, 5,6, 7,8,9,56, 57, 1, 9, 23, 1, 33, 34, 35, 36, 333,11,22,33,44,111,233,77,88,99,566, 577, 11, 99, 233, 11, 333, 344, 355, 366, 331,1,2,3,4, 5,6, 78,89,95,565, 575, 19, 92, 232, 13, 333, 343, 353, 363, 332,1,2,3,4, 5, 6, 117,238,79,85, 571, 12, 91, 233, 14, 33, 34, 35, 36, 33,1,2,3,4,11,23,7,8,9,56, 57, 19, 9, 23, 13, 33, 34, 35, 36, 33,1,2,3,4,11,23,7,8,9,56, 57, 19, 9, 23, 13, 33, 34, 35, 36,399, 100, 123, 234, 937, 444, 1001, 677, 1,2,3,4,155,156,157,158,159,77,81,155,90,1,2,3,67,1,41,65,999,41,88]
+target_ids = [33,1,2,3,4, 5,6, 7,8,9,56, 57, 1, 9, 23, 1, 33, 34, 35, 36, 333,11,22,33,44,111,233,77,88,99,566, 577, 11, 99, 233, 11, 333, 344, 355, 366, 331,1,2,3,4, 5,6, 78,89,95,565, 575, 19, 92, 232, 13, 333, 343, 353, 363, 332,1,2,3,4, 5, 6, 117,238,79,85, 571, 12, 91, 233, 14, 33, 34, 35, 36, 33,1,2,3,4,11,23,7,8,9,56, 57, 19, 9, 23, 13, 33, 34, 35, 36, 33,1,2,3,4,11,23,7,8,9,56, 57, 19, 9, 23, 13, 33, 34, 35, 36,399, 100, 123, 234, 937, 444, 1001, 677, 1,2,3,4,155,156,157,158,159,77,81,155,90,1,2,3,67,1,41,65,999,41,88, 1,2,3,100,121,56, 777,865,45,822,5884,1888]
 
-# no need to make query ids so complicated as they are not important for mishpokhe
-query_ids = list(range(0, round(n_enries))) 
+query_ids = list(range(0, round(n_enries)))
 #+ 2*random.sample(range(0, round(n_enries/10)),  round(n_enries/10/2)) +
 #+ 4*random.choices(range(0, round(n_enries/10)), k = round(n_enries/10))+
 
+# I made the same query and target ids generation, is it right now?
+#query_ids = [33,1,2,3,4,11,23,7,8,9,56, 57, 1, 9, 23, 1, 33, 34, 35, 36, 333,11,22,33,44,111,233,77,88,99,566, 577, 11, 99, 233, 11, 333, 344, 355, 366, 331,1,2,3,4,112,232,78,89,95,565, 575, 19, 92, 232, 13, 333, 343, 353, 363, 332,1,2,3,4,117,238,79,85,95,567, 571, 12, 91, 233, 14, 33, 34, 35, 36, 33,1,2,3,4,11,23,7,8,9,56, 57, 19, 9, 23, 13, 33, 34, 35, 36, 33,1,2,3,4,11,23,7,8,9,56, 57, 19, 9, 23, 13, 33, 34, 35, 36]
+#target_ids = [33,1,2,3,4,11,23,7,8,9,56, 57, 1, 9, 23, 1, 33, 34, 35, 36, 333,11,22,33,44,111,233,77,88,99,566, 577, 11, 99, 233, 11, 333, 344, 355, 366, 331,1,2,3,4,112,232,78,89,95,565, 575, 19, 92, 232, 13, 333, 343, 353, 363, 332,1,2,3,4,117,238,79,85,95,567, 571, 12, 91, 233, 14, 33, 34, 35, 36, 33,1,2,3,4,11,23,7,8,9,56, 57, 19, 9, 23, 13, 33, 34, 35, 36, 33,1,2,3,4,11,23,7,8,9,56, 57, 19, 9, 23, 13, 33, 34, 35, 36]
+
 df_strand =  round(n_enries/10)*[0] + 2*random.choices(range(0, 1),  k = round(n_enries/10/2))+ round(n_enries/10)*[1] + 4*random.choices(range(0, 1), k = round(n_enries/10))+ 3*round(n_enries/10)*[1]
+df_strand = df_strand + [0,0,1]
 #del(df_strand[0])
 
 df_coord1 = list()
@@ -465,7 +469,7 @@ def update_scores_for_cluster_matches(cluster_matches):
     # CHECK if the query and target assignment is correct
     K = len(significant_clusters)
     # FIX to be variable taken from number of prots in target
-    L = 20
+    L = 151
     
     bias = 0
     sign_clusters_df = pd.DataFrame(significant_clusters)
@@ -529,12 +533,17 @@ def update_scores_for_cluster_matches(cluster_matches):
 
         # ADD s0 for prots with no match
     print(sign_clusters_df)
+    #print(x)
     return(sign_clusters_df)
 
 
 # CHANGE to not duplicate so much the func above
 def calculate_karlin_stat(cluster_matches, mapped_results):
     print('using c code for Karlin-Altschul statistics')
+
+    subprocess.call(['cc', '-fPIC', '-shared', '-o', 'karlin_c.so', 'karlin_c.c'])
+    so_file = "karlin_c.so"
+    my_functions = CDLL(so_file)
 
     # ASK Johannes if that's ok that I calculated enrich scores for all search results,
     # not only the clusters
@@ -551,7 +560,7 @@ def calculate_karlin_stat(cluster_matches, mapped_results):
     # CHECK if the query and target assignment is correct
     K = len(significant_clusters)
     # FIX to be variable taken from number of prots in target
-    L = 20
+    L = 151
     
     bias = 0
     sign_clusters_df = pd.DataFrame(significant_clusters)
@@ -560,7 +569,7 @@ def calculate_karlin_stat(cluster_matches, mapped_results):
 
     K = len(significant_clusters)
     # FIX to be variable taken from number of prots in target
-    L = 20
+    L = 151
     bias = 0
 
     cluster_prots = pd.DataFrame()
@@ -568,6 +577,7 @@ def calculate_karlin_stat(cluster_matches, mapped_results):
     cluster_prots['target_id'] = sign_clusters_df['target_prots'].explode()
 
     l = len(cluster_prots)
+    print('len(cluster_prots)', l)
     aplha_pseudocount = 0.001
     
     # CHECK if it is right that in case of all res probs I should iterate through target
@@ -594,22 +604,27 @@ def calculate_karlin_stat(cluster_matches, mapped_results):
     enrich_scores = np.array(all_enrich_scores)
     print('len', len(enrich_scores))
 
-    if 0 not in enrich_scores:
-        no_0 = True
-        enrich_scores = np.append(enrich_scores, 0)
-    else:
-        no_0 = False
-    
-    print('no_0', no_0)
+    #if 0 not in enrich_scores:
+    #    no_0 = True
+    #    enrich_scores = np.append(enrich_scores, 0)
+    #else:
+    #    no_0 = False
+    #print('no_0', no_0)
 
     # REMOVE later, just for current test
 
 
     print(enrich_scores)
+    #print(x)
     # ASK Johannes if I done the scores correctly
      # # expand unique scores in order to have larger range of integer, wider range to calc e-value
     # # multipliying param for log-scores
-    mult_param = 4
+    #mult_param = 6
+    mult_param = int(input('enter multiplying value '))
+    scores_bins = np.histogram_bin_edges(enrich_scores, bins='auto')
+    print('BINS', scores_bins)
+    print('bins diff', scores_bins[1]-scores_bins[0])
+    #print(x)
     # # to log the negative values and return their sign
     # # ASK Johannes if it is a good idea
     # # THINK!
@@ -636,6 +651,7 @@ def calculate_karlin_stat(cluster_matches, mapped_results):
     
     score_prob = score_counts / len(enrich_scores)
     print(score_prob)
+
 
     # figure out why round works weird so -3.5 > 4, -2.5 > 2
     scores_table = np.column_stack((np.round(unique_scores, decimals=0), score_prob))
@@ -666,17 +682,12 @@ def calculate_karlin_stat(cluster_matches, mapped_results):
     unique_scores = scores_table[:,0]
     score_prob = scores_table[:,1]
 
-    if no_0 == True:
-        index_of_0 = np.where(unique_scores == 0)[0][0]
-        score_prob[index_of_0] = 0
+    index_of_0 = np.where(unique_scores == 0)[0][0]
+    
+    
     print('final uniq and prob', unique_scores, score_prob)
-
-
-    subprocess.call(['cc', '-fPIC', '-shared', '-o', 'karlin_c.so', 'karlin_c.c'])
-    so_file = "karlin_c.so"
-    my_functions = CDLL(so_file)
     arr = score_prob
-    array_width_koef = 1
+    
     # ASK Johannes why I need log2 and where to make these scores conversions
     # THINK if it is slow
     # FIX how it works, all the scores should be in this format, no just ignored
@@ -698,18 +709,22 @@ def calculate_karlin_stat(cluster_matches, mapped_results):
 
     
     print("index_of_0", index_of_0)
+    print('prob of 0', arr[index_of_0:])
+    print('arr',arr)
+    arr = np.array(arr)
+    print(type(arr))
+    print('element type', type(arr[0]))
+    
+    pointer_to_middle = arr[index_of_0:].ctypes.data_as(ct.POINTER(ct.c_double))
     pointer_to_middle = arr[index_of_0:].ctypes.data_as(ct.POINTER(ct.c_double))
     print(pointer_to_middle.contents)
+
     
     my_functions.BlastKarlinLambdaNR.argtypes = [POINTER(c_double),c_int32, c_int32]
     my_functions.BlastKarlinLambdaNR.restype = c_double
     BlastKarlin_lambda = my_functions.BlastKarlinLambdaNR(pointer_to_middle, min_score, max_score)
     print("lambda", BlastKarlin_lambda)
     BlastKarlin_lambda = ct.c_double(BlastKarlin_lambda)
-    
-    
-    
-    print(pointer_to_middle.contents)
     
     my_functions.BlastKarlinLtoH.restype = c_double
     BlastKarlin_H = my_functions.BlastKarlinLtoH(pointer_to_middle, min_score, max_score,
@@ -754,7 +769,7 @@ def set_strand_flip_penalty(cluster_matches):
     l = len(cluster_prots)
     print("K, l = ", K, l)
     # CHANGE to be variable taken from target proteome data
-    L = 20
+    L = 151
     # ASK Johannes how to set up strand flip penalty if there are no
     # flips in clustersearch, f=0 and log doesnt exist
     # current solution is to set f = F/100000, just to make it minimun
@@ -772,9 +787,10 @@ def set_strand_flip_penalty(cluster_matches):
 def calculate_e_value(stat_lambda, stat_K, significant_cluster_df_enriched):
     # FIX to be variable taken from number of prots in target
     # CHANGE it to be linked and the same with the used in calculate_karlin_stat
-    mult_param = 4
+    mult_param = 6
+    mult_param = int(input('enter multiplying value '))
     print('calculating e-value')
-    L = 20
+    L = 151
     print(significant_cluster_df_enriched)
     stat_lambda = stat_lambda.value
     print(stat_lambda, stat_K)
@@ -790,7 +806,7 @@ def calculate_e_value(stat_lambda, stat_K, significant_cluster_df_enriched):
         del(enrich_scores_list[0])
         # converting enrich score as for karlin stats calculation
         conv_enrich_score = int(np.round(enrich_score*mult_param, decimals = 0))
-        print(conv_enrich_score)
+        print('conv_enrich_score', conv_enrich_score)
         # is it okay if that's a sum?
         evalue = stat_K*L*np.exp(stat_lambda*(-1)*conv_enrich_score)
         significant_cluster_df_enriched.iat[r, significant_cluster_df_enriched.columns.get_loc("e-value")] = float(evalue)
