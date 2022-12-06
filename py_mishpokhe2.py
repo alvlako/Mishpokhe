@@ -26,7 +26,7 @@ import subprocess
 
 # This script simulate mapping results used in py_mishpokhe2.py for testing
 
-n_enries = 163
+n_enries = 163*9+8
 
 df_index = list(range(0, n_enries))
 df_comment = list(range(0, n_enries))
@@ -41,6 +41,7 @@ target_ids[round(n_enries/3):n_enries] = random.choices(range(0, round(n_enries/
 
 #target_ids = [33,1,2,3,4, 5,6, 7,8,9,56, 57, 1, 9, 23, 1, 33, 34, 35, 36, 333,11,22,33,44,111,233,77,88,99,566, 577, 11, 99, 233, 11, 333, 344, 355, 366, 331,1,2,3,4, 5,6, 78,89,95,565, 575, 19, 92, 232, 13, 333, 343, 353, 363, 332,1,2,3,4, 5, 6, 117,238,79,85, 571, 12, 91, 233, 14, 33, 34, 35, 36, 33,1,2,3,4,11,23,7,8,9,56, 57, 19, 9, 23, 13, 33, 34, 35, 36, 33,1,2,3,4,11,23,7,8,9,56, 57, 19, 9, 23, 13, 33, 34, 35, 36,399, 100, 123, 234, 937, 444, 1001, 677, 1,2,3,4,155,156,157,158,159,77,81,155,90,1,2,3,67,1,41,65,999,41,88]
 target_ids = [33,1,2,3,4, 5,6, 7,8,9,56, 57, 1, 9, 23, 1, 33, 34, 35, 36, 333,11,22,33,44,111,233,77,88,99,566, 577, 11, 99, 233, 11, 333, 344, 355, 366, 331,1,2,3,4, 5,6, 78,89,95,565, 575, 19, 92, 232, 13, 333, 343, 353, 363, 332,1,2,3,4, 5, 6, 117,238,79,85, 571, 12, 91, 233, 14, 33, 34, 35, 36, 33,1,2,3,4,11,23,7,8,9,56, 57, 19, 9, 23, 13, 33, 34, 35, 36, 33,1,2,3,4,11,23,7,8,9,56, 57, 19, 9, 23, 13, 33, 34, 35, 36,399, 100, 123, 234, 937, 444, 1001, 677, 1,2,3,4,155,156,157,158,159,77,81,155,90,1,2,3,67,1,41,65,999,41,88, 1,2,3,100,121,56, 777,865,45,822,5884,1888]
+target_ids = target_ids*9 + [1, 2, 3, 4] + [1, 2, 3, 4]
 
 query_ids = list(range(0, round(n_enries)))
 #+ 2*random.sample(range(0, round(n_enries/10)),  round(n_enries/10/2)) +
@@ -51,8 +52,12 @@ query_ids = list(range(0, round(n_enries)))
 #target_ids = [33,1,2,3,4,11,23,7,8,9,56, 57, 1, 9, 23, 1, 33, 34, 35, 36, 333,11,22,33,44,111,233,77,88,99,566, 577, 11, 99, 233, 11, 333, 344, 355, 366, 331,1,2,3,4,112,232,78,89,95,565, 575, 19, 92, 232, 13, 333, 343, 353, 363, 332,1,2,3,4,117,238,79,85,95,567, 571, 12, 91, 233, 14, 33, 34, 35, 36, 33,1,2,3,4,11,23,7,8,9,56, 57, 19, 9, 23, 13, 33, 34, 35, 36, 33,1,2,3,4,11,23,7,8,9,56, 57, 19, 9, 23, 13, 33, 34, 35, 36]
 
 df_strand =  round(n_enries/10)*[0] + 2*random.choices(range(0, 1),  k = round(n_enries/10/2))+ round(n_enries/10)*[1] + 4*random.choices(range(0, 1), k = round(n_enries/10))+ 3*round(n_enries/10)*[1]
-df_strand = df_strand + [0,0,1]
-#del(df_strand[0])
+#df_strand = df_strand + [0,0,1]
+del(df_strand[0])
+del(df_strand[0])
+del(df_strand[0])
+del(df_strand[0])
+del(df_strand[0])
 
 df_coord1 = list()
 df_coord2 = list()
@@ -258,8 +263,6 @@ class ResultsMapping:
         #pass
 
 
-
-# FIX FIX FIX !!!!!!!! it doesnt let clusters >2 genes (or check)
 # ?? is it correct that L is set not of all the target proteins
 # but only those which were matched and got to results???
 # FIX !!!!!! some real ids are read as NaN
@@ -450,6 +453,7 @@ def find_clusters():
          query_genes_ids, target_genes_ids, prots_strands))
     # add more to cluster matches table? prot id?
     # ADD return of the changed ResultsMapping object? (with added scores?)
+    print(len(cluster_matches))
     return cluster_matches
 
 
@@ -469,7 +473,7 @@ def update_scores_for_cluster_matches(cluster_matches):
     # CHECK if the query and target assignment is correct
     K = len(significant_clusters)
     # FIX to be variable taken from number of prots in target
-    L = 151
+    L = 1475
     
     bias = 0
     sign_clusters_df = pd.DataFrame(significant_clusters)
@@ -531,7 +535,38 @@ def update_scores_for_cluster_matches(cluster_matches):
         # FIX figure out how to set b and threshold for prot to be enriched in cluster
         # ADD file to store scores corresponding to profiles
 
-        # ADD s0 for prots with no match
+    # ASK Johannes if I calculated it correctly (given the sum sign for m_x and M_x)
+    # ASK if it correct that m_x and M_x the same (m_x_no_match)?
+    # score for proteins with no match
+
+    # TEST the below part TEST!!!!
+    # TEST!!! UNCOMMENT!
+    # m_x_no_match = 0
+    # non_matched_queries = []
+   
+    # p1_all_q = subprocess.Popen(['cut', '-f1', files.res + '_prof_search' +'.m8'],
+    #  stdout=subprocess.PIPE)
+    # p1_all_q.stdout.close()
+    # output_all_q,err_all_q = p1_all_q.communicate()
+    # all_queries_set = set(output_all_q.decode("utf-8"))
+
+    # p2_all_q = subprocess.Popen(['cut', '-f1', str(files.target_db)+str(".lookup")],
+    #  stdout=subprocess.PIPE)
+    # p2_all_q.stdout.close()
+    # output_matched_q,err_matched_q = p2_all_q.communicate()
+    # matched_queries_set = set(output_matched_q.decode("utf-8"))
+
+    # print('all_queries_set', all_queries_set)
+    # print('matched_queries_set',matched_queries_set)
+    # non_matched_queries = all_queries_set - matched_queries_set
+    # for query_id in non_matched_queries:
+    #     if query_id not in mapped_results['query_ID'].unique():
+    #         m_x_no_match = m_x_no_match + 1
+    #         non_matched_queries.append(query_id)
+    # s_0_no_match = np.divide(np.divide((l-m_x_no_match),l), np.divide((L-m_x_no_match),L)) - bias
+    # TEST!!!
+    # ADD these scores to profiles output!
+
     print(sign_clusters_df)
     #print(x)
     return(sign_clusters_df)
@@ -560,7 +595,7 @@ def calculate_karlin_stat(cluster_matches, mapped_results):
     # CHECK if the query and target assignment is correct
     K = len(significant_clusters)
     # FIX to be variable taken from number of prots in target
-    L = 151
+    L = 1475
     
     bias = 0
     sign_clusters_df = pd.DataFrame(significant_clusters)
@@ -569,7 +604,7 @@ def calculate_karlin_stat(cluster_matches, mapped_results):
 
     K = len(significant_clusters)
     # FIX to be variable taken from number of prots in target
-    L = 151
+    L = 1475
     bias = 0
 
     cluster_prots = pd.DataFrame()
@@ -631,18 +666,23 @@ def calculate_karlin_stat(cluster_matches, mapped_results):
 
     # ASK Johannes, REMOVE later, that's just to fix problem with log when m_x = 0
     # ASK how to fix -inf in logs
-
-    #unique_scores_signs = np.sign(enrich_scores)
-    #print('signs', unique_scores_signs)
-    unique_scores = mult_param*enrich_scores
+    # ASK Johannes if it is ok to use binning, no I think, it is NOT ok
+    unique_scores = mult_param*np.unique(enrich_scores)
     unique_scores = np.sort(unique_scores)
     print('multiplied, sorted', unique_scores)
+    #print(x)
 
     unique_scores = np.round(unique_scores, decimals=0)
     unique_scores, score_counts = np.unique(unique_scores, return_counts=True)
     unique_scores = unique_scores.astype(int)
     print(unique_scores)
+    print('uniq enrich scores', np.unique(enrich_scores))
+    print(np.unique(mult_param*enrich_scores))
+    print(np.round(unique_scores, decimals=0))
+    print('len of orig scores', len(np.unique(enrich_scores)))
     print("len of scores", len(unique_scores))
+
+ 
 
    
 
@@ -651,7 +691,6 @@ def calculate_karlin_stat(cluster_matches, mapped_results):
     
     score_prob = score_counts / len(enrich_scores)
     print(score_prob)
-
 
     # figure out why round works weird so -3.5 > 4, -2.5 > 2
     scores_table = np.column_stack((np.round(unique_scores, decimals=0), score_prob))
@@ -682,6 +721,7 @@ def calculate_karlin_stat(cluster_matches, mapped_results):
     unique_scores = scores_table[:,0]
     score_prob = scores_table[:,1]
 
+    # ASK Johannes what to do if all the scores are negative?
     index_of_0 = np.where(unique_scores == 0)[0][0]
     
     
@@ -769,7 +809,7 @@ def set_strand_flip_penalty(cluster_matches):
     l = len(cluster_prots)
     print("K, l = ", K, l)
     # CHANGE to be variable taken from target proteome data
-    L = 151
+    L = 1475
     # ASK Johannes how to set up strand flip penalty if there are no
     # flips in clustersearch, f=0 and log doesnt exist
     # current solution is to set f = F/100000, just to make it minimun
@@ -790,7 +830,7 @@ def calculate_e_value(stat_lambda, stat_K, significant_cluster_df_enriched):
     mult_param = 6
     mult_param = int(input('enter multiplying value '))
     print('calculating e-value')
-    L = 151
+    L = 1475
     print(significant_cluster_df_enriched)
     stat_lambda = stat_lambda.value
     print(stat_lambda, stat_K)
