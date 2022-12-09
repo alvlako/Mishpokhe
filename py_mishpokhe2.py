@@ -6,136 +6,11 @@ import pandas as pd
 import itertools
 import os
 import re
-import sh
 import subprocess
 import sys
 from sys import stdout
 
 # version 2 accordingly to the written in the proposal
-
-# TESTING
-
-print('making test data')
-import numpy as np
-import pandas as pd
-
-import itertools
-import random
-import subprocess
-
-
-# This script simulate mapping results used in py_mishpokhe2.py for testing
-
-n_enries = 163*9+8
-
-df_index = list(range(0, n_enries))
-df_comment = list(range(0, n_enries))
-df_sort_cat = list(range(0, n_enries))
-
-
-target_ids = list(range(0, n_enries))
-# insert at some points in target_ids the matches not going correctly by order
-target_ids[0] = n_enries + 1
-target_ids[round(n_enries/10):round((n_enries/10)*2)] = random.choices(range(0, round(n_enries/10)), k = round(n_enries/10))
-target_ids[round(n_enries/3):n_enries] = random.choices(range(0, round(n_enries/10)), k = round(n_enries/3*2))
-
-#target_ids = [33,1,2,3,4, 5,6, 7,8,9,56, 57, 1, 9, 23, 1, 33, 34, 35, 36, 333,11,22,33,44,111,233,77,88,99,566, 577, 11, 99, 233, 11, 333, 344, 355, 366, 331,1,2,3,4, 5,6, 78,89,95,565, 575, 19, 92, 232, 13, 333, 343, 353, 363, 332,1,2,3,4, 5, 6, 117,238,79,85, 571, 12, 91, 233, 14, 33, 34, 35, 36, 33,1,2,3,4,11,23,7,8,9,56, 57, 19, 9, 23, 13, 33, 34, 35, 36, 33,1,2,3,4,11,23,7,8,9,56, 57, 19, 9, 23, 13, 33, 34, 35, 36,399, 100, 123, 234, 937, 444, 1001, 677, 1,2,3,4,155,156,157,158,159,77,81,155,90,1,2,3,67,1,41,65,999,41,88]
-target_ids = [33,1,2,3,4, 5,6, 7,8,9,56, 57, 1, 9, 23, 1, 33, 34, 35, 36, 333,11,22,33,44,111,233,77,88,99,566, 577, 11, 99, 233, 11, 333, 344, 355, 366, 331,1,2,3,4, 5,6, 78,89,95,565, 575, 19, 92, 232, 13, 333, 343, 353, 363, 332,1,2,3,4, 5, 6, 117,238,79,85, 571, 12, 91, 233, 14, 33, 34, 35, 36, 33,1,2,3,4,11,23,7,8,9,56, 57, 19, 9, 23, 13, 33, 34, 35, 36, 33,1,2,3,4,11,23,7,8,9,56, 57, 19, 9, 23, 13, 33, 34, 35, 36,399, 100, 123, 234, 937, 444, 1001, 677, 1,2,3,4,155,156,157,158,159,77,81,155,90,1,2,3,67,1,41,65,999,41,88, 1,2,3,100,121,56, 777,865,45,822,5884,1888]
-target_ids = target_ids*9 + [1, 2, 3, 4] + [1, 2, 3, 4]
-
-query_ids = list(range(0, round(n_enries)))
-#+ 2*random.sample(range(0, round(n_enries/10)),  round(n_enries/10/2)) +
-#+ 4*random.choices(range(0, round(n_enries/10)), k = round(n_enries/10))+
-
-# I made the same query and target ids generation, is it right now?
-#query_ids = [33,1,2,3,4,11,23,7,8,9,56, 57, 1, 9, 23, 1, 33, 34, 35, 36, 333,11,22,33,44,111,233,77,88,99,566, 577, 11, 99, 233, 11, 333, 344, 355, 366, 331,1,2,3,4,112,232,78,89,95,565, 575, 19, 92, 232, 13, 333, 343, 353, 363, 332,1,2,3,4,117,238,79,85,95,567, 571, 12, 91, 233, 14, 33, 34, 35, 36, 33,1,2,3,4,11,23,7,8,9,56, 57, 19, 9, 23, 13, 33, 34, 35, 36, 33,1,2,3,4,11,23,7,8,9,56, 57, 19, 9, 23, 13, 33, 34, 35, 36]
-#target_ids = [33,1,2,3,4,11,23,7,8,9,56, 57, 1, 9, 23, 1, 33, 34, 35, 36, 333,11,22,33,44,111,233,77,88,99,566, 577, 11, 99, 233, 11, 333, 344, 355, 366, 331,1,2,3,4,112,232,78,89,95,565, 575, 19, 92, 232, 13, 333, 343, 353, 363, 332,1,2,3,4,117,238,79,85,95,567, 571, 12, 91, 233, 14, 33, 34, 35, 36, 33,1,2,3,4,11,23,7,8,9,56, 57, 19, 9, 23, 13, 33, 34, 35, 36, 33,1,2,3,4,11,23,7,8,9,56, 57, 19, 9, 23, 13, 33, 34, 35, 36]
-
-df_strand =  round(n_enries/10)*[0] + 2*random.choices(range(0, 1),  k = round(n_enries/10/2))+ round(n_enries/10)*[1] + 4*random.choices(range(0, 1), k = round(n_enries/10))+ 3*round(n_enries/10)*[1]
-#df_strand = df_strand + [0,0,1]
-del(df_strand[0])
-del(df_strand[0])
-del(df_strand[0])
-del(df_strand[0])
-del(df_strand[0])
-
-df_coord1 = list()
-df_coord2 = list()
-start = 0
-width = 10
-for i in range(0, n_enries):
-    coord1 = random.randrange(start, width)
-    df_coord1.append(coord1)
-    coord2 = coord1 + random.randrange(500, 1000)
-    df_coord2.append(coord2)
-    start = coord2 + 1
-    width = coord2 + 1000
-    i = i + 1
-
-
-print('len_quer',len(query_ids))
-print('len_target',len(target_ids))
-print('len(df_index)', len(df_index))
-print('len(coord1)', len(df_coord1))
-print('len(coord2)', len(df_coord2))
-print('len(strand)', len(df_strand))
-
-def return_mapped_res():
-    mapped_results = pd.DataFrame(
-    {'index': df_index,
-    'ID': target_ids,
-    'coord1': df_coord1,
-    'coord2': df_coord2,
-    'strand': df_strand,
-    'comment': df_comment,
-    'sort_cat': df_sort_cat,
-    'query_ID': query_ids,
-    })
-    return (mapped_results)
-
-
-mapped_res_test = return_mapped_res()
-
-mapped_res_test.to_csv('curr_simul_test.tsv', sep = '\t')
-
-print("test results matches")
-print("test results matches")
-print("test results matches")
-print("test results matches", mapped_res_test)
-
-
-
-#mapped_results = mapped_res.res_map_to_header
-#results = mapped_res.search_result_file
-#index_list = mapped_res.ind_list
-
-class TestingMappedRes:
-    """
-    Makes some files simulating ResultsMapping output
-    from py_mishpokhe2.py
-
-    """
-    # the results file is currently m8 file from normal db search
-    def __init__(self, search_result_file, res_map_to_header,ind_list):
-        self.search_result_file = search_result_file
-        #self.target_db_lookup = target_db_lookup
-        #self.target_db_h = target_db_h
-        self.res_map_to_header = res_map_to_header
-        self.ind_list = ind_list
-
-
-    @classmethod
-    def get_item(self):
-        # 1st column is for ID (target id)
-        search_result_file = mapped_res_test.iloc[:, 1].to_frame()
-        res_map_to_header = mapped_res_test
-        # 7th column is for quiery_ids
-        ind_list = mapped_res_test.iloc[:, 7]
-        return self(search_result_file, res_map_to_header, ind_list)
-
-
-
-# TESTING - end
 
 class FilePath:
      """
@@ -181,11 +56,19 @@ def make_profiles():
 # ADD besthit
 def run_search():
     print('running mmseqs profile search')
-    subprocess.call(['mmseqs', 'search', 
+    # extracting best hit per match with --max-accept 1
+    # ASK Johannes if it is ok to use this without sensitivity iters (manual)
+    # Ask Johannes if it is correct to search TARGET against Query
+    # FIX, --max-accept 1 does not work for now
+    #subprocess.call(['mmseqs', 'search', 
+    #files.query_db + '_clu' + '_rep' + '_profile',
+    # files.target_db,
+    # files.res + '_prof_search',
+    # 'tmp', '-a'])
+    subprocess.call(['mmseqs', 'search', files.target_db,
     files.query_db + '_clu' + '_rep' + '_profile',
-     files.target_db,
      files.res + '_prof_search',
-     'tmp', '-a'])
+     'tmp', '-a', '--max-accept', '1'])
     # convert to convenient format
     subprocess.call(['mmseqs', 'convertalis', files.query_db + '_clu' + '_rep' + '_profile',
      files.target_db, files.res + '_prof_search',
@@ -222,7 +105,8 @@ class ResultsMapping:
         print('mapping results')
         #search_result_file = pd.read_csv(str(files.res + '_prof_search'), dtype={'int':'float'}, sep='\t')
         #search_result_file = pd.read_csv('/Users/Sasha/Documents/GitHub/mishpokhe_test/py2_multihit_res', dtype={'int':'float'}, sep='\t')
-        search_result_file = pd.read_csv('/Users/Sasha/Documents/GitHub/mishpokhe_test/py_norm_res_prof_search.m8', dtype={'str':'float'}, sep='\t', header = None)
+        #search_result_file = pd.read_csv('/Users/Sasha/Documents/GitHub/mishpokhe_test/py_norm_res_prof_search.m8', dtype={'str':'float'}, sep='\t', header = None)
+        search_result_file = pd.read_csv(files.res + '_prof_search' +'.m8', dtype={'str':'float'}, sep='\t', header = None)
         print(search_result_file)
         # Do i need lookup?
         target_db_lookup = np.genfromtxt(str(files.target_db)+str(".lookup"), dtype = None, delimiter="\t", encoding=None)
@@ -237,7 +121,8 @@ class ResultsMapping:
         ##ind_list = search_result_file.iloc[:, 0].dropna().astype(int)
         #print(ind_list)
         # get target proteins real ids
-        real_id_list = search_result_file.iloc[:, 1]
+        # FIX "unique"?
+        real_id_list = pd.Series(pd.unique(search_result_file.iloc[:, 1]))
         print("real ids list", real_id_list)
         # map by 1st (0) column with real ids from search res
         # print(target_db_h.loc[target_db_h.iloc[:, 0].astype(str) == 'MT006214.1_1'])
@@ -276,18 +161,13 @@ class ResultsMapping:
 # FIX genes ids retrieval
 # FIX to not get clusters from different genomes
 # CHECK all the scores
-def find_clusters():
-
-    #mapped_res = TestingMappedRes.get_item()
-    #print('class output mapped res', mapped_res.res_map_to_header)
+def find_clusters(mapped_res):
 
     mapped_results = mapped_res.res_map_to_header
     results = mapped_res.search_result_file
     index_list = mapped_res.ind_list
-
     # to fix the problem with the nan coming from reading the table
     results = results[results.iloc[:, 0].notna()]
-
     print(results)
     print('mapped results')
     print(mapped_results)
@@ -295,7 +175,6 @@ def find_clusters():
 
     #Algorithm 1 - iterate through target prot
     print(results.iloc[:, 0].size)
-
 
     cluster_matches = list()
     # CHECK if score max cluster set up correct
@@ -307,7 +186,7 @@ def find_clusters():
     score_i_minus_1_cluster = 0.1
 
     # CHECK, ASK Johannes
-    gap_penalty = 0.5
+    gap_penalty = 0.0001
 
     # CHECK if correct (esp if cluster does not start from the 1st gene)
     i_0_cluster_start = int(mapped_results["coord1"].values[0])
@@ -324,15 +203,17 @@ def find_clusters():
     target_genes_ids = []
     prots_strands = []
 
+    # CHECK it now ignores the last line, is it a constant feature to
     # have empty line at the ened of the results file???
     # FIX to iterate through genes in genome, not through all the genes
     # CHECK why i itereate through results, not mapped results
+    # FIX to iterate via ALL TARGET prots
     # FIX genes ids retrieval
-    for i in range(1, len(results.iloc[:, 0])):
-        print('NEW ITER FINDS CLUSTERS')
-        print('prev targets list', target_genes_ids)
+    # !!!CHANGE range to variable back when you have only best hit-containing results
+    #for i in range(0, len(results.iloc[:, 0])):
+    for i in range(0, 43318):
         print(i)
-        print("target id is", mapped_results["ID"].values[i])
+        print(mapped_results["ID"].values[i])
         #print(results.iloc[[i]])
         # CHANGE this score (to 0 and 1 for 1st iter?)
         #score_x_i = float(results.iloc[i,10])
@@ -343,15 +224,15 @@ def find_clusters():
         # CHECK if -1 (and other potential values) properly read
         strand = int(mapped_results["strand"].values[i])
         print("strand is", strand)
-        # gap is changed to use genes number, not the coord difference
+        # gap changed to use gene number, not the coordinate diff
         #gap = abs(int(mapped_results["coord1"].values[i])- int((mapped_results["coord2"].values[i-1]))) - 1
-        gap = abs(int(mapped_results["ID"].values[i])- int((mapped_results["ID"].values[i-1])))
+        gap = abs(int(mapped_results["ID"].values[i].split("_")[1])- int((mapped_results["ID"].values[i-1].split("_")[1])))
         print('gap =', gap)
         # CHECK if that's strand of the previous gene or next
         # FIX with OR statement (re.findall('\+|\-', test))
         # FIX something wrong the first str = init gives "different strand"
         # FIX use another, calculated strand flip penalty (d) in the next iterations
-        if strand == int(mapped_results["strand"].values[i-1]):
+        if strand == init_strand:
             f_strand_flip = 0
             print('same strand')
         else:
@@ -362,13 +243,10 @@ def find_clusters():
         # THINK if it should be done better
         # also it relies on having "." in prot id
         # CHECK if I should compare with the prev prot
-        # UNCOMMENT!!! commented only for testing
-        #print(mapped_results["ID"].values[i].split(".")[0])
+        print(mapped_results["ID"].values[i].split(".")[0])
         # THINK is this gap enough for different genomes?
-        # THINk what to do with different other formats?
-        # UNCOMMENT!!! commented only for testing
-        #if mapped_results["ID"].values[i].split(".")[0] != mapped_results["ID"].values[i-1].split(".")[0]:
-            #gap = 100000
+        if mapped_results["ID"].values[i].split(".")[0] != mapped_results["ID"].values[i-1].split(".")[0]:
+            gap = 100000
         
         # updating previous gene strand (current gene = previous for next for loop iter)
         init_strand= strand
@@ -376,11 +254,9 @@ def find_clusters():
         print('scores')
         print('prev cluster score', score_i_minus_1_cluster)
         print('strand flip', f_strand_flip*d_strand_flip_penalty)
-        print('gap penalty*gap', gap_penalty*gap)
         print('current score', score_x_i)
         print('  ')
         print(score_i_minus_1_cluster - f_strand_flip*d_strand_flip_penalty + score_x_i)
-        print('potential enrich score', score_i_minus_1_cluster - f_strand_flip*d_strand_flip_penalty - gap_penalty*gap + score_x_i)
         print(max(0, score_x_i))
 
         # CHECK gap penalty
@@ -418,10 +294,6 @@ def find_clusters():
             
             print(score_max_cluster, score_min_cluster)
             if score_max_cluster > score_min_cluster:
-                #query_genes_ids.append(mapped_results["query_ID"].values[i])
-                #target_genes_ids.append(mapped_results["ID"].values[i])
-                #prots_strands.append(mapped_results["strand"].values[i])
-                #i_1_cluster_end = int(mapped_results["coord2"].values[i])
                 print('1st append')
                 cluster_matches.append((i_0_cluster_start,
                 i_1_cluster_end, score_max_cluster,
@@ -453,7 +325,10 @@ def find_clusters():
          query_genes_ids, target_genes_ids, prots_strands))
     # add more to cluster matches table? prot id?
     # ADD return of the changed ResultsMapping object? (with added scores?)
-    print(len(cluster_matches))
+    # FIX to be faster or remove
+    with open(files.res + 'cluster_matches_raw.txt', 'w') as f:
+        for line in cluster_matches:
+            f.write(f"{line}\n")
     return cluster_matches
 
 
@@ -462,7 +337,7 @@ def find_clusters():
 # ADD s0 
 # ADD besthit and significant clusters determination?
 # ADD algorithm for prots with no cluster matches
-def update_scores_for_cluster_matches(cluster_matches):
+def update_scores_for_cluster_matches(cluster_matches, mapped_res):
     # CHANGE for really significant clusters, not as it is?
     significant_clusters = cluster_matches 
     # ADD query id to mapped results
@@ -577,7 +452,8 @@ def calculate_karlin_stat(cluster_matches, mapped_results):
     print('using c code for Karlin-Altschul statistics')
 
     subprocess.call(['cc', '-fPIC', '-shared', '-o', 'karlin_c.so', 'karlin_c.c'])
-    so_file = "karlin_c.so"
+    # !! CHANGE the path later
+    so_file = "/home/mpg08/a.kolodyazhnaya01/mishpokhe_test/mishpokhe_test/karlin_c.so"
     my_functions = CDLL(so_file)
 
     # ASK Johannes if that's ok that I calculated enrich scores for all search results,
@@ -660,12 +536,9 @@ def calculate_karlin_stat(cluster_matches, mapped_results):
     print('BINS', scores_bins)
     print('bins diff', scores_bins[1]-scores_bins[0])
     #print(x)
-    # # to log the negative values and return their sign
-    # # ASK Johannes if it is a good idea
     # # THINK!
 
     # ASK Johannes, REMOVE later, that's just to fix problem with log when m_x = 0
-    # ASK how to fix -inf in logs
     # ASK Johannes if it is ok to use binning, no I think, it is NOT ok
     unique_scores = mult_param*np.unique(enrich_scores)
     unique_scores = np.sort(unique_scores)
@@ -782,7 +655,7 @@ def calculate_karlin_stat(cluster_matches, mapped_results):
 
 
 # ASK where strand flip penalty goes? next iter?
-def set_strand_flip_penalty(cluster_matches):
+def set_strand_flip_penalty(cluster_matches, mapped_res):
     target_db_h = mapped_res.target_db_h
     print(target_db_h)
     # this just delete the consecutive duplicates, therefore I can cound 
@@ -1229,19 +1102,19 @@ def generate_mmseqs_ffindex(sign_clusters_df):
 
 
 def main():
-    #make_profiles()
+    make_profiles()
 
     # CHECK if it works with multihitdb (just from command line it worked)
     # CHECK why there are more results with multihitdb (target is converted to profiles??)
-    #run_search()
+    run_search()
 
     # this class is to have order and strand for target proteins
     # FIX best query hit is needed
     
     # real mapping, uncomment? DELETE? as there are duplicates of this command in init
-    #mapped_res = ResultsMapping.map_target_to_coord()
+    mapped_res = ResultsMapping.map_target_to_coord()
 
-    cluster_matches = find_clusters()
+    cluster_matches = find_clusters(mapped_res)
     print(cluster_matches)
     # CHECK if it is optimal to divide scores update to few functions
 
@@ -1251,7 +1124,7 @@ def main():
     #significant_cluster_df_enriched = update_scores_for_cluster_matches(cluster_matches)
     #print(significant_cluster_df_enriched)
     
-    significant_cluster_df_enriched = update_scores_for_cluster_matches(cluster_matches)
+    significant_cluster_df_enriched = update_scores_for_cluster_matches(cluster_matches, mapped_res)
     mapped_results = mapped_res.res_map_to_header
     stat_lambda, stat_K = calculate_karlin_stat(cluster_matches, mapped_results)
     calculate_e_value(stat_lambda, stat_K, significant_cluster_df_enriched)
@@ -1294,11 +1167,6 @@ if __name__ == "__main__":
 
     # UNCOMMENT, real mapping!
     #mapped_res = ResultsMapping.map_target_to_coord()
-
-    # REMOVE later
-    # TEST map res data
-    mapped_res = TestingMappedRes.get_item()
-    print('class output mapped res', mapped_res.res_map_to_header)
 
     
 
