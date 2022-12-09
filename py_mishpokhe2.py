@@ -70,9 +70,17 @@ def run_search():
      files.res + '_prof_search',
      'tmp', '-a', '--max-accept', '1'])
     # convert to convenient format
-    subprocess.call(['mmseqs', 'convertalis', files.query_db + '_clu' + '_rep' + '_profile',
-     files.target_db, files.res + '_prof_search',
+    subprocess.call(['mmseqs', 'convertalis', 
+     files.target_db, files.query_db + '_clu' + '_rep' + '_profile', files.res + '_prof_search',
       files.res + '_prof_search' +'.m8'])
+    # As i change the search direction, I have to swap the columns in the file to use the same 
+    # code for other parts as before
+    # THINK if should swap for non-coverted result file
+    with open("tmp_res", "w") as outfile:
+        subprocess.call(["awk", "{ t = $1; $1 = $2; $2 = t; print; }", "OFS=\t", files.res + "_prof_search" +".m8"], stdout=outfile)
+    with open(files.res + "_prof_search" +".m8", "w") as outfile2:
+        subprocess.call(["cat", "tmp_res"], stdout=outfile2)
+    
 
 
 # The n of prots in db matches the n of gff CDS CDS!!! entries
@@ -121,7 +129,7 @@ class ResultsMapping:
         ##ind_list = search_result_file.iloc[:, 0].dropna().astype(int)
         #print(ind_list)
         # get target proteins real ids
-        # FIX "unique"?
+        # FIX "unique"? is it ok to use?
         real_id_list = pd.Series(pd.unique(search_result_file.iloc[:, 1]))
         print("real ids list", real_id_list)
         # map by 1st (0) column with real ids from search res
@@ -186,7 +194,7 @@ def find_clusters(mapped_res):
     score_i_minus_1_cluster = 0.1
 
     # CHECK, ASK Johannes
-    gap_penalty = 0.0001
+    gap_penalty = 0.01
 
     # CHECK if correct (esp if cluster does not start from the 1st gene)
     i_0_cluster_start = int(mapped_results["coord1"].values[0])
@@ -211,7 +219,7 @@ def find_clusters(mapped_res):
     # FIX genes ids retrieval
     # !!!CHANGE range to variable back when you have only best hit-containing results
     #for i in range(0, len(results.iloc[:, 0])):
-    for i in range(0, 43318):
+    for i in range(0, 8615):
         print(i)
         print(mapped_results["ID"].values[i])
         #print(results.iloc[[i]])
@@ -316,7 +324,7 @@ def find_clusters(mapped_res):
         score_i_minus_1_cluster = score_i_cluster
         print('max and min scores', score_max_cluster, score_min_cluster)
         print('cluster coord', i_0_cluster_start, i_1_cluster_end)
-        print('cluster matches', cluster_matches)
+        #print('cluster matches', cluster_matches)
 
     if score_max_cluster > score_min_cluster:
         print('2nd append')
@@ -326,9 +334,6 @@ def find_clusters(mapped_res):
     # add more to cluster matches table? prot id?
     # ADD return of the changed ResultsMapping object? (with added scores?)
     # FIX to be faster or remove
-    with open(files.res + 'cluster_matches_raw.txt', 'w') as f:
-        for line in cluster_matches:
-            f.write(f"{line}\n")
     return cluster_matches
 
 
@@ -348,12 +353,14 @@ def update_scores_for_cluster_matches(cluster_matches, mapped_res):
     # CHECK if the query and target assignment is correct
     K = len(significant_clusters)
     # FIX to be variable taken from number of prots in target
-    L = 1475
+    L = 2316846
     
     bias = 0
     sign_clusters_df = pd.DataFrame(significant_clusters)
     sign_clusters_df.columns = ["coord1", "coord2", "score",
     "query_prots", "target_prots", "strand"]
+
+    print(sign_clusters_df)
     sign_clusters_df['new_score_enrich'] = 0
     sign_clusters_df['list_new_scoreS_enrich'] = 0
 
@@ -471,7 +478,7 @@ def calculate_karlin_stat(cluster_matches, mapped_results):
     # CHECK if the query and target assignment is correct
     K = len(significant_clusters)
     # FIX to be variable taken from number of prots in target
-    L = 1475
+    L = 2316846
     
     bias = 0
     sign_clusters_df = pd.DataFrame(significant_clusters)
@@ -480,7 +487,7 @@ def calculate_karlin_stat(cluster_matches, mapped_results):
 
     K = len(significant_clusters)
     # FIX to be variable taken from number of prots in target
-    L = 1475
+    L = 2316846
     bias = 0
 
     cluster_prots = pd.DataFrame()
@@ -682,7 +689,7 @@ def set_strand_flip_penalty(cluster_matches, mapped_res):
     l = len(cluster_prots)
     print("K, l = ", K, l)
     # CHANGE to be variable taken from target proteome data
-    L = 1475
+    L = 2316846
     # ASK Johannes how to set up strand flip penalty if there are no
     # flips in clustersearch, f=0 and log doesnt exist
     # current solution is to set f = F/100000, just to make it minimun
@@ -703,7 +710,7 @@ def calculate_e_value(stat_lambda, stat_K, significant_cluster_df_enriched):
     mult_param = 6
     mult_param = int(input('enter multiplying value '))
     print('calculating e-value')
-    L = 1475
+    L = 2316846
     print(significant_cluster_df_enriched)
     stat_lambda = stat_lambda.value
     print(stat_lambda, stat_K)
@@ -724,7 +731,7 @@ def calculate_e_value(stat_lambda, stat_K, significant_cluster_df_enriched):
         evalue = stat_K*L*np.exp(stat_lambda*(-1)*conv_enrich_score)
         significant_cluster_df_enriched.iat[r, significant_cluster_df_enriched.columns.get_loc("e-value")] = float(evalue)
         print('eval =', evalue)
-    
+    # CHANGE the name? they are not filtered by e-val yet
     significant_cluster_df_enriched.to_csv('sign_clusters_enrich_stat', sep = '\t', index = False)
     print(significant_cluster_df_enriched)
     return significant_cluster_df_enriched
@@ -989,6 +996,7 @@ def initialize_new_prot_score():
     # searching neighbourhood cluster proteins against themselves to find for each protein 
     # how many matches are in clusters
     # CHECK if using neighbourhood file here is ok
+    # CHECK if the change of the mmseqs search direction should change anything here
     subprocess.call(['mmseqs', 'search', 
     'target_clusters_neighbourhood.db' + '_clu' + '_rep' + '_profile',
      'target_clusters_neighbourhood.db',
@@ -1102,11 +1110,11 @@ def generate_mmseqs_ffindex(sign_clusters_df):
 
 
 def main():
-    make_profiles()
+    #make_profiles()
 
     # CHECK if it works with multihitdb (just from command line it worked)
     # CHECK why there are more results with multihitdb (target is converted to profiles??)
-    run_search()
+    #run_search()
 
     # this class is to have order and strand for target proteins
     # FIX best query hit is needed
@@ -1115,7 +1123,10 @@ def main():
     mapped_res = ResultsMapping.map_target_to_coord()
 
     cluster_matches = find_clusters(mapped_res)
-    print(cluster_matches)
+    #print(cluster_matches)
+    cluster_matches_df = pd.DataFrame(cluster_matches)
+    cluster_matches_df.to_csv('cluster_matches_raw', sep = '\t', index = False)
+    print('number of clusters', len(cluster_matches_df.index))
     # CHECK if it is optimal to divide scores update to few functions
 
     # REMOVE duplicated function calling?
