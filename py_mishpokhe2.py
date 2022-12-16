@@ -60,26 +60,30 @@ def run_search():
     # ASK Johannes if it is ok to use this without sensitivity iters (manual)
     # Ask Johannes if it is correct to search TARGET against Query
     # FIX, --max-accept 1 does not work for now
-    #subprocess.call(['mmseqs', 'search', 
+    subprocess.call(['mmseqs', 'search', 
+    files.query_db + '_clu' + '_rep' + '_profile',
+     files.target_db,
+     files.res + '_prof_search',
+     'tmp', '-a'])
+    #subprocess.call(['mmseqs', 'search', files.target_db,
     #files.query_db + '_clu' + '_rep' + '_profile',
-    # files.target_db,
     # files.res + '_prof_search',
     # 'tmp', '-a'])
-    subprocess.call(['mmseqs', 'search', files.target_db,
-    files.query_db + '_clu' + '_rep' + '_profile',
-     files.res + '_prof_search',
-     'tmp', '-a', '--max-accept', '1'])
+    #, '--max-accept', '1'])
     # convert to convenient format
-    subprocess.call(['mmseqs', 'convertalis', 
-     files.target_db, files.query_db + '_clu' + '_rep' + '_profile', files.res + '_prof_search',
+    subprocess.call(['mmseqs', 'convertalis', files.query_db + '_clu' + '_rep' + '_profile',
+     files.target_db, files.res + '_prof_search',
       files.res + '_prof_search' +'.m8'])
+    #subprocess.call(['mmseqs', 'convertalis', 
+    # files.target_db, files.query_db + '_clu' + '_rep' + '_profile', files.res + '_prof_search',
+    #  files.res + '_prof_search' +'.m8'])
     # As i change the search direction, I have to swap the columns in the file to use the same 
     # code for other parts as before
     # THINK if should swap for non-coverted result file
-    with open("tmp_res", "w") as outfile:
-        subprocess.call(["awk", "{ t = $1; $1 = $2; $2 = t; print; }", "OFS=\t", files.res + "_prof_search" +".m8"], stdout=outfile)
-    with open(files.res + "_prof_search" +".m8", "w") as outfile2:
-        subprocess.call(["cat", "tmp_res"], stdout=outfile2)
+    #with open("tmp_res", "w") as outfile:
+    #    subprocess.call(["awk", "{ t = $1; $1 = $2; $2 = t; print; }", "OFS=\t", files.res + "_prof_search" +".m8"], stdout=outfile)
+    #with open(files.res + "_prof_search" +".m8", "w") as outfile2:
+    #    subprocess.call(["cat", "tmp_res"], stdout=outfile2)
     
 
 
@@ -219,7 +223,7 @@ def find_clusters(mapped_res):
     # FIX genes ids retrieval
     # !!!CHANGE range to variable back when you have only best hit-containing results
     #for i in range(0, len(results.iloc[:, 0])):
-    for i in range(0, 8615):
+    for i in range(0, 99):
         print(i)
         print(mapped_results["ID"].values[i])
         #print(results.iloc[[i]])
@@ -234,7 +238,8 @@ def find_clusters(mapped_res):
         print("strand is", strand)
         # gap changed to use gene number, not the coordinate diff
         #gap = abs(int(mapped_results["coord1"].values[i])- int((mapped_results["coord2"].values[i-1]))) - 1
-        gap = abs(int(mapped_results["ID"].values[i].split("_")[1])- int((mapped_results["ID"].values[i-1].split("_")[1])))
+        # CHECK if i need 1 or 2 column after split (for now it is for id looks like NC_015295.1_78)
+        gap = abs(int(mapped_results["ID"].values[i].split("_")[2])- int((mapped_results["ID"].values[i-1].split("_")[2])))
         print('gap =', gap)
         # CHECK if that's strand of the previous gene or next
         # FIX with OR statement (re.findall('\+|\-', test))
@@ -353,7 +358,7 @@ def update_scores_for_cluster_matches(cluster_matches, mapped_res):
     # CHECK if the query and target assignment is correct
     K = len(significant_clusters)
     # FIX to be variable taken from number of prots in target
-    L = 2316846
+    L = 439202
     
     bias = 0
     sign_clusters_df = pd.DataFrame(significant_clusters)
@@ -388,7 +393,7 @@ def update_scores_for_cluster_matches(cluster_matches, mapped_res):
     # ? FIX iterate not throught results but through initial query + target
     # CHECK if leaving only unique entries is correct
     # pseudocounts are added with parameter aplha_pseudocount
-    aplha_pseudocount = 0.001
+    aplha_pseudocount = pow(10,np.log10(1/L)-1)
     x_number_of_queries = len(mapped_results['query_ID'].unique())
     print('x_number_of_queries', x_number_of_queries)
     for query_id in mapped_results['query_ID'].unique():
@@ -450,6 +455,7 @@ def update_scores_for_cluster_matches(cluster_matches, mapped_res):
     # ADD these scores to profiles output!
 
     print(sign_clusters_df)
+    sign_clusters_df.to_csv('sign_clusters_df', sep = '\t')
     #print(x)
     return(sign_clusters_df)
 
@@ -478,7 +484,7 @@ def calculate_karlin_stat(cluster_matches, mapped_results):
     # CHECK if the query and target assignment is correct
     K = len(significant_clusters)
     # FIX to be variable taken from number of prots in target
-    L = 2316846
+    L = 439202
     
     bias = 0
     sign_clusters_df = pd.DataFrame(significant_clusters)
@@ -487,7 +493,7 @@ def calculate_karlin_stat(cluster_matches, mapped_results):
 
     K = len(significant_clusters)
     # FIX to be variable taken from number of prots in target
-    L = 2316846
+    L = 439202
     bias = 0
 
     cluster_prots = pd.DataFrame()
@@ -496,7 +502,7 @@ def calculate_karlin_stat(cluster_matches, mapped_results):
 
     l = len(cluster_prots)
     print('len(cluster_prots)', l)
-    aplha_pseudocount = 0.001
+    aplha_pseudocount = pow(10,np.log10(1/L)-1)
     
     # CHECK if it is right that in case of all res probs I should iterate through target
     # NOT through query as in example above
@@ -689,7 +695,7 @@ def set_strand_flip_penalty(cluster_matches, mapped_res):
     l = len(cluster_prots)
     print("K, l = ", K, l)
     # CHANGE to be variable taken from target proteome data
-    L = 2316846
+    L = 439202
     # ASK Johannes how to set up strand flip penalty if there are no
     # flips in clustersearch, f=0 and log doesnt exist
     # current solution is to set f = F/100000, just to make it minimun
@@ -710,7 +716,7 @@ def calculate_e_value(stat_lambda, stat_K, significant_cluster_df_enriched):
     mult_param = 6
     mult_param = int(input('enter multiplying value '))
     print('calculating e-value')
-    L = 2316846
+    L = 439202
     print(significant_cluster_df_enriched)
     stat_lambda = stat_lambda.value
     print(stat_lambda, stat_K)
@@ -1110,11 +1116,11 @@ def generate_mmseqs_ffindex(sign_clusters_df):
 
 
 def main():
-    #make_profiles()
+    make_profiles()
 
     # CHECK if it works with multihitdb (just from command line it worked)
     # CHECK why there are more results with multihitdb (target is converted to profiles??)
-    #run_search()
+    run_search()
 
     # this class is to have order and strand for target proteins
     # FIX best query hit is needed
