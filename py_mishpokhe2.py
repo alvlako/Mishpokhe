@@ -147,7 +147,31 @@ class ResultsMapping:
         tmp_res_map_to_header['query_ID'] = search_result_file.iloc[:, 0]
 
         # sort it back again to iterate via by order in the next step
-        res_map_to_header = tmp_res_map_to_header.sort_values(by=['ID'])
+        # these ids are strings, need to be numeric for correct sorting
+        
+        def atoi(text):
+            return int(text) if text.isdigit() else text
+
+        def natural_keys(text):
+            return [ atoi(c) for c in re.split(r'(\d+)', text) ]
+        
+        print(' ')
+        print(' ')
+        print(' ')
+        print('start soritng')
+        print(' ')
+
+        human_ids = tmp_res_map_to_header['ID'].tolist()
+        human_ids.sort(key=natural_keys)
+        #tmp_res_map_to_header['ID'] = human_ids.astype('category')
+        tmp_res_map_to_header['ID_cat'] = pd.Categorical(tmp_res_map_to_header['ID'], categories=human_ids, ordered=True)
+        #tmp_res_map_to_header.sort_values('ID_cat')
+        
+        tmp_res_map_to_header.sort_values('ID_cat', inplace=True)
+        tmp_res_map_to_header.reset_index(inplace=True, drop=True)
+        res_map_to_header = tmp_res_map_to_header.copy()
+
+        #res_map_to_header = tmp_res_map_to_header.sort_values(by=['ID'])
 
         ##res_map_to_header['ind'] = ind_list.values
         # get target proteins real ids
@@ -198,7 +222,7 @@ def find_clusters(mapped_res):
     score_i_minus_1_cluster = 0.1
 
     # CHECK, ASK Johannes
-    gap_penalty = 0.01
+    gap_penalty = 0.1
 
     # CHECK if correct (esp if cluster does not start from the 1st gene)
     i_0_cluster_start = int(mapped_results["coord1"].values[0])
@@ -223,7 +247,7 @@ def find_clusters(mapped_res):
     # FIX genes ids retrieval
     # !!!CHANGE range to variable back when you have only best hit-containing results
     #for i in range(0, len(results.iloc[:, 0])):
-    for i in range(0, 99):
+    for i in range(0, len(mapped_results["ID"].values)):
         print(i)
         print(mapped_results["ID"].values[i])
         #print(results.iloc[[i]])
