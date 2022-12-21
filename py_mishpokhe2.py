@@ -120,8 +120,8 @@ class ResultsMapping:
         #search_result_file = pd.read_csv('/Users/Sasha/Documents/GitHub/mishpokhe_test/py_norm_res_prof_search.m8', dtype={'str':'float'}, sep='\t', header = None)
         search_result_file = pd.read_csv(files.res + '_prof_search' +'.m8', dtype={'str':'float'}, sep='\t', header = None)
         print(search_result_file)
-        # Do i need lookup?
-        target_db_lookup = np.genfromtxt(str(files.target_db)+str(".lookup"), dtype = None, delimiter="\t", encoding=None)
+        #target_db_lookup = np.genfromtxt(str(files.target_db)+str(".lookup"), dtype = None, delimiter="\t", encoding=None)
+        target_db_lookup = pd.read_csv(str(files.target_db)+str(".lookup"), dtype=None, sep='\t', header = None)
         target_db_h = pd.read_csv(str(files.target_db)+str("_h"), sep='\s+#\s+', header=None, engine='python')
         #print(search_result_file.iloc[:, 0])
         
@@ -202,6 +202,14 @@ def find_clusters(mapped_res):
     mapped_results = mapped_res.res_map_to_header
     results = mapped_res.search_result_file
     index_list = mapped_res.ind_list
+    target_db_lookup = mapped_res.target_db_lookup
+    target_db_h = mapped_res.target_db_h
+
+    # For some reasons, _h file is not sorted as lookup by default, so I sort it accordingly
+    target_db_h['sort_cat'] = pd.Categorical(target_db_h['ID'], categories=target_db_lookup.iloc[:, 1].tolist(), ordered=True)
+    target_db_h.sort_values('sort_cat', inplace=True)
+    target_db_h.reset_index(inplace=True)
+
     # to fix the problem with the nan coming from reading the table
     results = results[results.iloc[:, 0].notna()]
     print(results)
@@ -221,17 +229,14 @@ def find_clusters(mapped_res):
     score_min_cluster = 0
     score_i_minus_1_cluster = 0.1
 
-    # CHECK, ASK Johannes
-    gap_penalty = 0.1
-
     # CHECK if correct (esp if cluster does not start from the 1st gene)
-    i_0_cluster_start = int(mapped_results["coord1"].values[0])
+    i_0_cluster_start = int(target_db_h["coord1"].values[0])
     pd.set_option('display.max_columns', None)
     #print(mapped_results)
     print("cluster start", i_0_cluster_start)
-    i_1_cluster_end = int(mapped_results["coord2"].values[0])
+    i_1_cluster_end = int(target_db_h["coord2"].values[0])
     # CHECK if correct
-    init_strand = str(mapped_results["strand"].values[0])
+    init_strand = int(target_db_h["strand"].values[0])
     print('strand is')
     print(init_strand)
 
@@ -245,12 +250,11 @@ def find_clusters(mapped_res):
     # CHECK why i itereate through results, not mapped results
     # FIX to iterate via ALL TARGET prots
     # FIX genes ids retrieval
-    # !!!CHANGE range to variable back when you have only best hit-containing results
-    #for i in range(0, len(results.iloc[:, 0])):
-    for i in range(0, len(mapped_results["ID"].values)):
+    print('target lookup')
+    print(target_db_lookup.iloc[:, 1])
+    for i in range(1, len(target_db_lookup.iloc[:, 1])):
         print(i)
-        print(mapped_results["ID"].values[i])
-        #print(results.iloc[[i]])
+        print(target_db_lookup.iloc[:, 1].values[i])
         # CHANGE this score (to 0 and 1 for 1st iter?)
         #score_x_i = float(results.iloc[i,10])
         score_x_i = 1
@@ -258,13 +262,18 @@ def find_clusters(mapped_res):
         #score_x_i = -np.log(score_x_i)
         # CHECK in evalue section how to initialize this score
         # CHECK if -1 (and other potential values) properly read
-        strand = int(mapped_results["strand"].values[i])
+        strand = int(target_db_h["strand"].values[i])
         print("strand is", strand)
+
         # gap changed to use gene number, not the coordinate diff
         #gap = abs(int(mapped_results["coord1"].values[i])- int((mapped_results["coord2"].values[i-1]))) - 1
         # CHECK if i need 1 or 2 column after split (for now it is for id looks like NC_015295.1_78)
-        gap = abs(int(mapped_results["ID"].values[i].split("_")[2])- int((mapped_results["ID"].values[i-1].split("_")[2])))
-        print('gap =', gap)
+
+        # I need no gap penalty as I have s0
+        #print(target_db_h["ID"].values[i].split("_"))
+        #gap = abs(int(target_db_h["ID"].values[i].split("_")[1])- int((target_db_h["ID"].values[i-1].split("_")[1])))
+        #print('gap =', gap)
+        
         # CHECK if that's strand of the previous gene or next
         # FIX with OR statement (re.findall('\+|\-', test))
         # FIX something wrong the first str = init gives "different strand"
@@ -280,11 +289,13 @@ def find_clusters(mapped_res):
         # THINK if it should be done better
         # also it relies on having "." in prot id
         # CHECK if I should compare with the prev prot
-        print(mapped_results["ID"].values[i].split(".")[0])
-        # THINK is this gap enough for different genomes?
-        if mapped_results["ID"].values[i].split(".")[0] != mapped_results["ID"].values[i-1].split(".")[0]:
-            gap = 100000
-        
+        print(target_db_h["ID"].values[i].split("_")[0])
+        if target_db_h["ID"].values[i].split("_")[0] != target_db_h["ID"].values[i-1].split("_")[0]:
+            print('different genomes!!!')
+            continue
+
+        print('passed')
+        # ------ end of change
         # updating previous gene strand (current gene = previous for next for loop iter)
         init_strand= strand
         
@@ -296,9 +307,8 @@ def find_clusters(mapped_res):
         print(score_i_minus_1_cluster - f_strand_flip*d_strand_flip_penalty + score_x_i)
         print(max(0, score_x_i))
 
-        # CHECK gap penalty
-        if (score_i_minus_1_cluster - f_strand_flip*d_strand_flip_penalty - gap_penalty*gap + score_x_i) > max(0, score_x_i):
-            score_i_cluster = score_i_minus_1_cluster - f_strand_flip*d_strand_flip_penalty - gap_penalty*gap + score_x_i
+        if (score_i_minus_1_cluster - f_strand_flip*d_strand_flip_penalty + score_x_i) > max(0, score_x_i):
+            score_i_cluster = score_i_minus_1_cluster - f_strand_flip*d_strand_flip_penalty + score_x_i
             print('proceed', score_i_cluster, score_max_cluster)
             print('score i-1', score_i_minus_1_cluster)
             
@@ -1140,11 +1150,11 @@ def generate_mmseqs_ffindex(sign_clusters_df):
 
 
 def main():
-    make_profiles()
+    #make_profiles()
 
     # CHECK if it works with multihitdb (just from command line it worked)
     # CHECK why there are more results with multihitdb (target is converted to profiles??)
-    run_search()
+    #run_search()
 
     # this class is to have order and strand for target proteins
     # FIX best query hit is needed
@@ -1165,10 +1175,10 @@ def main():
     #significant_cluster_df_enriched = update_scores_for_cluster_matches(cluster_matches)
     #print(significant_cluster_df_enriched)
     
-    significant_cluster_df_enriched = update_scores_for_cluster_matches(cluster_matches, mapped_res)
-    mapped_results = mapped_res.res_map_to_header
-    stat_lambda, stat_K = calculate_karlin_stat(cluster_matches, mapped_results)
-    calculate_e_value(stat_lambda, stat_K, significant_cluster_df_enriched)
+    #significant_cluster_df_enriched = update_scores_for_cluster_matches(cluster_matches, mapped_res)
+    #mapped_results = mapped_res.res_map_to_header
+    #stat_lambda, stat_K = calculate_karlin_stat(cluster_matches, mapped_results)
+    #calculate_e_value(stat_lambda, stat_K, significant_cluster_df_enriched)
 
     # CHANGE notation for significant clusters??
 
