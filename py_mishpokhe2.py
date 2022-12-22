@@ -224,10 +224,15 @@ def find_clusters(mapped_res):
     # CHECK if score max cluster set up correct
     score_max_cluster = 0
     # OPTIMIZE how to set the strand penalty
-    d_strand_flip_penalty = 0.5
+    d_strand_flip_penalty = 0.1
+    
     # CHECK if it was set up correctly
     score_min_cluster = 0
     score_i_minus_1_cluster = 0.1
+    s_0 = -0.001
+
+    # Shows if the current protein has a query match
+    is_match = 1
 
     # CHECK if correct (esp if cluster does not start from the 1st gene)
     i_0_cluster_start = int(target_db_h["coord1"].values[0])
@@ -244,20 +249,28 @@ def find_clusters(mapped_res):
     target_genes_ids = []
     prots_strands = []
 
+
+    matches_ids_list = mapped_results['ID'].tolist()
+
     # CHECK it now ignores the last line, is it a constant feature to
     # have empty line at the ened of the results file???
-    # FIX to iterate through genes in genome, not through all the genes
     # CHECK why i itereate through results, not mapped results
-    # FIX to iterate via ALL TARGET prots
     # FIX genes ids retrieval
     print('target lookup')
     print(target_db_lookup.iloc[:, 1])
     for i in range(1, len(target_db_lookup.iloc[:, 1])):
         print(i)
         print(target_db_lookup.iloc[:, 1].values[i])
+        diff_genomes_penalty = 0
         # CHANGE this score (to 0 and 1 for 1st iter?)
         #score_x_i = float(results.iloc[i,10])
-        score_x_i = 1
+        # CHECK if correct
+        if target_db_h["ID"].values[i] in matches_ids_list:
+            score_x_i = 1
+            is_match = 1
+        else:
+            score_x_i = s_0
+            is_match = 0
         # FIX temporary solution to make score_x_i to overweight other scores to get significant clusters
         #score_x_i = -np.log(score_x_i)
         # CHECK in evalue section how to initialize this score
@@ -292,10 +305,11 @@ def find_clusters(mapped_res):
         print(target_db_h["ID"].values[i].split("_")[0])
         if target_db_h["ID"].values[i].split("_")[0] != target_db_h["ID"].values[i-1].split("_")[0]:
             print('different genomes!!!')
-            continue
+            # is it a good idea?
+            diff_genomes_penalty = 10000
+            #continue
 
         print('passed')
-        # ------ end of change
         # updating previous gene strand (current gene = previous for next for loop iter)
         init_strand= strand
         
@@ -307,8 +321,8 @@ def find_clusters(mapped_res):
         print(score_i_minus_1_cluster - f_strand_flip*d_strand_flip_penalty + score_x_i)
         print(max(0, score_x_i))
 
-        if (score_i_minus_1_cluster - f_strand_flip*d_strand_flip_penalty + score_x_i) > max(0, score_x_i):
-            score_i_cluster = score_i_minus_1_cluster - f_strand_flip*d_strand_flip_penalty + score_x_i
+        if (score_i_minus_1_cluster - f_strand_flip*d_strand_flip_penalty - diff_genomes_penalty + score_x_i) > max(0, score_x_i):
+            score_i_cluster = score_i_minus_1_cluster - f_strand_flip*d_strand_flip_penalty  - diff_genomes_penalty + score_x_i
             print('proceed', score_i_cluster, score_max_cluster)
             print('score i-1', score_i_minus_1_cluster)
             
@@ -317,16 +331,22 @@ def find_clusters(mapped_res):
                 score_max_cluster = score_i_cluster
                 # CHECK if correct, CHANGE to look better
                 #i_1_cluster_end = str(mapped_results.iloc[i,1])
-                i_1_cluster_end = int(mapped_results["coord2"].values[i])
+                i_1_cluster_end = int(target_db_h["coord2"].values[i])
                 # CHECK changing of score_i_minus_1_cluster
                 # CHECK why did add this? it is not in the Johannes pseudocode
                 #score_i_minus_1_cluster = score_i_cluster
                 print('upd prev cluster score', score_i_minus_1_cluster)
 
                 #last_target_gene = mapped_results["ID"].values[i]
-                query_genes_ids.append(mapped_results["query_ID"].values[i])
-                target_genes_ids.append(mapped_results["ID"].values[i])
-                prots_strands.append(mapped_results["strand"].values[i])
+                # ADD best match??
+                if is_match == 1:
+                    curr_query_id = mapped_results.loc[mapped_results['ID'] == target_db_h["ID"].values[i], 'query_ID'].iloc[0]
+                    query_genes_ids.append(curr_query_id)
+                else:
+                    # Is it a good idea to append?
+                    query_genes_ids.append('') 
+                target_genes_ids.append(target_db_h["ID"].values[i])
+                prots_strands.append(target_db_h["strand"].values[i])
 
         else:
             print('second')
@@ -348,15 +368,21 @@ def find_clusters(mapped_res):
                 score_max_cluster = 0
             # THINK if it is okay to be here or above
             # for some reasons if here it gives proper result
-            i_0_cluster_start = int(mapped_results["coord1"].values[i])
+            i_0_cluster_start = int(target_db_h["coord1"].values[i])
 
             #first_target_gene = mapped_results["ID"].values[i]
             query_genes_ids = []
-            query_genes_ids.append(mapped_results["query_ID"].values[i])
+            # ADD best match??
+            if is_match == 1:
+                    curr_query_id = mapped_results.loc[mapped_results['ID'] == target_db_h["ID"].values[i], 'query_ID'].iloc[0]
+                    query_genes_ids.append(curr_query_id)
+            else:
+                # Is it a good idea to append?
+                query_genes_ids.append('') 
             target_genes_ids = []
-            target_genes_ids.append(mapped_results["ID"].values[i])
+            target_genes_ids.append(target_db_h["ID"].values[i])
             prots_strands = []
-            prots_strands.append(mapped_results["strand"].values[i])
+            prots_strands.append(target_db_h["strand"].values[i])
             #query_genes_ids.append(mapped_results["query_ID"].values[i])
             #target_genes_ids.append(mapped_results["ID"].values[i])
         # CHECK if correct, not as in latex
@@ -373,6 +399,7 @@ def find_clusters(mapped_res):
     # add more to cluster matches table? prot id?
     # ADD return of the changed ResultsMapping object? (with added scores?)
     # FIX to be faster or remove
+    print(cluster_matches)
     return cluster_matches
 
 
