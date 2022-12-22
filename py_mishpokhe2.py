@@ -258,7 +258,7 @@ def find_clusters(mapped_res):
     # FIX genes ids retrieval
     print('target lookup')
     print(target_db_lookup.iloc[:, 1])
-    for i in range(1, len(target_db_lookup.iloc[:, 1])):
+    for i in range(0, len(target_db_lookup.iloc[:, 1])-1):
         print(i)
         print(target_db_lookup.iloc[:, 1].values[i])
         diff_genomes_penalty = 0
@@ -303,7 +303,7 @@ def find_clusters(mapped_res):
         # also it relies on having "." in prot id
         # CHECK if I should compare with the prev prot
         print(target_db_h["ID"].values[i].split("_")[0])
-        if target_db_h["ID"].values[i].split("_")[0] != target_db_h["ID"].values[i-1].split("_")[0]:
+        if target_db_h["ID"].values[i].split("_")[0] != target_db_h["ID"].values[i+1].split("_")[0]:
             print('different genomes!!!')
             # is it a good idea?
             diff_genomes_penalty = 10000
@@ -346,7 +346,7 @@ def find_clusters(mapped_res):
                     # Is it a good idea to append?
                     query_genes_ids.append('') 
                 target_genes_ids.append(target_db_h["ID"].values[i])
-                prots_strands.append(target_db_h["strand"].values[i])
+                prots_strands.append(int(target_db_h["strand"].values[i]))
 
         else:
             print('second')
@@ -382,7 +382,7 @@ def find_clusters(mapped_res):
             target_genes_ids = []
             target_genes_ids.append(target_db_h["ID"].values[i])
             prots_strands = []
-            prots_strands.append(target_db_h["strand"].values[i])
+            prots_strands.append(int(target_db_h["strand"].values[i]))
             #query_genes_ids.append(mapped_results["query_ID"].values[i])
             #target_genes_ids.append(mapped_results["ID"].values[i])
         # CHECK if correct, not as in latex
