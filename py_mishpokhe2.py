@@ -415,11 +415,15 @@ def update_scores_for_cluster_matches(cluster_matches, mapped_res):
     mapped_results = mapped_res.res_map_to_header
     results = mapped_res.search_result_file
 
+    target_db_lookup = mapped_res.target_db_lookup
+    target_db_h = mapped_res.target_db_h
+
     # CHECK if these are right columns
     # CHECK if the query and target assignment is correct
     K = len(significant_clusters)
-    # FIX to be variable taken from number of prots in target
-    L = 439202
+    L = len(target_db_lookup.index)
+
+    print(L)
     
     bias = 0
     sign_clusters_df = pd.DataFrame(significant_clusters)
@@ -451,14 +455,19 @@ def update_scores_for_cluster_matches(cluster_matches, mapped_res):
     print(cluster_prots)
     print('mapped results')
     print(mapped_results)
-    # ? FIX iterate not throught results but through initial query + target
+    # CHECK if it is correct to iterate through cluster matches?
+    # So I am calculating enrichment score for cluster matches and for cluster prots with no match
     # CHECK if leaving only unique entries is correct
     # pseudocounts are added with parameter aplha_pseudocount
     aplha_pseudocount = pow(10,np.log10(1/L)-1)
     x_number_of_queries = len(mapped_results['query_ID'].unique())
     print('x_number_of_queries', x_number_of_queries)
-    for query_id in mapped_results['query_ID'].unique():
+    # Do I need unique?
+    for query_id in cluster_prots['query_id'].unique():
         print(query_id)
+        # to avoid empty queries corresponding to prots with no match
+        if query_id == '':
+            continue
         M_x = mapped_results['query_ID'][mapped_results['query_ID'] == query_id].shape[0]
         m_x = cluster_prots[cluster_prots['query_id'] == query_id]['query_id'].count()
         # in this case M_x and m_x are equal as there were no single hits. 
@@ -483,41 +492,33 @@ def update_scores_for_cluster_matches(cluster_matches, mapped_res):
         # FIX figure out how to set b and threshold for prot to be enriched in cluster
         # ADD file to store scores corresponding to profiles
 
-    # ASK Johannes if I calculated it correctly (given the sum sign for m_x and M_x)
-    # ASK if it correct that m_x and M_x the same (m_x_no_match)?
-    # score for proteins with no match
+    # calculating the scores for cluster prots with no match
+    # THINK if it is ok to iterate again and also the order of scores adding to the
+    # list of scores is not competely correct
+    matches_ids_list = mapped_results['ID'].tolist()
 
-    # TEST the below part TEST!!!!
-    # TEST!!! UNCOMMENT!
-    # m_x_no_match = 0
-    # non_matched_queries = []
-   
-    # p1_all_q = subprocess.Popen(['cut', '-f1', files.res + '_prof_search' +'.m8'],
-    #  stdout=subprocess.PIPE)
-    # p1_all_q.stdout.close()
-    # output_all_q,err_all_q = p1_all_q.communicate()
-    # all_queries_set = set(output_all_q.decode("utf-8"))
+    # Counting all target cluster prots having query matches
+    m_x_sum = len(cluster_prots['query_id'])
+    # Counting all target proteins with matches to some queries
+    M_x_sum = len(mapped_results['ID'])
 
-    # p2_all_q = subprocess.Popen(['cut', '-f1', str(files.target_db)+str(".lookup")],
-    #  stdout=subprocess.PIPE)
-    # p2_all_q.stdout.close()
-    # output_matched_q,err_matched_q = p2_all_q.communicate()
-    # matched_queries_set = set(output_matched_q.decode("utf-8"))
-
-    # print('all_queries_set', all_queries_set)
-    # print('matched_queries_set',matched_queries_set)
-    # non_matched_queries = all_queries_set - matched_queries_set
-    # for query_id in non_matched_queries:
-    #     if query_id not in mapped_results['query_ID'].unique():
-    #         m_x_no_match = m_x_no_match + 1
-    #         non_matched_queries.append(query_id)
-    # s_0_no_match = np.divide(np.divide((l-m_x_no_match),l), np.divide((L-m_x_no_match),L)) - bias
-    # TEST!!!
-    # ADD these scores to profiles output!
+    for target_id in cluster_prots['target_id']:
+        if target_id not in matches_ids_list:
+            print('no match', target_id)
+            s_0 = np.divide(np.divide((l-m_x_sum),l), np.divide((L-M_x_sum),L)) - bias
+            print('updates s_0 for', target_id, 'is = ', s_0)
+            print(sign_clusters_df[pd.DataFrame(sign_clusters_df['target_prots'].tolist()).isin(target_id.split()).any(1).values])
+            tmp_df = sign_clusters_df[pd.DataFrame(sign_clusters_df['target_prots'].tolist()).isin(target_id.split()).any(1).values]['new_score_enrich'] + s_0
+            array_of_bool = pd.DataFrame(sign_clusters_df['target_prots'].tolist()).isin(target_id.split()).any(1).values
+            index_of_row = int(np.where(array_of_bool == True)[0])
+            sign_clusters_df.loc[sign_clusters_df.index[index_of_row],'new_score_enrich'] = sign_clusters_df.loc[sign_clusters_df.index[index_of_row],'new_score_enrich'] + s_0
+            sign_clusters_df.loc[sign_clusters_df.index[index_of_row],'list_new_scoreS_enrich'] = sign_clusters_df.loc[sign_clusters_df.index[index_of_row],'list_new_scoreS_enrich'] + ',' + str(s_0)
+            print(sign_clusters_df)
+            print(sign_clusters_df['list_new_scoreS_enrich'].tolist())
+            
 
     print(sign_clusters_df)
     sign_clusters_df.to_csv('sign_clusters_df', sep = '\t')
-    #print(x)
     return(sign_clusters_df)
 
 
@@ -544,18 +545,14 @@ def calculate_karlin_stat(cluster_matches, mapped_results):
     # CHECK if these are right columns
     # CHECK if the query and target assignment is correct
     K = len(significant_clusters)
-    # FIX to be variable taken from number of prots in target
-    L = 439202
+    
+    target_db_lookup = mapped_results.target_db_lookup
+    L = len(target_db_lookup.index)
     
     bias = 0
     sign_clusters_df = pd.DataFrame(significant_clusters)
     sign_clusters_df.columns = ["coord1", "coord2", "score",
     "query_prots", "target_prots", "strand"]
-
-    K = len(significant_clusters)
-    # FIX to be variable taken from number of prots in target
-    L = 439202
-    bias = 0
 
     cluster_prots = pd.DataFrame()
     cluster_prots['query_id'] = sign_clusters_df['query_prots'].explode()
@@ -756,7 +753,8 @@ def set_strand_flip_penalty(cluster_matches, mapped_res):
     l = len(cluster_prots)
     print("K, l = ", K, l)
     # CHANGE to be variable taken from target proteome data
-    L = 439202
+    target_db_lookup = mapped_res.target_db_lookup
+    L = len(target_db_lookup.index)
     # ASK Johannes how to set up strand flip penalty if there are no
     # flips in clustersearch, f=0 and log doesnt exist
     # current solution is to set f = F/100000, just to make it minimun
@@ -771,13 +769,14 @@ def set_strand_flip_penalty(cluster_matches, mapped_res):
 
 
 # ASK Johannes if in e-value calculations the L should actually be the L, not like L*L
-def calculate_e_value(stat_lambda, stat_K, significant_cluster_df_enriched):
+def calculate_e_value(stat_lambda, stat_K, significant_cluster_df_enriched, mapped_res):
     # FIX to be variable taken from number of prots in target
     # CHANGE it to be linked and the same with the used in calculate_karlin_stat
     mult_param = 6
     mult_param = int(input('enter multiplying value '))
     print('calculating e-value')
-    L = 439202
+    target_db_lookup = mapped_res.target_db_lookup
+    L = len(target_db_lookup.index)
     print(significant_cluster_df_enriched)
     stat_lambda = stat_lambda.value
     print(stat_lambda, stat_K)
@@ -1199,13 +1198,13 @@ def main():
     # REMOVE duplicated function calling?
     # REMOVE these functions?
     #update_scores_for_cluster_matches(cluster_matches)
-    #significant_cluster_df_enriched = update_scores_for_cluster_matches(cluster_matches)
+    significant_cluster_df_enriched = update_scores_for_cluster_matches(cluster_matches, mapped_res)
     #print(significant_cluster_df_enriched)
     
     #significant_cluster_df_enriched = update_scores_for_cluster_matches(cluster_matches, mapped_res)
     #mapped_results = mapped_res.res_map_to_header
     #stat_lambda, stat_K = calculate_karlin_stat(cluster_matches, mapped_results)
-    #calculate_e_value(stat_lambda, stat_K, significant_cluster_df_enriched)
+    #calculate_e_value(stat_lambda, stat_K, significant_cluster_df_enriched, mapped_res)
 
     # CHANGE notation for significant clusters??
 
