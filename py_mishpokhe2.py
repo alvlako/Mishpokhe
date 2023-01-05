@@ -331,15 +331,6 @@ def find_clusters(mapped_res):
             diff_genomes_penalty = 10000
             #continue
 
-        # REMOVE, tmp
-        if i == 0:
-            gap = 0
-        else:
-            gap = abs(int(target_db_h["ID"].values[i].split("_")[2])- int((target_db_h["ID"].values[i-1].split("_")[2])))
-            print('gap =', gap)
-        if gap < 5:
-            gaps_list.append(gap)
-
         #print('passed')
         # updating previous gene strand (current gene = previous for next for loop iter)
         init_strand= strand
@@ -353,8 +344,8 @@ def find_clusters(mapped_res):
         print(max(0, score_x_i))
 
 
-        if (score_i_minus_1_cluster - f_strand_flip*d_strand_flip_penalty - diff_genomes_penalty - gap*gap_penalty + score_x_i) > max(0, score_x_i):
-            score_i_cluster = score_i_minus_1_cluster - f_strand_flip*d_strand_flip_penalty  - diff_genomes_penalty + score_x_i - gap*gap_penalty 
+        if (score_i_minus_1_cluster - f_strand_flip*d_strand_flip_penalty - diff_genomes_penalty + score_x_i) > max(0, score_x_i):
+            score_i_cluster = score_i_minus_1_cluster - f_strand_flip*d_strand_flip_penalty  - diff_genomes_penalty + score_x_i
             print('proceed', score_i_cluster, score_max_cluster)
             print('score i-1', score_i_minus_1_cluster)
             
