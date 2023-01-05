@@ -124,6 +124,8 @@ class ResultsMapping:
         target_db_lookup = pd.read_csv(str(files.target_db)+str(".lookup"), dtype=None, sep='\t', header = None)
         target_db_h = pd.read_csv(str(files.target_db)+str("_h"), sep='\s+#\s+', header=None, engine='python')
         #print(search_result_file.iloc[:, 0])
+
+        target_db_lookup.columns = ["ind_id", "ID", "file_id"]
         
         # RENAME ID to target_ID
         target_db_h.columns = ["ID", "coord1", "coord2", "strand","comment"]
@@ -174,6 +176,19 @@ class ResultsMapping:
         #res_map_to_header = tmp_res_map_to_header.sort_values(by=['ID'])
 
         ##res_map_to_header['ind'] = ind_list.values
+
+        # sorting target db lookup to iterate in find_clusters
+        # DOUBLE check?
+        #human_ids2 = target_db_lookup['ID'].tolist()
+        #human_ids2.sort(key=natural_keys)
+        #target_db_lookup['ID_cat'] = pd.Categorical(target_db_lookup['ID'], categories=human_ids, ordered=True)
+        #target_db_lookup.sort_values('ID_cat', inplace=True)
+        #target_db_lookup.reset_index(inplace=True, drop=True)
+        #target_db_lookup = target_db_lookup.drop(['ID_cat'], axis=1)
+
+        target_db_lookup = target_db_lookup.sort_values(by='ID')
+
+
         # get target proteins real ids
 
         # CLEAN
@@ -228,8 +243,8 @@ def find_clusters(mapped_res):
     
     # CHECK if it was set up correctly
     score_min_cluster = 0
-    score_i_minus_1_cluster = 0.1
-    s_0 = -0.001
+    score_i_minus_1_cluster = 0
+    s_0 = -1
 
     # Shows if the current protein has a query match
     is_match = 1
@@ -249,16 +264,20 @@ def find_clusters(mapped_res):
     target_genes_ids = []
     prots_strands = []
 
+    # REMOVE, tmp
+    gap_penalty = 0.1
+    gaps_list = []
+
 
     matches_ids_list = mapped_results['ID'].tolist()
 
     # CHECK it now ignores the last line, is it a constant feature to
     # have empty line at the ened of the results file???
-    # CHECK why i itereate through results, not mapped results
     # FIX genes ids retrieval
     print('target lookup')
     print(target_db_lookup.iloc[:, 1])
     for i in range(0, len(target_db_lookup.iloc[:, 1])-1):
+        print('NEW cycle starts')
         print(i)
         print(target_db_lookup.iloc[:, 1].values[i])
         diff_genomes_penalty = 0
@@ -302,14 +321,26 @@ def find_clusters(mapped_res):
         # THINK if it should be done better
         # also it relies on having "." in prot id
         # CHECK if I should compare with the prev prot
-        print(target_db_h["ID"].values[i].split("_")[0])
-        if target_db_h["ID"].values[i].split("_")[0] != target_db_h["ID"].values[i+1].split("_")[0]:
+        # ADD something because now it depends a lot on format, indices would be different here
+        # if ids are NC_111.1_1 or something else like MT333.1_2
+        print(target_db_h["ID"].values[i].split("_")[0]+target_db_h["ID"].values[i].split("_")[1])
+        print(target_db_h["ID"].values[i+1].split("_")[0]+target_db_h["ID"].values[i+1].split("_")[1])
+        if target_db_h["ID"].values[i].split("_")[0]+target_db_h["ID"].values[i].split("_")[1] != target_db_h["ID"].values[i+1].split("_")[0]+target_db_h["ID"].values[i+1].split("_")[1]:
             print('different genomes!!!')
             # is it a good idea?
             diff_genomes_penalty = 10000
             #continue
 
-        print('passed')
+        # REMOVE, tmp
+        if i == 0:
+            gap = 0
+        else:
+            gap = abs(int(target_db_h["ID"].values[i].split("_")[2])- int((target_db_h["ID"].values[i-1].split("_")[2])))
+            print('gap =', gap)
+        if gap < 5:
+            gaps_list.append(gap)
+
+        #print('passed')
         # updating previous gene strand (current gene = previous for next for loop iter)
         init_strand= strand
         
@@ -321,8 +352,9 @@ def find_clusters(mapped_res):
         print(score_i_minus_1_cluster - f_strand_flip*d_strand_flip_penalty + score_x_i)
         print(max(0, score_x_i))
 
-        if (score_i_minus_1_cluster - f_strand_flip*d_strand_flip_penalty - diff_genomes_penalty + score_x_i) > max(0, score_x_i):
-            score_i_cluster = score_i_minus_1_cluster - f_strand_flip*d_strand_flip_penalty  - diff_genomes_penalty + score_x_i
+
+        if (score_i_minus_1_cluster - f_strand_flip*d_strand_flip_penalty - diff_genomes_penalty - gap*gap_penalty + score_x_i) > max(0, score_x_i):
+            score_i_cluster = score_i_minus_1_cluster - f_strand_flip*d_strand_flip_penalty  - diff_genomes_penalty + score_x_i - gap*gap_penalty 
             print('proceed', score_i_cluster, score_max_cluster)
             print('score i-1', score_i_minus_1_cluster)
             
@@ -339,6 +371,7 @@ def find_clusters(mapped_res):
 
                 #last_target_gene = mapped_results["ID"].values[i]
                 # ADD best match??
+                print('first 1st append')
                 if is_match == 1:
                     curr_query_id = mapped_results.loc[mapped_results['ID'] == target_db_h["ID"].values[i], 'query_ID'].iloc[0]
                     query_genes_ids.append(curr_query_id)
@@ -350,6 +383,9 @@ def find_clusters(mapped_res):
 
         else:
             print('second')
+            score_i_cluster = score_i_minus_1_cluster - f_strand_flip*d_strand_flip_penalty  - diff_genomes_penalty + score_x_i - gap*gap_penalty 
+            print('second_proceed', score_i_cluster, score_max_cluster)
+            print('score i-1', score_i_minus_1_cluster)
             score_i_cluster = score_x_i
 
             # CHECK if correct, CHANGE to get right coord
@@ -361,7 +397,7 @@ def find_clusters(mapped_res):
             
             print(score_max_cluster, score_min_cluster)
             if score_max_cluster > score_min_cluster:
-                print('1st append')
+                print('second 1st append')
                 cluster_matches.append((i_0_cluster_start,
                 i_1_cluster_end, score_max_cluster,
                 query_genes_ids, target_genes_ids, prots_strands))
@@ -392,13 +428,14 @@ def find_clusters(mapped_res):
         #print('cluster matches', cluster_matches)
 
     if score_max_cluster > score_min_cluster:
-        print('2nd append')
+        print('second 2nd append')
         cluster_matches.append((i_0_cluster_start,
          i_1_cluster_end, score_max_cluster, 
          query_genes_ids, target_genes_ids, prots_strands))
     # add more to cluster matches table? prot id?
     # ADD return of the changed ResultsMapping object? (with added scores?)
     # FIX to be faster or remove
+    print('gaps', gaps_list)
     print(cluster_matches)
     return cluster_matches
 
@@ -512,7 +549,8 @@ def update_scores_for_cluster_matches(cluster_matches, mapped_res):
             array_of_bool = pd.DataFrame(sign_clusters_df['target_prots'].tolist()).isin(target_id.split()).any(1).values
             index_of_row = int(np.where(array_of_bool == True)[0])
             sign_clusters_df.loc[sign_clusters_df.index[index_of_row],'new_score_enrich'] = sign_clusters_df.loc[sign_clusters_df.index[index_of_row],'new_score_enrich'] + s_0
-            sign_clusters_df.loc[sign_clusters_df.index[index_of_row],'list_new_scoreS_enrich'] = sign_clusters_df.loc[sign_clusters_df.index[index_of_row],'list_new_scoreS_enrich'] + ',' + str(s_0)
+            # FIX to make the cell string 
+            #sign_clusters_df.loc[sign_clusters_df.index[index_of_row],'list_new_scoreS_enrich'] = sign_clusters_df.loc[sign_clusters_df.index[index_of_row],'list_new_scoreS_enrich'] + ',' + str(s_0)
             print(sign_clusters_df)
             print(sign_clusters_df['list_new_scoreS_enrich'].tolist())
             
@@ -523,16 +561,18 @@ def update_scores_for_cluster_matches(cluster_matches, mapped_res):
 
 
 # CHANGE to not duplicate so much the func above
-def calculate_karlin_stat(cluster_matches, mapped_results):
+def calculate_karlin_stat(cluster_matches, mapped_res):
     print('using c code for Karlin-Altschul statistics')
 
     subprocess.call(['cc', '-fPIC', '-shared', '-o', 'karlin_c.so', 'karlin_c.c'])
     # !! CHANGE the path later
-    so_file = "/home/mpg08/a.kolodyazhnaya01/mishpokhe_test/mishpokhe_test/karlin_c.so"
+    so_file = "./karlin_c.so"
     my_functions = CDLL(so_file)
 
     # ASK Johannes if that's ok that I calculated enrich scores for all search results,
     # not only the clusters
+
+    mapped_results = mapped_res.res_map_to_header
 
     print('calculating prob for each match')
     print('mapped results')
@@ -546,7 +586,7 @@ def calculate_karlin_stat(cluster_matches, mapped_results):
     # CHECK if the query and target assignment is correct
     K = len(significant_clusters)
     
-    target_db_lookup = mapped_results.target_db_lookup
+    target_db_lookup = mapped_res.target_db_lookup
     L = len(target_db_lookup.index)
     
     bias = 0
@@ -1186,13 +1226,37 @@ def main():
     # FIX best query hit is needed
     
     # real mapping, uncomment? DELETE? as there are duplicates of this command in init
+
+    # MAKE coord and strand integers
+
     mapped_res = ResultsMapping.map_target_to_coord()
 
+    mapped_res.res_map_to_header.to_csv('mapped_results_mish', sep = '\t')
+
+    # REMOVE, tmp!
+    #target_db_lookup = mapped_res.target_db_lookup
+    #pd.set_option('display.max_rows', None)
+    #print(target_db_lookup)
+    #print(x)
+    #for i in range(0, len(target_db_lookup.iloc[:, 1])-1):
+    #    print(target_db_lookup.iloc[:, 1].values[i])
+
+    # REMOVE, tmp!
+    #mapped_res.res_map_to_header = pd.read_csv('mapped_results_mish', sep = '\t', header = 0)
+    #print(mapped_res.res_map_to_header)
+
     cluster_matches = find_clusters(mapped_res)
+
     #print(cluster_matches)
+    pd.set_option('display.max_rows', None)
+    pd.set_option('display.max_columns', None)
+    
     cluster_matches_df = pd.DataFrame(cluster_matches)
     cluster_matches_df.to_csv('cluster_matches_raw', sep = '\t', index = False)
     print('number of clusters', len(cluster_matches_df.index))
+
+    print(cluster_matches_df)
+    print(x)
     # CHECK if it is optimal to divide scores update to few functions
 
     # REMOVE duplicated function calling?
@@ -1201,10 +1265,9 @@ def main():
     significant_cluster_df_enriched = update_scores_for_cluster_matches(cluster_matches, mapped_res)
     #print(significant_cluster_df_enriched)
     
-    #significant_cluster_df_enriched = update_scores_for_cluster_matches(cluster_matches, mapped_res)
-    #mapped_results = mapped_res.res_map_to_header
-    #stat_lambda, stat_K = calculate_karlin_stat(cluster_matches, mapped_results)
-    #calculate_e_value(stat_lambda, stat_K, significant_cluster_df_enriched, mapped_res)
+    significant_cluster_df_enriched = update_scores_for_cluster_matches(cluster_matches, mapped_res)
+    stat_lambda, stat_K = calculate_karlin_stat(cluster_matches, mapped_res)
+    calculate_e_value(stat_lambda, stat_K, significant_cluster_df_enriched, mapped_res)
 
     # CHANGE notation for significant clusters??
 
