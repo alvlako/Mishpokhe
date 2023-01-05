@@ -177,16 +177,14 @@ class ResultsMapping:
 
         ##res_map_to_header['ind'] = ind_list.values
 
-        # sorting target db lookup to iterate in find_clusters
+        # sorting target db lookup to iterate correctly in find_clusters()
         # DOUBLE check?
-        #human_ids2 = target_db_lookup['ID'].tolist()
-        #human_ids2.sort(key=natural_keys)
-        #target_db_lookup['ID_cat'] = pd.Categorical(target_db_lookup['ID'], categories=human_ids, ordered=True)
-        #target_db_lookup.sort_values('ID_cat', inplace=True)
-        #target_db_lookup.reset_index(inplace=True, drop=True)
-        #target_db_lookup = target_db_lookup.drop(['ID_cat'], axis=1)
-
-        target_db_lookup = target_db_lookup.sort_values(by='ID')
+        human_ids2 = target_db_lookup['ID'].tolist()
+        human_ids2.sort(key=natural_keys)
+        target_db_lookup['ID_cat'] = pd.Categorical(target_db_lookup['ID'], categories=human_ids2, ordered=True)
+        target_db_lookup.sort_values('ID_cat', inplace=True)
+        target_db_lookup.reset_index(inplace=True, drop=True)
+        target_db_lookup = target_db_lookup.drop(['ID_cat'], axis=1)
 
 
         # get target proteins real ids
@@ -245,6 +243,7 @@ def find_clusters(mapped_res):
     score_min_cluster = 0
     score_i_minus_1_cluster = 0
     s_0 = -1
+    s_0 = -0.1
 
     # Shows if the current protein has a query match
     is_match = 1
@@ -263,10 +262,6 @@ def find_clusters(mapped_res):
     query_genes_ids = []
     target_genes_ids = []
     prots_strands = []
-
-    # REMOVE, tmp
-    gap_penalty = 0.1
-    gaps_list = []
 
 
     matches_ids_list = mapped_results['ID'].tolist()
@@ -325,7 +320,10 @@ def find_clusters(mapped_res):
         # if ids are NC_111.1_1 or something else like MT333.1_2
         print(target_db_h["ID"].values[i].split("_")[0]+target_db_h["ID"].values[i].split("_")[1])
         print(target_db_h["ID"].values[i+1].split("_")[0]+target_db_h["ID"].values[i+1].split("_")[1])
-        if target_db_h["ID"].values[i].split("_")[0]+target_db_h["ID"].values[i].split("_")[1] != target_db_h["ID"].values[i+1].split("_")[0]+target_db_h["ID"].values[i+1].split("_")[1]:
+        #print(target_db_h["ID"].values[i].split("_")[0])
+        #print(target_db_h["ID"].values[i+1].split("_")[0])
+        if target_db_h["ID"].values[i].split("_")[0]!= target_db_h["ID"].values[i+1].split("_")[0]:
+        #if target_db_h["ID"].values[i].split("_")[0]+target_db_h["ID"].values[i].split("_")[1] != target_db_h["ID"].values[i+1].split("_")[0]+target_db_h["ID"].values[i+1].split("_")[1]:
             print('different genomes!!!')
             # is it a good idea?
             diff_genomes_penalty = 10000
@@ -374,7 +372,7 @@ def find_clusters(mapped_res):
 
         else:
             print('second')
-            score_i_cluster = score_i_minus_1_cluster - f_strand_flip*d_strand_flip_penalty  - diff_genomes_penalty + score_x_i - gap*gap_penalty 
+            score_i_cluster = score_i_minus_1_cluster - f_strand_flip*d_strand_flip_penalty  - diff_genomes_penalty + score_x_i
             print('second_proceed', score_i_cluster, score_max_cluster)
             print('score i-1', score_i_minus_1_cluster)
             score_i_cluster = score_x_i
@@ -426,7 +424,6 @@ def find_clusters(mapped_res):
     # add more to cluster matches table? prot id?
     # ADD return of the changed ResultsMapping object? (with added scores?)
     # FIX to be faster or remove
-    print('gaps', gaps_list)
     print(cluster_matches)
     return cluster_matches
 
