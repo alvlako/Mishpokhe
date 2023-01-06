@@ -926,6 +926,14 @@ def extract_proteins_cluster_neighborhood(sign_clusters_df):
 
 
         target_clusters_within, error = within.communicate()
+        print(target_clusters_within.decode('utf-8'))
+
+        p1_within = subprocess.Popen(['grep', '-A1', target_prot_right + ' ', target_fasta], stdout=subprocess.PIPE)
+        # dont communicate if you dont want the pipe to be closed
+        p2 = subprocess.Popen(['grep', '-v', target_prot_right], stdin=p1_within.stdout, stdout=subprocess.PIPE)
+        p1_within.stdout.close()
+        right_protein_seq, err = p2.communicate()
+        print('rest',right_protein_seq.decode('utf-8'))
         #target_clusters_within = within
         # extracting 3 prots before and after + seq line for the last prot of the cluster
         # pipes are to get rid of rightest and leftest prots headers
@@ -963,7 +971,7 @@ def extract_proteins_cluster_neighborhood(sign_clusters_df):
             output_file_end,err_file_end = p2_from_end.communicate()
             print('end of the file')
             print(left_prots_remained_to_extract_n_lines)
-            print(output_file_end)
+            print(output_file_end.decode("utf-8"))
             p1_from_end.stdout.close()
             target_clusters_neighbourhood.write(output_file_end.decode("utf-8"))
 
@@ -994,6 +1002,8 @@ def extract_proteins_cluster_neighborhood(sign_clusters_df):
         
         target_clusters_neighbourhood.write(output_left.decode("utf-8"))
         target_clusters_neighbourhood.write(output_right.decode("utf-8"))
+        target_clusters_neighbourhood.write(target_clusters_within.decode("utf-8"))
+        target_clusters_neighbourhood.write(right_protein_seq.decode("utf-8"))
 
         # FIX!
         #target_clusters_matches.write(matches_in_cluster)
