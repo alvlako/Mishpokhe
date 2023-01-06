@@ -933,14 +933,16 @@ def extract_proteins_cluster_neighborhood(sign_clusters_df):
         # filtering only concrete genome in db, CHECK if correct for all formats
         # Does it limit the formats option? So I somehow rely on the fact that I have a protein ID 
         # of the format “MW067000.1_2”, and genome ID is of the format “MW067000.1”.
+        group_sep = ''.join(['--', ' ', '"', '^--$','"'])
         genome_id = target_prot_right.split('_')[0]
-        p1_left = subprocess.Popen(['grep', genome_id, target_fasta], stdout=subprocess.PIPE)
-        # CHECK IF CORRECT!!!!
-        p2_left = subprocess.Popen(['grep', '-B7', target_prot_left + ' ', target_fasta], stdin=p1_left.stdout, stdout=subprocess.PIPE)
+        p1_left = subprocess.Popen(['grep', '-A1', genome_id, target_fasta], stdout=subprocess.PIPE)
+        p4_left = subprocess.Popen(['grep ' + '-v '+ group_sep], stdin=p1_left.stdout, stdout=subprocess.PIPE, shell = True)
+        p2_left = subprocess.Popen(['grep', '-B6', target_prot_left + ' '], stdin=p4_left.stdout, stdout=subprocess.PIPE)
         # dont communicate if you dont want the pipe to be closed
         p3_left = subprocess.Popen(['grep', '-v', target_prot_left], stdin=p2_left.stdout, stdout=subprocess.PIPE)
         p1_left.stdout.close()
         p2_left.stdout.close()
+        p4_left.stdout.close()
         output_left,err_left = p3_left.communicate()
         print("left prots")
         print(output_left.decode("utf-8"))
@@ -949,13 +951,15 @@ def extract_proteins_cluster_neighborhood(sign_clusters_df):
         print(left_prots_extracted_n)
         # CHANGE later for variable how many prots to extract? 
         # -1 is added to use it later in tail command
-        left_prots_remained_to_extract_n_lines = str(3 - left_prots_extracted_n)*2*(-1)
+        left_prots_remained_to_extract_n_lines = str((3 - left_prots_extracted_n)*2*(-1))
         print("remained", left_prots_remained_to_extract_n_lines)
         # extract remaining number of proteins from another end of the file if any
         if int(left_prots_remained_to_extract_n_lines)*(-1) > 0:
             print('extracting from the end of file')
-            p1_from_end = subprocess.Popen(['grep', genome_id, target_fasta], stdout=subprocess.PIPE)
-            p2_from_end = subprocess.Popen(['tail',  left_prots_remained_to_extract_n_lines, target_fasta], stdin=p1_from_end.stdout, stdout=subprocess.PIPE)
+            print('genome_id', genome_id)
+            p1_from_end = subprocess.Popen(['grep', '-A1', genome_id, target_fasta], stdout=subprocess.PIPE)
+            p4_from_end = subprocess.Popen(['grep ' + '-v '+ group_sep], stdin=p1_from_end.stdout, stdout=subprocess.PIPE, shell = True)
+            p2_from_end = subprocess.Popen(['tail', left_prots_remained_to_extract_n_lines], stdin=p4_from_end.stdout, stdout=subprocess.PIPE)
             output_file_end,err_file_end = p2_from_end.communicate()
             print('end of the file')
             print(left_prots_remained_to_extract_n_lines)
@@ -964,12 +968,14 @@ def extract_proteins_cluster_neighborhood(sign_clusters_df):
             target_clusters_neighbourhood.write(output_file_end.decode("utf-8"))
 
 
-        p1_right = subprocess.Popen(['grep', genome_id, target_fasta], stdout=subprocess.PIPE)
-        # CHECK IF CORRECT!!!!
-        p3 = subprocess.Popen(['grep', '-A7', target_prot_right + ' ', target_fasta], stdin=p1_right.stdout, stdout=subprocess.PIPE)
+        p1_right = subprocess.Popen(['grep', '-A1', genome_id, target_fasta], stdout=subprocess.PIPE)
+        p2 = subprocess.Popen(['grep ' + '-v '+ group_sep], stdin=p1_right.stdout, stdout=subprocess.PIPE, shell = True)
+        p3 = subprocess.Popen(['grep', '-A7', target_prot_right + ' '], stdin=p2.stdout, stdout=subprocess.PIPE)
         p4 = subprocess.Popen(['grep', '-v', target_prot_right], stdin=p3.stdout, stdout=subprocess.PIPE)
-        output_right,err_right = p4.communicate()
+        p5 = subprocess.Popen(['tail', '-6'], stdin=p4.stdout, stdout=subprocess.PIPE)
+        output_right,err_right = p5.communicate()
         p1_right.stdout.close()
+        p4.stdout.close()
         p3.stdout.close()
         #print(output_right.decode("utf-8"))
 
