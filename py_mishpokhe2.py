@@ -136,11 +136,26 @@ class ResultsMapping:
         #print(ind_list)
         # get target proteins real ids
         # FIX "unique"? is it ok to use?
+        # assigning the best-matching query to a target (with min e-val)
+        search_result_file.columns = ["query_id", "target_id","seq_ident", "score",
+         "smth1", "smth2", "smth3", "smth4", "smth5", "smth6", "eval","score2"]
+        #add_row = ['WIN93251.1','MW067000.1_7','0.981','207','8','0','1','207','1','207', '2.364000e-175', '501']
+        #search_result_file.loc[len(search_result_file)] = add_row
+        #add_row = ['SEWIN93251.1','MT006214.1_2','0.991','207','8','0','1','207','1','207', '2.364000e-178', '501']
+        #search_result_file.loc[len(search_result_file)] = add_row
+        search_result_file["eval"] = pd.to_numeric(search_result_file["eval"])
+        print(search_result_file)
+        #print(search_result_file.groupby('target_id')["eval"].transform('min'))
+        search_result_file = search_result_file.loc[search_result_file.groupby('target_id')['eval'].idxmin()].reset_index(drop=True)
+
+        # REMOVE unique? it's unique from the prev step
         real_id_list = pd.Series(pd.unique(search_result_file.iloc[:, 1]))
         print("real ids list", real_id_list)
         # map by 1st (0) column with real ids from search res
         # print(target_db_h.loc[target_db_h.iloc[:, 0].astype(str) == 'MT006214.1_1'])
         tmp_res_map_to_header = target_db_h.loc[target_db_h.iloc[:, 0].astype(str).isin(real_id_list)]
+
+
         # NOTe - isin makes sorting, so the next lines to get to the original lines order
         # that is to link proper query ids to the other info
         tmp_res_map_to_header['sort_cat'] = pd.Categorical(tmp_res_map_to_header['ID'], categories=real_id_list, ordered=True)
@@ -243,7 +258,7 @@ def find_clusters(mapped_res):
     score_min_cluster = 0
     score_i_minus_1_cluster = 0
     s_0 = -1
-    s_0 = -0.1
+    #s_0 = -0.01
 
     # Shows if the current protein has a query match
     is_match = 1
@@ -322,8 +337,8 @@ def find_clusters(mapped_res):
         print(target_db_h["ID"].values[i+1].split("_")[0]+target_db_h["ID"].values[i+1].split("_")[1])
         #print(target_db_h["ID"].values[i].split("_")[0])
         #print(target_db_h["ID"].values[i+1].split("_")[0])
-        if target_db_h["ID"].values[i].split("_")[0]!= target_db_h["ID"].values[i+1].split("_")[0]:
-        #if target_db_h["ID"].values[i].split("_")[0]+target_db_h["ID"].values[i].split("_")[1] != target_db_h["ID"].values[i+1].split("_")[0]+target_db_h["ID"].values[i+1].split("_")[1]:
+        #if target_db_h["ID"].values[i].split("_")[0]!= target_db_h["ID"].values[i+1].split("_")[0]:
+        if target_db_h["ID"].values[i].split("_")[0]+target_db_h["ID"].values[i].split("_")[1] != target_db_h["ID"].values[i+1].split("_")[0]+target_db_h["ID"].values[i+1].split("_")[1]:
             print('different genomes!!!')
             # is it a good idea?
             diff_genomes_penalty = 10000
