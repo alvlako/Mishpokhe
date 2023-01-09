@@ -866,7 +866,7 @@ def extract_proteins_cluster_neighborhood(sign_clusters_df):
     
     # calling initial fasta for target and query
     # CHANGE it to not ask user again
-    query_fasta = input('Enter query_sequences (fasta) path: ')
+    #query_fasta = input('Enter query_sequences (fasta) path: ')
     target_fasta = input('Enter target_sequence (fasta) path: ')
 
     # adding matched target prots to the query set to make the profiles again
@@ -1126,6 +1126,7 @@ def make_new_profiles(sign_clusters_df):
     #prots = open("target_clusters_neighbourhood", "r")
 
 
+# REMAKE??
 # function to initialize score for new protein profiles from neighbourhood
 # should potentially be called in update_query_profiles_add_proteins function?
 # ASK if I need to search again and do everything like for the matches to get the enrich scores?
@@ -1222,7 +1223,25 @@ def initialize_new_prot_score():
     target_clusters_neighbourhood_prof_mishpokhe_scores.close()
     target_clusters_neighbourhood_signif_prots.close()
 
+def make_new_query():
+    query_fasta = input('Enter query_sequences (fasta) path: ')
+    out_file = str(files.query_db) + '2nditer.fasta'
+    command_cat = 'cat ' + query_fasta +' target_clusters_neighbourhood' + ' >' + ' ' + out_file
+    os.system(command_cat)
+    #with open(out_file, "w") as query_file:
+    #    subprocess.Popen(['cat', query_fasta, 'target_clusters_neighbourhood'], stdout = query_file)
+    subprocess.call(['mmseqs', 'createdb', files.query_db + '2nditer.fasta', files.query_db + '2nditer_db'])
 
+def initialize_new_prot_score2(sign_clusters_df, old_query_upd_scores):
+    query_prot_db2nditer_db.lookup
+    p_new_prot = subprocess.Popen(['grep', '>', 'target_clusters_neighbourhood'], stdout=subprocess.PIPE)
+    output_new_prot,err_prot = p_new_prot.communicate()
+    new_prot_id = output_right.decode("utf-8").count('>')
+    
+    pass
+
+
+# REMOVE??
 # CHECK if it was an efficient way to filter profiles and build and re-build them
 # THINK or ASK if it is ok to update old profiles and add new via just combining sequences
 # and building profiles from all of them
@@ -1319,6 +1338,10 @@ def main():
     # FIX THERE ERRORS and PROBLEMS
     # FIX to extract left prots directly and also prots from within the cluster (not matches)
     extract_proteins_cluster_neighborhood(sign_clusters_df)
+    make_new_query()
+    #initialize_new_prot_score2(sign_clusters_df, old_query_upd_scores)
+
+    print('old_query_upd_scores', old_query_upd_scores)
 
     print(x)
     #update_query_profiles()
