@@ -882,6 +882,7 @@ def extract_proteins_cluster_neighborhood(sign_clusters_df):
         # MAKE faster
         # that is to save cluster prots ids and grep with them to find cluster matches sequences and 
         # exclude them from new within cluster prots
+        # WHY do I need this file?
         target_protID_cluster_file = open("target_protID_cluster_file", "w")
         print(*target_prot_cluster)
         # MAKE faster
@@ -1004,6 +1005,9 @@ def extract_proteins_cluster_neighborhood(sign_clusters_df):
         target_clusters_neighbourhood.write(output_right.decode("utf-8"))
         target_clusters_neighbourhood.write(target_clusters_within.decode("utf-8"))
         target_clusters_neighbourhood.write(right_protein_seq.decode("utf-8"))
+        
+        # Add target matches to their neighbourhood
+        subprocess.call(['cat', 'target_clusters_matches', '>>', 'target_clusters_neighbourhood'])
 
         # FIX!
         #target_clusters_matches.write(matches_in_cluster)
@@ -1029,8 +1033,10 @@ def extract_proteins_cluster_neighborhood(sign_clusters_df):
 def update_query_profiles():
     pass
 
+# REMOVE??
 # CHECK if I should merge it to the prev step???
 # FIX Not really, unmerge it back
+# REMOVE???
 def add_new_proteins(sign_clusters_df):
 
     matched_targets = open("matched_targets", "w")
@@ -1049,7 +1055,7 @@ def add_new_proteins(sign_clusters_df):
         
     pass
 
-
+# REMOVE?
 def make_new_profiles(sign_clusters_df):
     # THINK if i need to merge these profiles with the initial query ones
     z_clust = float(input('Enter z_clust: '))
