@@ -563,7 +563,7 @@ def update_scores_for_cluster_matches(cluster_matches, mapped_res):
 
     print(sign_clusters_df)
     sign_clusters_df.to_csv('sign_clusters_df', sep = '\t')
-    return(sign_clusters_df, s_0, old_query_upd_scores)
+    return(sign_clusters_df, s_0, old_query_upd_scores, L, l)
 
 
 # CHANGE to not duplicate so much the func above
@@ -1232,12 +1232,30 @@ def make_new_query():
     #    subprocess.Popen(['cat', query_fasta, 'target_clusters_neighbourhood'], stdout = query_file)
     subprocess.call(['mmseqs', 'createdb', files.query_db + '2nditer.fasta', files.query_db + '2nditer_db'])
 
-def initialize_new_prot_score2(sign_clusters_df, old_query_upd_scores):
-    query_prot_db2nditer_db.lookup
-    p_new_prot = subprocess.Popen(['grep', '>', 'target_clusters_neighbourhood'], stdout=subprocess.PIPE)
-    output_new_prot,err_prot = p_new_prot.communicate()
-    new_prot_id = output_right.decode("utf-8").count('>')
+def initialize_new_prot_score2(sign_clusters_df, old_query_upd_scores, L, l, mapped_res):
+    new_query_db_lookup = pd.read_csv(str(files.query_db)+str("2nditer_db.lookup"), dtype=None, sep='\t', header = None)
     
+    aplha_pseudocount = pow(10,np.log10(1/L)-1)
+    # Is it correct to use for pseudocounts?
+    x_number_of_new_prots = new_query_db_lookup.loc[:,1].size
+    print('x_number_of_new_prots', x_number_of_new_prots)
+    for new_prot_id in new_query_db_lookup.loc[:,1]:
+        mapped_results = mapped_res.res_map_to_header
+
+        cluster_prots = pd.DataFrame()
+        cluster_prots['target_id'] = sign_clusters_df['target_prots'].explode()
+
+        M_x = mapped_results['ID'][mapped_results['ID'] == new_prot_id].shape[0]
+        m_x = cluster_prots[cluster_prots['target_id'] == new_prot_id]['target_id'].count()
+        print(new_prot_id, M_x, m_x)
+        cluster_prot_proportion = np.divide((m_x+aplha_pseudocount), (l + x_number_of_queries*aplha_pseudocount))
+        score_x = np.log(np.divide(cluster_prot_proportion, np.divide(M_x, L))) - bias
+        print("updated score for q", query_id, "is", score_x)
+
+        old_query_upd_scores[query_id] = score_x
+
+    print(c)
+
     pass
 
 
@@ -1323,7 +1341,7 @@ def main():
     #print(significant_cluster_df_enriched)
     
     
-    significant_cluster_df_enriched, s_0, old_query_upd_scores = update_scores_for_cluster_matches(cluster_matches, mapped_res)
+    significant_cluster_df_enriched, s_0, old_query_upd_scores, L, l = update_scores_for_cluster_matches(cluster_matches, mapped_res)
     #stat_lambda, stat_K = calculate_karlin_stat(cluster_matches, mapped_res)
     #calculate_e_value(stat_lambda, stat_K, significant_cluster_df_enriched, mapped_res)
 
@@ -1339,7 +1357,7 @@ def main():
     # FIX to extract left prots directly and also prots from within the cluster (not matches)
     extract_proteins_cluster_neighborhood(sign_clusters_df)
     make_new_query()
-    #initialize_new_prot_score2(sign_clusters_df, old_query_upd_scores)
+    initialize_new_prot_score2(sign_clusters_df, old_query_upd_scores, L, l, mapped_res)
 
     print('old_query_upd_scores', old_query_upd_scores)
 
