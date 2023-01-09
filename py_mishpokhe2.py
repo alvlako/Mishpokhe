@@ -1226,15 +1226,15 @@ def initialize_new_prot_score():
 
 def make_new_query():
     query_fasta = input('Enter query_sequences (fasta) path: ')
-    out_file = str(files.query_db) + '2nditer.fasta'
+    out_file = str(files.query_db) + '2iter.fasta'
     command_cat = 'cat ' + query_fasta +' target_clusters_neighbourhood' + ' >' + ' ' + out_file
     os.system(command_cat)
     #with open(out_file, "w") as query_file:
     #    subprocess.Popen(['cat', query_fasta, 'target_clusters_neighbourhood'], stdout = query_file)
-    subprocess.call(['mmseqs', 'createdb', files.query_db + '2nditer.fasta', files.query_db + '2nditer_db'])
+    subprocess.call(['mmseqs', 'createdb', files.query_db + '2iter.fasta', files.query_db + '2iter_db'])
 
 def initialize_new_prot_score2(sign_clusters_df, old_query_upd_scores, L, l, mapped_res):
-    new_query_db_lookup = pd.read_csv(str(files.query_db)+str("2nditer_db.lookup"), dtype=None, sep='\t', header = None)
+    new_query_db_lookup = pd.read_csv(str(files.query_db)+str("2iter_db.lookup"), dtype=None, sep='\t', header = None)
     mapped_results = mapped_res.res_map_to_header
     cluster_prots = pd.DataFrame()
     cluster_prots['target_id'] = sign_clusters_df['target_prots'].explode()
@@ -1292,7 +1292,7 @@ def generate_mmseqs_ffindex(sign_clusters_df):
     pass
 
 
-def main():
+def main(old_query_upd_scores, d_strand_flip_penalty, s_0):
     #make_profiles()
 
     # CHECK if it works with multihitdb (just from command line it worked)
@@ -1309,10 +1309,6 @@ def main():
     mapped_res = ResultsMapping.map_target_to_coord()
 
     mapped_res.res_map_to_header.to_csv('mapped_results_mish', sep = '\t')
-
-    old_query_upd_scores = None
-    s_0 = None
-    d_strand_flip_penalty = None
 
     # REMOVE, tmp!
     #target_db_lookup = mapped_res.target_db_lookup
@@ -1398,9 +1394,19 @@ if __name__ == "__main__":
     #mapped_res = ResultsMapping.map_target_to_coord()
 
     
-
+    counter = 1
     while iterations > 0:
-        main()
+        if counter == 1:
+            old_query_upd_scores = None
+            s_0 = None
+            d_strand_flip_penalty = None
+            files.query_db = files.query_db
+        if iterations > 1:
+            files.query_db = files.query_db + str(iterations) + 'iter_db'
+
+
+        main(old_query_upd_scores, d_strand_flip_penalty, s_0)
         iterations -= 1
+        counter += 1
 
 
