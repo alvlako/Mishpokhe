@@ -1,3 +1,4 @@
+from cmath import inf
 import ctypes as ct
 from ctypes import *
 import numpy as np
@@ -1234,29 +1235,34 @@ def make_new_query():
 
 def initialize_new_prot_score2(sign_clusters_df, old_query_upd_scores, L, l, mapped_res):
     new_query_db_lookup = pd.read_csv(str(files.query_db)+str("2nditer_db.lookup"), dtype=None, sep='\t', header = None)
-    
+    mapped_results = mapped_res.res_map_to_header
+    cluster_prots = pd.DataFrame()
+    cluster_prots['target_id'] = sign_clusters_df['target_prots'].explode()
+
+    bias = 0
+
     aplha_pseudocount = pow(10,np.log10(1/L)-1)
     # Is it correct to use for pseudocounts?
+    # CHANGE to not include query prots to counting
     x_number_of_new_prots = new_query_db_lookup.loc[:,1].size
     print('x_number_of_new_prots', x_number_of_new_prots)
     for new_prot_id in new_query_db_lookup.loc[:,1]:
-        mapped_results = mapped_res.res_map_to_header
-
-        cluster_prots = pd.DataFrame()
-        cluster_prots['target_id'] = sign_clusters_df['target_prots'].explode()
 
         M_x = mapped_results['ID'][mapped_results['ID'] == new_prot_id].shape[0]
         m_x = cluster_prots[cluster_prots['target_id'] == new_prot_id]['target_id'].count()
         print(new_prot_id, M_x, m_x)
-        cluster_prot_proportion = np.divide((m_x+aplha_pseudocount), (l + x_number_of_queries*aplha_pseudocount))
+        cluster_prot_proportion = np.divide((m_x+aplha_pseudocount), (l + x_number_of_new_prots*aplha_pseudocount))
         score_x = np.log(np.divide(cluster_prot_proportion, np.divide(M_x, L))) - bias
-        print("updated score for q", query_id, "is", score_x)
-
-        old_query_upd_scores[query_id] = score_x
-
-    print(c)
-
-    pass
+        print("updated score for new prot", new_prot_id, "is", score_x)
+        
+        if new_prot_id not in old_query_upd_scores.keys():
+            # FIX? it happens for proteins from neighbourhood, not from the clusters
+            if score_x == inf:
+                score_x = 0
+            old_query_upd_scores[new_prot_id] = score_x
+    
+    print(old_query_upd_scores)
+    return(old_query_upd_scores)
 
 
 # REMOVE??
@@ -1304,6 +1310,10 @@ def main():
 
     mapped_res.res_map_to_header.to_csv('mapped_results_mish', sep = '\t')
 
+    old_query_upd_scores = None
+    s_0 = None
+    d_strand_flip_penalty = None
+
     # REMOVE, tmp!
     #target_db_lookup = mapped_res.target_db_lookup
     #pd.set_option('display.max_rows', None)
@@ -1317,9 +1327,6 @@ def main():
     #print(mapped_res.res_map_to_header)
 
     # Is it ok to assign to None?
-    old_query_upd_scores = None
-    s_0 = None
-    d_strand_flip_penalty = None
 
     cluster_matches = find_clusters(mapped_res, old_query_upd_scores, d_strand_flip_penalty, s_0)
 
@@ -1357,11 +1364,8 @@ def main():
     # FIX to extract left prots directly and also prots from within the cluster (not matches)
     extract_proteins_cluster_neighborhood(sign_clusters_df)
     make_new_query()
-    initialize_new_prot_score2(sign_clusters_df, old_query_upd_scores, L, l, mapped_res)
+    old_query_upd_scores = initialize_new_prot_score2(sign_clusters_df, old_query_upd_scores, L, l, mapped_res)
 
-    print('old_query_upd_scores', old_query_upd_scores)
-
-    print(x)
     #update_query_profiles()
     #add_new_proteins()
     #make_new_profiles(sign_clusters_df)
@@ -1380,7 +1384,7 @@ if __name__ == "__main__":
 
     print('type number of iterations')
     #iterations = int(input())
-    iterations = 1
+    iterations = int(input())
 
     # ADD check if file exists!!!
     files = FilePath.get_path()
