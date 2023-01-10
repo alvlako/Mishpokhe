@@ -777,7 +777,7 @@ def calculate_karlin_stat(cluster_matches, mapped_res):
 def set_strand_flip_penalty(cluster_matches, mapped_res):
     target_db_h = mapped_res.target_db_h
     mapped_results = mapped_res.res_map_to_header
-    print(target_db_h)
+    #print(target_db_h)
     # this just delete the consecutive duplicates, therefore I can cound 
     # how many switches between strands are in the file (1 1 -1 -1 1 -> 1 -1 1)
     F = len([key for key, _group in itertools.groupby(target_db_h["strand"])]) - 1
@@ -1008,12 +1008,13 @@ def extract_proteins_cluster_neighborhood(sign_clusters_df):
         target_clusters_neighbourhood.write(right_protein_seq.decode("utf-8"))
         
         # Add target matches to their neighbourhood
-        subprocess.call(['cat', 'target_clusters_matches', '>>', 'target_clusters_neighbourhood'])
+        #subprocess.call(['cat', 'target_clusters_matches', '>>', 'target_clusters_neighbourhood'])
+        command_cat = 'cat ' + 'target_clusters_matches ' + '>> ' + 'target_clusters_neighbourhood'
+        os.system(command_cat)
 
         # FIX!
         #target_clusters_matches.write(matches_in_cluster)
         
-        # DOES NOT WORK correctly as it looks via the whole file, so you can get another genome prots on edges
     ##target_clusters_within.close()
     target_clusters_neighbourhood.close()
     # FIX!
@@ -1225,16 +1226,27 @@ def initialize_new_prot_score():
     target_clusters_neighbourhood_signif_prots.close()
 
 def make_new_query():
+    print('making new query set')
     query_fasta = input('Enter query_sequences (fasta) path: ')
-    out_file = str(files.query_db) + '2iter.fasta'
+    # to have names like query_prot_db2iter_db, not like query_prot_db2iter_db1iter_db
+    query_db_path = str(files.query_db)
+    print('iter_counter', iter_counter)
+    if iter_counter > 1:
+        query_db_path = str(files.query_db)[:(str(files.query_db).find(str(iter_counter-1)))]
+    print('query_db_path', query_db_path)
+    out_file = query_db_path + str(iter_counter) + 'iter.fasta'
+    print('out_file', out_file)
     command_cat = 'cat ' + query_fasta +' target_clusters_neighbourhood' + ' >' + ' ' + out_file
     os.system(command_cat)
     #with open(out_file, "w") as query_file:
     #    subprocess.Popen(['cat', query_fasta, 'target_clusters_neighbourhood'], stdout = query_file)
-    subprocess.call(['mmseqs', 'createdb', files.query_db + '2iter.fasta', files.query_db + '2iter_db'])
+    subprocess.call(['mmseqs', 'createdb', query_db_path + str(iter_counter) + 'iter.fasta', query_db_path + str(iter_counter) + 'iter_db'])
 
 def initialize_new_prot_score2(sign_clusters_df, old_query_upd_scores, L, l, mapped_res):
-    new_query_db_lookup = pd.read_csv(str(files.query_db)+str("2iter_db.lookup"), dtype=None, sep='\t', header = None)
+    query_db_path = str(files.query_db)
+    if iter_counter > 1:
+        query_db_path = str(files.query_db)[:str(files.query_db).find(str(iter_counter-1))]
+    new_query_db_lookup = pd.read_csv(query_db_path+str(iter_counter) + 'iter_db.lookup', dtype=None, sep='\t', header = None)
     mapped_results = mapped_res.res_map_to_header
     cluster_prots = pd.DataFrame()
     cluster_prots['target_id'] = sign_clusters_df['target_prots'].explode()
@@ -1243,7 +1255,7 @@ def initialize_new_prot_score2(sign_clusters_df, old_query_upd_scores, L, l, map
 
     aplha_pseudocount = pow(10,np.log10(1/L)-1)
     # Is it correct to use for pseudocounts?
-    # CHANGE to not include query prots to counting
+    # CHANGE to not include query prots to counting??
     x_number_of_new_prots = new_query_db_lookup.loc[:,1].size
     print('x_number_of_new_prots', x_number_of_new_prots)
     for new_prot_id in new_query_db_lookup.loc[:,1]:
@@ -1307,7 +1319,6 @@ def main(old_query_upd_scores, d_strand_flip_penalty, s_0):
     # MAKE coord and strand integers
 
     mapped_res = ResultsMapping.map_target_to_coord()
-
     mapped_res.res_map_to_header.to_csv('mapped_results_mish', sep = '\t')
 
     # REMOVE, tmp!
@@ -1326,7 +1337,6 @@ def main(old_query_upd_scores, d_strand_flip_penalty, s_0):
 
     cluster_matches = find_clusters(mapped_res, old_query_upd_scores, d_strand_flip_penalty, s_0)
 
-    #print(cluster_matches)
     pd.set_option('display.max_rows', None)
     pd.set_option('display.max_columns', None)
     
@@ -1343,8 +1353,9 @@ def main(old_query_upd_scores, d_strand_flip_penalty, s_0):
     #significant_cluster_df_enriched, s_0 = update_scores_for_cluster_matches(cluster_matches, mapped_res)
     #print(significant_cluster_df_enriched)
     
-    
+    # UNCOMMENT
     significant_cluster_df_enriched, s_0, old_query_upd_scores, L, l = update_scores_for_cluster_matches(cluster_matches, mapped_res)
+    
     #stat_lambda, stat_K = calculate_karlin_stat(cluster_matches, mapped_res)
     #calculate_e_value(stat_lambda, stat_K, significant_cluster_df_enriched, mapped_res)
 
@@ -1354,10 +1365,9 @@ def main(old_query_upd_scores, d_strand_flip_penalty, s_0):
 
     # CHECK do I need this step??
     #sign_clusters_df = set_strand_flip_penalty(cluster_matches)
+
     sign_clusters_df = significant_cluster_df_enriched
 
-    # FIX THERE ERRORS and PROBLEMS
-    # FIX to extract left prots directly and also prots from within the cluster (not matches)
     extract_proteins_cluster_neighborhood(sign_clusters_df)
     make_new_query()
     old_query_upd_scores = initialize_new_prot_score2(sign_clusters_df, old_query_upd_scores, L, l, mapped_res)
@@ -1394,19 +1404,25 @@ if __name__ == "__main__":
     #mapped_res = ResultsMapping.map_target_to_coord()
 
     
-    counter = 1
+    iter_counter = 1
     while iterations > 0:
-        if counter == 1:
+        print(iter_counter)
+        print(files.query_db)
+        if iter_counter == 1:
             old_query_upd_scores = None
             s_0 = None
             d_strand_flip_penalty = None
             files.query_db = files.query_db
-        if iterations > 1:
-            files.query_db = files.query_db + str(iterations) + 'iter_db'
+        if iter_counter == 2:
+            files.query_db = str(files.query_db) + str(iterations) + 'iter_db'
+        if iter_counter > 2:
+            query_db_path = str(files.query_db)[:str(files.query_db).find(str(iter_counter-1))]
+            files.query_db = query_db_path + str(iter_counter) + 'iter_db'
+        print('files.query_db in main', files.query_db)
 
 
         main(old_query_upd_scores, d_strand_flip_penalty, s_0)
         iterations -= 1
-        counter += 1
+        iter_counter += 1
 
 
