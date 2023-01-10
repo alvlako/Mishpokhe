@@ -350,8 +350,9 @@ def find_clusters(mapped_res, old_query_upd_scores, d_strand_flip_penalty, s_0):
         print(target_db_h["ID"].values[i+1].split("_")[0]+target_db_h["ID"].values[i+1].split("_")[1])
         #print(target_db_h["ID"].values[i].split("_")[0])
         #print(target_db_h["ID"].values[i+1].split("_")[0])
-        if target_db_h["ID"].values[i].split("_")[0]!= target_db_h["ID"].values[i+1].split("_")[0]:
-        #if target_db_h["ID"].values[i].split("_")[0]+target_db_h["ID"].values[i].split("_")[1] != target_db_h["ID"].values[i+1].split("_")[0]+target_db_h["ID"].values[i+1].split("_")[1]:
+        # CHANGE here if the dataset big or small
+        #if target_db_h["ID"].values[i].split("_")[0]!= target_db_h["ID"].values[i+1].split("_")[0]:
+        if target_db_h["ID"].values[i].split("_")[0]+target_db_h["ID"].values[i].split("_")[1] != target_db_h["ID"].values[i+1].split("_")[0]+target_db_h["ID"].values[i+1].split("_")[1]:
             print('different genomes!!!')
             # is it a good idea?
             diff_genomes_penalty = 10000
@@ -709,11 +710,17 @@ def calculate_karlin_stat(cluster_matches, mapped_res):
         prev_int_val = int(i[0])
         curr_row_ind = curr_row_ind + 1
         print(scores_table)
+
+    # REMOVE!! tmp! for little dataset testing to have 0
+    #scores_table = np.insert(scores_table, 1, np.array((0, 0.33)), 0)  
+    #scores_table = np.insert(scores_table, 2, np.array((1, 0.17)), 0)  
+    #print(scores_table)
     
     unique_scores = scores_table[:,0]
     score_prob = scores_table[:,1]
 
     # ASK Johannes what to do if all the scores are negative?
+    unique_scores
     index_of_0 = np.where(unique_scores == 0)[0][0]
     
     
@@ -852,8 +859,11 @@ def calculate_e_value(stat_lambda, stat_K, significant_cluster_df_enriched, mapp
         print('eval =', evalue)
     # CHANGE the name? they are not filtered by e-val yet
     significant_cluster_df_enriched.to_csv('sign_clusters_enrich_stat', sep = '\t', index = False)
+    # Check if e-val = 0.01 is good filtering
+    significant_clusters_eval_filter_df = significant_cluster_df_enriched.loc[(significant_cluster_df_enriched['e-value'] <0.01) & (significant_cluster_df_enriched['e-value'] > 0)]
     print(significant_cluster_df_enriched)
-    return significant_cluster_df_enriched
+    print(significant_clusters_eval_filter_df)
+    return significant_cluster_df_enriched, significant_clusters_eval_filter_df
 
 
 
@@ -1356,8 +1366,9 @@ def main(old_query_upd_scores, d_strand_flip_penalty, s_0):
     # UNCOMMENT
     significant_cluster_df_enriched, s_0, old_query_upd_scores, L, l = update_scores_for_cluster_matches(cluster_matches, mapped_res)
     
-    #stat_lambda, stat_K = calculate_karlin_stat(cluster_matches, mapped_res)
-    #calculate_e_value(stat_lambda, stat_K, significant_cluster_df_enriched, mapped_res)
+    stat_lambda, stat_K = calculate_karlin_stat(cluster_matches, mapped_res)
+    sign_clusters_df = significant_cluster_df_enriched
+    significant_cluster_df_enriched, significant_clusters_eval_filter_df = calculate_e_value(stat_lambda, stat_K, significant_cluster_df_enriched, mapped_res)
 
     # CHANGE notation for significant clusters??
 
@@ -1366,7 +1377,8 @@ def main(old_query_upd_scores, d_strand_flip_penalty, s_0):
     # CHECK do I need this step??
     #sign_clusters_df = set_strand_flip_penalty(cluster_matches)
 
-    sign_clusters_df = significant_cluster_df_enriched
+    # Is it okay to use e-val filtering here?
+    sign_clusters_df = significant_clusters_eval_filter_df
 
     extract_proteins_cluster_neighborhood(sign_clusters_df)
     make_new_query()
