@@ -264,6 +264,7 @@ def find_clusters(mapped_res, old_query_upd_scores, d_strand_flip_penalty, s_0):
 
     if s_0 is None:
         s_0 = -1
+        s_0 = -1
         s_0 = -0.01
 
     # Shows if the current protein has a query match
@@ -486,7 +487,7 @@ def update_scores_for_cluster_matches(cluster_matches, mapped_res):
     l = len(cluster_prots)
 
     # CHANGE later, THINK
-    bias = 0.1
+    bias = 0
 
     old_query_upd_scores = dict()
 
@@ -548,7 +549,9 @@ def update_scores_for_cluster_matches(cluster_matches, mapped_res):
     M_x_sum = len(mapped_results['ID'])
 
     for target_id in cluster_prots['target_id']:
+        print('the cycle is running')
         if target_id not in matches_ids_list:
+            print('not in list')
             print('no match', target_id)
             s_0 = np.divide(np.divide((l-m_x_sum),l), np.divide((L-M_x_sum),L)) - bias
             print('updates s_0 for', target_id, 'is = ', s_0)
@@ -561,6 +564,13 @@ def update_scores_for_cluster_matches(cluster_matches, mapped_res):
             #sign_clusters_df.loc[sign_clusters_df.index[index_of_row],'list_new_scoreS_enrich'] = sign_clusters_df.loc[sign_clusters_df.index[index_of_row],'list_new_scoreS_enrich'] + ',' + str(s_0)
             print(sign_clusters_df)
             print(sign_clusters_df['list_new_scoreS_enrich'].tolist())
+        else:
+            print('is in list')
+            s_0 = -0.01
+    if len(cluster_prots['target_id']) == 0:
+        print('0 target in clusters')
+        s_0 = -0.01
+    print(s_0)
             
 
     print(sign_clusters_df)
@@ -1041,200 +1051,12 @@ def extract_proteins_cluster_neighborhood(sign_clusters_df):
     pass
 
 
-# should I just do it in combine?
-def update_query_profiles():
-    pass
-
-# REMOVE??
-# CHECK if I should merge it to the prev step???
-# FIX Not really, unmerge it back
-# REMOVE???
-def add_new_proteins(sign_clusters_df):
-
-    matched_targets = open("matched_targets", "w")
-    for target_prot in query_target_prots["target"]:
-        subprocess.call(['grep', '-A1', target_prot + ' ', target_fasta], stdout=matched_targets)
-    matched_targets.close()
-    #matched_targets = open("targets", "r")
-    # THINK if I want not to renew the file but make a separate file for each iteration
-    query_fasta_copy_iter = open("query_fasta_copy_iter", "w")
-    subprocess.call(['cat', query_fasta], stdout=query_fasta_copy_iter)
-    query_fasta_copy_iter.close()
-    query_fasta_copy_iter = open("query_fasta_copy_iter", "a")
-    subprocess.call(['cat', 'matched_targets'], stdout=query_fasta_copy_iter)
-    matched_targets.close()
-    query_fasta_copy_iter.close()
-        
-    pass
-
-# REMOVE?
-def make_new_profiles(sign_clusters_df):
-    # THINK if i need to merge these profiles with the initial query ones
-    z_clust = float(input('Enter z_clust: '))
-    # find identity and cov threshold for clustering from initial query set
-    # MAKE faster and in another step??
-    # ASK Ruoshi if I really need to cluster and how to make MSA properly
-    # CHECK if I can take cluster results from the first steps? 90% ident?
-    # CHECK format output
-    subprocess.call(['mmseqs', 'align', files.query_db, files.query_db,
-     files.query_db + '_clu', files.query_db + '_clu' + '_msa_align'])
-    subprocess.call(['mmseqs', 'convertalis', files.query_db, files.query_db,
-     files.query_db + '_clu_msa_align', files.query_db + '_clu' + '_msa_align' +'.m8',
-      '--format-output', 'pident,qcov'])
-    
-    # mmseqs convertalis db db alnres alnres.tab
-    MSA_ident_qcov_file = pd.read_csv(files.query_db + '_clu' + '_msa_align' +'.m8', dtype={'str':'float'},
-     sep='\t', header = None)
-    print(MSA_ident_qcov_file)
-
-    mu_ident = MSA_ident_qcov_file.loc[:,0].mean()
-    mu_cov = MSA_ident_qcov_file.loc[:,1].mean()
-    sigma_ident = MSA_ident_qcov_file.loc[:,0].std()
-    sigma_cov = MSA_ident_qcov_file.loc[:,1].std()
-
-    # ASK Johannes about MSA and if I should actually use mash or is there something in MMseqs2
-    # ASK that what if we start from 1 cluster prots, there will be singleton clusters and 100% identical MSAs
-    # there should be a mode to start from only 1 set
-
-    print('parameters for clustering', (mu_ident / 100), mu_cov, sigma_ident, sigma_cov)
-
-    # CHECK if that's good threshold
-    if mu_ident > 90:
-        clust_ident = 0.8
-    else:
-        clust_ident = (mu_ident / 100) - z_clust*sigma_ident
-    if mu_cov > 0.9:
-        clust_cov = 0.8
-    else:
-        clust_cov = mu_cov - z_clust*sigma_cov
-
-    # MAKE it to delete all previous mmseqs2 files before making new ones?
-    print('making NEW query profiles')
-    subprocess.call(['mmseqs', 'createdb', 'target_clusters_neighbourhood',
-     'target_clusters_neighbourhood.db'])
-    subprocess.call(['mmseqs', 'cluster', 'target_clusters_neighbourhood.db',
-     'target_clusters_neighbourhood.db' + '_clu',
-     'tmp', '--min-seq-id', str(clust_ident), '-c', str(clust_cov)])
-    
-    # initializing scores and filtering clustering results
-    # ASK if it is okay to get the scores for proteins, not clusters/profiles
-    # ASK if it is okay to filter accordingly to the score at the step of clusters, not profiles
-    subprocess.call(['mmseqs', 'createtsv', 'target_clusters_neighbourhood.db',
-     'target_clusters_neighbourhood.db', 'target_clusters_neighbourhood.db' + '_clu',
-      'target_clusters_neighbourhood.db' + '_clu' + '.tsv'])
-
-    subprocess.call(['mmseqs', 'createsubdb', 'target_clusters_neighbourhood.db' + '_clu',
-     'target_clusters_neighbourhood.db', 'target_clusters_neighbourhood.db' + '_clu' + '_rep'])
-    subprocess.call(['mmseqs', 'createsubdb', 'target_clusters_neighbourhood.db' + '_clu',
-     'target_clusters_neighbourhood.db' + '_h',
-      'target_clusters_neighbourhood.db' + '_clu' + '_rep' + '_h'])
-    
-    # making profiles
-    subprocess.call(['mmseqs', 'result2profile', 'target_clusters_neighbourhood.db' + '_clu' + '_rep',
-     'target_clusters_neighbourhood.db', 'target_clusters_neighbourhood.db' + '_clu',
-      'target_clusters_neighbourhood.db' + '_clu' + '_rep' + '_profile' ])
-
-    # ADD ADD ADD score initialization and removal of below threshold!!!
-    #prots = open("target_clusters_neighbourhood", "r")
-
-
-# REMAKE??
 # function to initialize score for new protein profiles from neighbourhood
 # should potentially be called in update_query_profiles_add_proteins function?
 # ASK if I need to search again and do everything like for the matches to get the enrich scores?
 # ASK if I can just do it in the next iter with all the other profiles
 # ASK if now I calculate the enrichment scores correctly
 # ASK Johannes what order should it be done, if I initialize scores for proteins or profiles
-def initialize_new_prot_score():
-    # searching neighbourhood cluster proteins against themselves to find for each protein 
-    # how many matches are in clusters
-    # CHECK if using neighbourhood file here is ok
-    # CHECK if the change of the mmseqs search direction should change anything here
-    subprocess.call(['mmseqs', 'search', 
-    'target_clusters_neighbourhood.db' + '_clu' + '_rep' + '_profile',
-     'target_clusters_neighbourhood.db',
-     'target_clusters_neighbourhood.db_res' + '_prof_search',
-     'tmp', '-a'])
-    # searching neighbourhood cluster proteins against target db to find for each protein 
-    # how many matches are NOT in clusters
-    subprocess.call(['mmseqs', 'search', 
-    'target_clusters_neighbourhood.db' + '_clu' + '_rep' + '_profile',
-     files.target_db,
-     'target_clusters_neighbourhood.db_ag_target_res' + '_prof_search',
-     'tmp', '-a'])
-    
-    # converting to convenient format
-    subprocess.call(['mmseqs', 'convertalis',
-     'target_clusters_neighbourhood.db' + '_clu' + '_rep' + '_profile',
-     'target_clusters_neighbourhood.db', 'target_clusters_neighbourhood.db_res' + '_prof_search',
-      'target_clusters_neighbourhood.db_res' + '_prof_search' +'.m8'])
-
-    subprocess.call(['mmseqs', 'convertalis',
-     'target_clusters_neighbourhood.db' + '_clu' + '_rep' + '_profile',
-     files.target_db, 'target_clusters_neighbourhood.db_ag_target_res' + '_prof_search',
-      'target_clusters_neighbourhood.db_ag_target_res' + '_prof_search' +'.m8'])
-
-    # FIX ADD best match???
-    
-    # load profile file for neighbourhood prots to iterate through them
-    # THINK about format and how to iterate and write scores better
-    neighbourhood_db_profiles = np.genfromtxt('target_clusters_neighbourhood.db' + '_clu.tsv',
-     dtype = None, delimiter="\t", encoding=None)
-    # iterating through all neighbourhood prots to give them scores
-    print(neighbourhood_db_profiles)
-    
-    # CHECK if I should remove self-matches from neighbourhood ag neighbourhood (I guess not)
-    search_neighb_ag_neighb_result_file = pd.read_csv('target_clusters_neighbourhood.db' + '_res_prof_search.m8',
-     dtype={'str':'float'}, sep='\t', header = None) 
-    # CHECK if it is fast
-    search_neighb_ag_neighb_result_file = search_neighb_ag_neighb_result_file.to_numpy()
-    print(search_neighb_ag_neighb_result_file[:5])
-    print('printing against target neighbourhood results')
-    search_neighb_ag_target_result_file = pd.read_csv('target_clusters_neighbourhood.db' + '_ag_target_res_prof_search.m8',
-     dtype={'str':'float'}, sep='\t', header = None) 
-    search_neighb_ag_target_result_file = search_neighb_ag_target_result_file.to_numpy()
-    print(search_neighb_ag_target_result_file[:5])
-    # FIX CHECK add also number of prots which were also matches in cluster? they are not in
-    # neighbourhood file
-    l = search_neighb_ag_neighb_result_file[:, 0].size
-    L = search_neighb_ag_target_result_file[:, 0].size
-    # FIX bias to be read from input
-    bias = 0
-
-    # make a file to "link" to profiles to store scores data
-    # CHECK if it has optimal structure
-    target_clusters_neighbourhood_prof_mishpokhe_scores = open("target_clusters_neighbourhood_prof_mishpokhe_scores", "w")
-    target_clusters_neighbourhood_signif_prots = open("target_clusters_neighbourhood_signif_prots", "w")
-
-    # iterate through all profile representatives
-    # CHECK or ASK if i should iterate through all members or through representatives? and then just
-    # update the clustering db?
-    for prof_id in np.unique(neighbourhood_db_profiles[:, 0]):
-        print(prof_id)
-        m_x = np.count_nonzero(search_neighb_ag_neighb_result_file[:, 0] == prof_id)
-        M_x = m_x + np.count_nonzero(search_neighb_ag_target_result_file[:, 0] == prof_id)
-        print(m_x, M_x)
-        score_x = np.log(np.divide(np.divide(m_x, l), np.divide(M_x, L))) - bias
-        print(score_x)
-        # FIX figure out how to set b and threshold for prot to be enriched in cluster
-        # remove new profiles (from matches neighbourhood) which are below score threshold
-        # choosing only those which are above threshold, extracting seqs for them and writing to file
-        threshold = -10
-        if score_x > threshold:
-            # writing profile id to the file together with the score
-            target_clusters_neighbourhood_prof_mishpokhe_scores.write(str(prof_id) +'\t'+str(score_x)+'\n')
-            # finding not only representatives but also members of the cluster
-            rows=np.where(neighbourhood_db_profiles[:, 0] == prof_id)
-            print(neighbourhood_db_profiles[rows])
-            for prot_id in neighbourhood_db_profiles[rows][:,1]:
-                # finding this seq id in file, extracting seq to prepare file to build significant profiles
-                prot_seqs = subprocess.Popen(['grep', '-A1', prot_id + ' ',
-                 'target_clusters_neighbourhood'], stdout=subprocess.PIPE)
-                seqs, error = prot_seqs.communicate()
-                target_clusters_neighbourhood_signif_prots.write(seqs.decode("utf-8"))
-    target_clusters_neighbourhood_prof_mishpokhe_scores.close()
-    target_clusters_neighbourhood_signif_prots.close()
-
 def make_new_query():
     print('making new query set')
     query_fasta = input('Enter query_sequences (fasta) path: ')
@@ -1287,26 +1109,7 @@ def initialize_new_prot_score2(sign_clusters_df, old_query_upd_scores, L, l, map
     return(old_query_upd_scores)
 
 
-# REMOVE??
-# CHECK if it was an efficient way to filter profiles and build and re-build them
-# THINK or ASK if it is ok to update old profiles and add new via just combining sequences
-# and building profiles from all of them
-# function to combine all old profiles, cluster matches and neighbourhood (passed threshold)
-def combine_all_profiles():
-    # CHECK if I should just update clustering-profile db?
-    # making dbs out of neighbourhood and matches
-    subprocess.call(['mmseqs', 'createdb', 'target_clusters_neighbourhood_signif_prots',
-     'target_clusters_neighbourhood_signif_prots.db'])
-    subprocess.call(['mmseqs', 'createdb', 'target_clusters_matches',
-     'target_clusters_matches.db'])
-    # concatenating dbs 
-    # CHECK if i need to concatenate headers or any other additional files
-    print('concatenating all proteins to build profiles')
-    subprocess.call(['mmseqs', 'concatdbs', 'target_clusters_matches.db',
-     'target_clusters_neighbourhood_signif_prots.db', 'iter_match_neighb_prots.db'])
-    subprocess.call(['mmseqs', 'concatdbs', files.query_db, 'iter_match_neighb_prots.db',
-     'iter_all_prots.db' ])
-    # CHECK or ASK if the order is normal (see lab notes)
+
     
 
 
@@ -1365,7 +1168,6 @@ def main(old_query_upd_scores, d_strand_flip_penalty, s_0):
     
     # UNCOMMENT
     significant_cluster_df_enriched, s_0, old_query_upd_scores, L, l = update_scores_for_cluster_matches(cluster_matches, mapped_res)
-    
     stat_lambda, stat_K = calculate_karlin_stat(cluster_matches, mapped_res)
     sign_clusters_df = significant_cluster_df_enriched
     significant_cluster_df_enriched, significant_clusters_eval_filter_df = calculate_e_value(stat_lambda, stat_K, significant_cluster_df_enriched, mapped_res)
@@ -1384,14 +1186,6 @@ def main(old_query_upd_scores, d_strand_flip_penalty, s_0):
     make_new_query()
     old_query_upd_scores = initialize_new_prot_score2(sign_clusters_df, old_query_upd_scores, L, l, mapped_res)
 
-    #update_query_profiles()
-    #add_new_proteins()
-    #make_new_profiles(sign_clusters_df)
-
-    # function to initialize score for new proteins from neighbourhood
-    # should potentially be called in update_query_profiles_add_proteins function?
-    #initialize_new_prot_score()
-    #combine_all_profiles()
 
     #generate_mmseqs_ffindex(sign_clusters_df)
 
