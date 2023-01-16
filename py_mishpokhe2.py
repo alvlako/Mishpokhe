@@ -1059,6 +1059,7 @@ def extract_proteins_cluster_neighborhood(sign_clusters_df):
 # ASK Johannes what order should it be done, if I initialize scores for proteins or profiles
 def make_new_query():
     print('making new query set')
+    print('it is iteration ', iter_counter, ' add +1')
     query_fasta = input('Enter query_sequences (fasta) path: ')
     # to have names like query_prot_db2iter_db, not like query_prot_db2iter_db1iter_db
     query_db_path = str(files.query_db)
