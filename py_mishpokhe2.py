@@ -867,10 +867,19 @@ def calculate_e_value(stat_lambda, stat_K, significant_cluster_df_enriched, mapp
         evalue = stat_K*L*np.exp(stat_lambda*(-1)*conv_enrich_score)
         significant_cluster_df_enriched.iat[r, significant_cluster_df_enriched.columns.get_loc("e-value")] = float(evalue)
         print('eval =', evalue)
-    # CHANGE the name? they are not filtered by e-val yet
-    significant_cluster_df_enriched.to_csv('sign_clusters_enrich_stat', sep = '\t', index = False)
+    # CHANGE the name? 
+    # they are not filtered by e-val yet
+    cluster_path = files.res + '_' + str(iter_counter) + '_iter_sign_clusters_enrich_stat'
+    significant_cluster_df_enriched.to_csv(cluster_path, sep = '\t', index = False)
     # Check if e-val = 0.01 is good filtering
-    significant_clusters_eval_filter_df = significant_cluster_df_enriched.loc[(significant_cluster_df_enriched['e-value'] <0.01) & (significant_cluster_df_enriched['e-value'] > 0)]
+    eval_filter = 1
+    use_eval_filter = 1
+    if use_eval_filter == 1:
+        significant_clusters_eval_filter_df = significant_cluster_df_enriched.loc[(significant_cluster_df_enriched['e-value'] <eval_filter) & (significant_cluster_df_enriched['e-value'] > 0)]
+        cluster_path2 = files.res + '_' + str(iter_counter) + '_iter_sign_clusters_enrich_stat_filtered'
+        significant_clusters_eval_filter_df.to_csv(cluster_path2, sep = '\t', index = False)
+    else:
+        significant_clusters_eval_filter_df = significant_cluster_df_enriched.copy()
     print(significant_cluster_df_enriched)
     print(significant_clusters_eval_filter_df)
     return significant_cluster_df_enriched, significant_clusters_eval_filter_df
@@ -879,7 +888,7 @@ def calculate_e_value(stat_lambda, stat_K, significant_cluster_df_enriched, mapp
 
 # THINK about writing already to a file in subprocess Popen
 def extract_proteins_cluster_neighborhood(sign_clusters_df):
-    print('updating query profile started')
+    print('updating query profile started (extracting prots_')
     # CHECK if only the significant clusters are used
     # getting the target prots matched to query
     print('significant (?) clusters table')
@@ -897,7 +906,8 @@ def extract_proteins_cluster_neighborhood(sign_clusters_df):
     print(sign_clusters_df['target_prots'])
     # extracting proteins matched, within and in +3 left and right neighbourhood of the clusters
     ##target_clusters_within = open("target_clusters_within", "w")
-    target_clusters_neighbourhood = open("target_clusters_neighbourhood", "w")
+    neighbourhood_path = files.res + '_' + str(iter_counter) + '_iter_target_clusters_neighbourhood'
+    target_clusters_neighbourhood = open(neighbourhood_path, "w")
     target_clusters_matches = open("target_clusters_matches", "w")
     for target_prot_cluster in sign_clusters_df['target_prots']:
         # MAKE faster
@@ -1029,7 +1039,7 @@ def extract_proteins_cluster_neighborhood(sign_clusters_df):
         
         # Add target matches to their neighbourhood
         #subprocess.call(['cat', 'target_clusters_matches', '>>', 'target_clusters_neighbourhood'])
-        command_cat = 'cat ' + 'target_clusters_matches ' + '>> ' + 'target_clusters_neighbourhood'
+        command_cat = 'cat ' + 'target_clusters_matches ' + '>> ' + neighbourhood_path
         os.system(command_cat)
 
         # FIX!
@@ -1059,7 +1069,7 @@ def extract_proteins_cluster_neighborhood(sign_clusters_df):
 # ASK Johannes what order should it be done, if I initialize scores for proteins or profiles
 def make_new_query():
     print('making new query set')
-    print('it is iteration ', iter_counter, ' add +1')
+    print('it is iteration ', iter_counter, ' do -1')
     query_fasta = input('Enter query_sequences (fasta) path: ')
     # to have names like query_prot_db2iter_db, not like query_prot_db2iter_db1iter_db
     query_db_path = str(files.query_db)
@@ -1119,11 +1129,11 @@ def generate_mmseqs_ffindex(sign_clusters_df):
 
 
 def main(old_query_upd_scores, d_strand_flip_penalty, s_0):
-    #make_profiles()
+    make_profiles()
 
     # CHECK if it works with multihitdb (just from command line it worked)
     # CHECK why there are more results with multihitdb (target is converted to profiles??)
-    #run_search()
+    run_search()
 
     # this class is to have order and strand for target proteins
     # FIX best query hit is needed
@@ -1222,9 +1232,12 @@ if __name__ == "__main__":
             files.query_db = files.query_db
         if iter_counter == 2:
             files.query_db = str(files.query_db) + str(iterations) + 'iter_db'
+            files.res = str(files.res) + str(iter_counter) + 'iter_res'
         if iter_counter > 2:
             query_db_path = str(files.query_db)[:str(files.query_db).find(str(iter_counter-1))]
             files.query_db = query_db_path + str(iter_counter) + 'iter_db'
+            res_path = str(files.res)[:str(files.res).find(str(iter_counter-1))]
+            files.res = res_path + str(iter_counter) + 'iter_res'
         print('files.query_db in main', files.query_db)
 
 
