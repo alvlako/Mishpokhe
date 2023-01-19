@@ -973,8 +973,11 @@ def extract_proteins_cluster_neighborhood(sign_clusters_df):
         # filtering only concrete genome in db, CHECK if correct for all formats
         # Does it limit the formats option? So I somehow rely on the fact that I have a protein ID 
         # of the format “MW067000.1_2”, and genome ID is of the format “MW067000.1”.
+        #genome_id = target_prot_right.split('_')[0]
         group_sep = ''.join(['--', ' ', '"', '^--$','"'])
-        genome_id = target_prot_right.split('_')[0]
+        # Changed genome id to format of prot = NC_055116.1_25
+        # MAKE more general format!
+        genome_id = target_prot_right.split('_')[0] + '_' + target_prot_right.split('_')[1]
         p1_left = subprocess.Popen(['grep', '-A1', genome_id, target_fasta], stdout=subprocess.PIPE)
         p4_left = subprocess.Popen(['grep ' + '-v '+ group_sep], stdin=p1_left.stdout, stdout=subprocess.PIPE, shell = True)
         p2_left = subprocess.Popen(['grep', '-B6', target_prot_left + ' '], stdin=p4_left.stdout, stdout=subprocess.PIPE)
@@ -1231,14 +1234,27 @@ if __name__ == "__main__":
             d_strand_flip_penalty = None
             files.query_db = files.query_db
         if iter_counter == 2:
-            files.query_db = str(files.query_db) + str(iterations) + 'iter_db'
-            files.res = str(files.res) + str(iter_counter) + 'iter_res'
+            files.query_db = str(files.query_db) + str(iter_counter-1) + 'iter_db'
+            files.res = str(files.res) + str(iter_counter-1) + 'iter_res'
         if iter_counter > 2:
-            query_db_path = str(files.query_db)[:str(files.query_db).find(str(iter_counter-1))]
-            files.query_db = query_db_path + str(iter_counter) + 'iter_db'
-            res_path = str(files.res)[:str(files.res).find(str(iter_counter-1))]
-            files.res = res_path + str(iter_counter) + 'iter_res'
+            query_db_path = str(files.query_db)[:str(files.query_db).find(str(iter_counter-2))]
+            files.query_db = query_db_path + str(iter_counter-1) + 'iter_db'
+            res_path = str(files.res)[:str(files.res).find(str(iter_counter-2))]
+            files.res = res_path + str(iter_counter-1) + 'iter_res'
         print('files.query_db in main', files.query_db)
+
+
+        #print('here is main running')
+
+        #query_db_path = str(files.query_db)
+        #print('iter_counter', iter_counter)
+        #if iter_counter > 1:
+        #    query_db_path = str(files.query_db)[:(str(files.query_db).find(str(iter_counter-1)))]
+        #print('query_db_path', query_db_path)
+        #out_file = query_db_path + str(iter_counter) + 'iter.fasta'
+        #print('out_file', out_file)
+        #print('@1', query_db_path + str(iter_counter) + 'iter.fasta')
+        #print('@2', query_db_path + str(iter_counter) + 'iter_db')
 
 
         main(old_query_upd_scores, d_strand_flip_penalty, s_0)
