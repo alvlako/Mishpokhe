@@ -263,9 +263,8 @@ def find_clusters(mapped_res, old_query_upd_scores, d_strand_flip_penalty, s_0):
     score_i_minus_1_cluster = 0
 
     if s_0 is None:
+        #s_0 = -0.01
         s_0 = -1
-        s_0 = -1
-        s_0 = -0.01
 
     # Shows if the current protein has a query match
     is_match = 1
@@ -347,13 +346,17 @@ def find_clusters(mapped_res, old_query_upd_scores, d_strand_flip_penalty, s_0):
         # CHECK if I should compare with the prev prot
         # ADD something because now it depends a lot on format, indices would be different here
         # if ids are NC_111.1_1 or something else like MT333.1_2
-        print(target_db_h["ID"].values[i].split("_")[0]+target_db_h["ID"].values[i].split("_")[1])
-        print(target_db_h["ID"].values[i+1].split("_")[0]+target_db_h["ID"].values[i+1].split("_")[1])
+        # Here for the format of  NC_111.1_1
+        #print(target_db_h["ID"].values[i].split("_")[0]+target_db_h["ID"].values[i].split("_")[1])
+        #print(target_db_h["ID"].values[i+1].split("_")[0]+target_db_h["ID"].values[i+1].split("_")[1])
+        # Here for the format of MT333.1_2
         #print(target_db_h["ID"].values[i].split("_")[0])
         #print(target_db_h["ID"].values[i+1].split("_")[0])
         # CHANGE here if the dataset big or small
-        #if target_db_h["ID"].values[i].split("_")[0]!= target_db_h["ID"].values[i+1].split("_")[0]:
-        if target_db_h["ID"].values[i].split("_")[0]+target_db_h["ID"].values[i].split("_")[1] != target_db_h["ID"].values[i+1].split("_")[0]+target_db_h["ID"].values[i+1].split("_")[1]:
+        # Here for the format of MT333.1_2
+        if target_db_h["ID"].values[i].split("_")[0]!= target_db_h["ID"].values[i+1].split("_")[0]:
+        # Here for the format of  NC_111.1_1
+        #if target_db_h["ID"].values[i].split("_")[0]+target_db_h["ID"].values[i].split("_")[1] != target_db_h["ID"].values[i+1].split("_")[0]+target_db_h["ID"].values[i+1].split("_")[1]:
             print('different genomes!!!')
             # is it a good idea?
             diff_genomes_penalty = 10000
@@ -566,10 +569,10 @@ def update_scores_for_cluster_matches(cluster_matches, mapped_res):
             print(sign_clusters_df['list_new_scoreS_enrich'].tolist())
         else:
             print('is in list')
-            s_0 = -0.01
+            s_0 = -1
     if len(cluster_prots['target_id']) == 0:
         print('0 target in clusters')
-        s_0 = -0.01
+        s_0 = -1
     print(s_0)
             
 
@@ -907,6 +910,7 @@ def extract_proteins_cluster_neighborhood(sign_clusters_df):
     # extracting proteins matched, within and in +3 left and right neighbourhood of the clusters
     ##target_clusters_within = open("target_clusters_within", "w")
     neighbourhood_path = files.res + '_' + str(iter_counter) + '_iter_target_clusters_neighbourhood'
+    
     target_clusters_neighbourhood = open(neighbourhood_path, "w")
     target_clusters_matches = open("target_clusters_matches", "w")
     for target_prot_cluster in sign_clusters_df['target_prots']:
@@ -977,7 +981,10 @@ def extract_proteins_cluster_neighborhood(sign_clusters_df):
         group_sep = ''.join(['--', ' ', '"', '^--$','"'])
         # Changed genome id to format of prot = NC_055116.1_25
         # MAKE more general format!
-        genome_id = target_prot_right.split('_')[0] + '_' + target_prot_right.split('_')[1]
+        # For the format of NC_055116.1_25
+        #genome_id = target_prot_right.split('_')[0] + '_' + target_prot_right.split('_')[1]
+        # For the format of YN055116.1_25
+        genome_id = target_prot_right.split('_')[0]
         p1_left = subprocess.Popen(['grep', '-A1', genome_id, target_fasta], stdout=subprocess.PIPE)
         p4_left = subprocess.Popen(['grep ' + '-v '+ group_sep], stdin=p1_left.stdout, stdout=subprocess.PIPE, shell = True)
         p2_left = subprocess.Popen(['grep', '-B6', target_prot_left + ' '], stdin=p4_left.stdout, stdout=subprocess.PIPE)
@@ -1042,7 +1049,9 @@ def extract_proteins_cluster_neighborhood(sign_clusters_df):
         
         # Add target matches to their neighbourhood
         #subprocess.call(['cat', 'target_clusters_matches', '>>', 'target_clusters_neighbourhood'])
+        print('neighbourhood_path', neighbourhood_path)
         command_cat = 'cat ' + 'target_clusters_matches ' + '>> ' + neighbourhood_path
+        print('command_cat', command_cat)
         os.system(command_cat)
 
         # FIX!
@@ -1082,7 +1091,9 @@ def make_new_query():
     print('query_db_path', query_db_path)
     out_file = query_db_path + str(iter_counter) + 'iter.fasta'
     print('out_file', out_file)
-    command_cat = 'cat ' + query_fasta +' target_clusters_neighbourhood' + ' >' + ' ' + out_file
+    neighbourhood_path = files.res + '_' + str(iter_counter) + '_iter_target_clusters_neighbourhood'
+    command_cat = 'cat ' + query_fasta + ' ' + neighbourhood_path + ' >' + ' ' + out_file
+    print('command_cat', command_cat)
     os.system(command_cat)
     #with open(out_file, "w") as query_file:
     #    subprocess.Popen(['cat', query_fasta, 'target_clusters_neighbourhood'], stdout = query_file)
