@@ -1180,8 +1180,28 @@ def find_singletons(mapped_res):
     return cluster_matches
 
 
-def initialize_singleton_score():
-    pass
+def initialize_singleton_score(sign_clusters_df, mapped_res):
+    # Running search to get if the neighbourhood proteins are enriched 
+    # in these "pseudoclusters"
+    print('running search for singletons scores')
+    subprocess.call(['mmseqs', 'cluster', files.query_db, files.query_db + '_clu',
+     'tmp', '--min-seq-id', '0.9'])
+    subprocess.call(['mmseqs', 'createsubdb', files.query_db + '_clu', files.query_db,
+     files.query_db + '_clu' + '_rep'])
+    subprocess.call(['mmseqs', 'createsubdb', files.query_db + '_clu', files.query_db + '_h',
+     files.query_db + '_clu' + '_rep' + '_h'])
+    subprocess.call(['mmseqs', 'result2profile', files.query_db + '_clu' + '_rep',
+     files.query_db, files.query_db + '_clu', files.query_db + '_clu' + '_rep' + '_profile' ])
+    subprocess.call(['mmseqs', 'search', 
+    files.query_db + '_clu' + '_rep' + '_profile',
+     files.target_db,
+     files.res + '_prof_search',
+     'tmp', '-a'])
+    subprocess.call(['mmseqs', 'convertalis', files.query_db + '_clu' + '_rep' + '_profile',
+     files.target_db, files.res + '_prof_search',
+      files.res + '_prof_search' +'.m8'])
+
+    # Calculating scores
 
 
 def preprocess_singleton_main():
@@ -1191,6 +1211,22 @@ def preprocess_singleton_main():
     mapped_res.res_map_to_header.to_csv('mapped_results_mish', sep = '\t')
 
     cluster_matches = find_singletons(mapped_res)
+    
+    cluster_matches_df = pd.DataFrame(cluster_matches)
+    cluster_matches_df.to_csv('single_matches_raw', sep = '\t', index = False)
+    print('number of singletons', len(cluster_matches_df.index))
+
+    print(cluster_matches_df)
+    
+    sign_clusters_df = cluster_matches_df.copy()
+    sign_clusters_df.columns = ["coord1", "coord2", "score",
+     "query", "target", "strand"]
+
+    extract_proteins_cluster_neighborhood(sign_clusters_df)
+    make_new_query()
+
+    files.query_db = str(files.query_db) + str(iter_counter) + 'iter_db'
+    old_query_upd_scores = initialize_singleton_score(sign_clusters_df, mapped_res)
     print(x)
     pass
 
@@ -1291,7 +1327,9 @@ if __name__ == "__main__":
 
     # For 0th iteration with query containing singletons
     if if_singleton == 1:
+        iter_counter = 0
         preprocess_singleton_main()
+        
 
     
     iter_counter = 1
