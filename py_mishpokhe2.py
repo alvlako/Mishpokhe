@@ -254,7 +254,7 @@ def find_clusters(mapped_res, old_query_upd_scores, d_strand_flip_penalty, s_0):
     score_max_cluster = 0
     # OPTIMIZE how to set the strand penalty
     if d_strand_flip_penalty is None:
-        d_strand_flip_penalty = 0.1
+        d_strand_flip_penalty = 1
     else:
         d_strand_flip_penalty = -1*d_strand_flip_penalty
     
@@ -354,9 +354,9 @@ def find_clusters(mapped_res, old_query_upd_scores, d_strand_flip_penalty, s_0):
         #print(target_db_h["ID"].values[i+1].split("_")[0])
         # CHANGE here if the dataset big or small
         # Here for the format of MT333.1_2
-        if target_db_h["ID"].values[i].split("_")[0]!= target_db_h["ID"].values[i+1].split("_")[0]:
+        #if target_db_h["ID"].values[i].split("_")[0]!= target_db_h["ID"].values[i+1].split("_")[0]:
         # Here for the format of  NC_111.1_1
-        #if target_db_h["ID"].values[i].split("_")[0]+target_db_h["ID"].values[i].split("_")[1] != target_db_h["ID"].values[i+1].split("_")[0]+target_db_h["ID"].values[i+1].split("_")[1]:
+        if target_db_h["ID"].values[i].split("_")[0]+target_db_h["ID"].values[i].split("_")[1] != target_db_h["ID"].values[i+1].split("_")[0]+target_db_h["ID"].values[i+1].split("_")[1]:
             print('different genomes!!!')
             # is it a good idea?
             diff_genomes_penalty = 10000
@@ -882,8 +882,9 @@ def calculate_e_value(stat_lambda, stat_K, significant_cluster_df_enriched, mapp
         cluster_path2 = files.res + '_' + str(iter_counter) + '_iter_sign_clusters_enrich_stat_filtered'
         significant_clusters_eval_filter_df.to_csv(cluster_path2, sep = '\t', index = False)
     else:
+        print('e-value filter disabled')
         significant_clusters_eval_filter_df = significant_cluster_df_enriched.copy()
-    print(significant_cluster_df_enriched)
+    print('significant_cluster_df_enriched', significant_cluster_df_enriched)
     print(significant_clusters_eval_filter_df)
     return significant_cluster_df_enriched, significant_clusters_eval_filter_df
 
@@ -982,12 +983,14 @@ def extract_proteins_cluster_neighborhood(sign_clusters_df):
         # Changed genome id to format of prot = NC_055116.1_25
         # MAKE more general format!
         # For the format of NC_055116.1_25
-        #genome_id = target_prot_right.split('_')[0] + '_' + target_prot_right.split('_')[1]
+        genome_id = target_prot_right.split('_')[0] + '_' + target_prot_right.split('_')[1]
         # For the format of YN055116.1_25
-        genome_id = target_prot_right.split('_')[0]
+        #genome_id = target_prot_right.split('_')[0]
+
+        # extracting not 3 but 6 prots from each side
         p1_left = subprocess.Popen(['grep', '-A1', genome_id, target_fasta], stdout=subprocess.PIPE)
         p4_left = subprocess.Popen(['grep ' + '-v '+ group_sep], stdin=p1_left.stdout, stdout=subprocess.PIPE, shell = True)
-        p2_left = subprocess.Popen(['grep', '-B6', target_prot_left + ' '], stdin=p4_left.stdout, stdout=subprocess.PIPE)
+        p2_left = subprocess.Popen(['grep', '-B12', target_prot_left + ' '], stdin=p4_left.stdout, stdout=subprocess.PIPE)
         # dont communicate if you dont want the pipe to be closed
         p3_left = subprocess.Popen(['grep', '-v', target_prot_left], stdin=p2_left.stdout, stdout=subprocess.PIPE)
         p1_left.stdout.close()
@@ -1001,7 +1004,7 @@ def extract_proteins_cluster_neighborhood(sign_clusters_df):
         print(left_prots_extracted_n)
         # CHANGE later for variable how many prots to extract? 
         # -1 is added to use it later in tail command
-        left_prots_remained_to_extract_n_lines = str((3 - left_prots_extracted_n)*2*(-1))
+        left_prots_remained_to_extract_n_lines = str((6 - left_prots_extracted_n)*2*(-1))
         print("remained", left_prots_remained_to_extract_n_lines)
         # extract remaining number of proteins from another end of the file if any
         if int(left_prots_remained_to_extract_n_lines)*(-1) > 0:
@@ -1020,9 +1023,9 @@ def extract_proteins_cluster_neighborhood(sign_clusters_df):
 
         p1_right = subprocess.Popen(['grep', '-A1', genome_id, target_fasta], stdout=subprocess.PIPE)
         p2 = subprocess.Popen(['grep ' + '-v '+ group_sep], stdin=p1_right.stdout, stdout=subprocess.PIPE, shell = True)
-        p3 = subprocess.Popen(['grep', '-A7', target_prot_right + ' '], stdin=p2.stdout, stdout=subprocess.PIPE)
+        p3 = subprocess.Popen(['grep', '-A13', target_prot_right + ' '], stdin=p2.stdout, stdout=subprocess.PIPE)
         p4 = subprocess.Popen(['grep', '-v', target_prot_right], stdin=p3.stdout, stdout=subprocess.PIPE)
-        p5 = subprocess.Popen(['tail', '-6'], stdin=p4.stdout, stdout=subprocess.PIPE)
+        p5 = subprocess.Popen(['tail', '-12'], stdin=p4.stdout, stdout=subprocess.PIPE)
         output_right,err_right = p5.communicate()
         p1_right.stdout.close()
         p4.stdout.close()
@@ -1031,7 +1034,7 @@ def extract_proteins_cluster_neighborhood(sign_clusters_df):
 
         right_prots_extracted_n = output_right.decode("utf-8").count('>')
         print(right_prots_extracted_n)
-        right_prots_remained_to_extract_n_lines = str((3 - right_prots_extracted_n)*2*(-1))
+        right_prots_remained_to_extract_n_lines = str((6 - right_prots_extracted_n)*2*(-1))
         # extract remaining number of proteins from another end of the file if any
         if right_prots_remained_to_extract_n_lines != '0':
             p1_from_begin = subprocess.Popen(['grep', genome_id, target_fasta], stdout=subprocess.PIPE)
@@ -1135,10 +1138,60 @@ def initialize_new_prot_score2(sign_clusters_df, old_query_upd_scores, L, l, map
 
 
 
+
+# This part is for "iteration 0", flag which is switched when 
+# you have some proportion of single queries not forming clusters
+def find_singletons(mapped_res):
+    mapped_results = mapped_res.res_map_to_header
+    results = mapped_res.search_result_file
+    index_list = mapped_res.ind_list
+    target_db_lookup = mapped_res.target_db_lookup
+    target_db_h = mapped_res.target_db_h
+
+    # For some reasons, _h file is not sorted as lookup by default, so I sort it accordingly
+    target_db_h['sort_cat'] = pd.Categorical(target_db_h['ID'], categories=target_db_lookup.iloc[:, 1].tolist(), ordered=True)
+    target_db_h.sort_values('sort_cat', inplace=True)
+    target_db_h.reset_index(inplace=True)
+
+    # to fix the problem with the nan coming from reading the table
+    results = results[results.iloc[:, 0].notna()]
+    print(results)
+    print('mapped results')
+    print(mapped_results)
+    print("index list", index_list)
+
+    cluster_matches = list()
+    matches_ids_list = mapped_results['ID'].tolist()
+
+    score_max_cluster = 1
     
+    for i in range(0, len(target_db_lookup.iloc[:, 1])-1):
+        if target_db_h["ID"].values[i] in matches_ids_list:
+            curr_query_id = mapped_results.loc[mapped_results['ID'] == target_db_h["ID"].values[i], 'query_ID'].iloc[0]
+            strand = int(target_db_h["strand"].values[i])
+            target_hit = target_db_h["ID"].values[i]
+            i_0_cluster_start = int(target_db_h["coord1"].values[i])
+            i_1_cluster_end = int(target_db_h["coord2"].values[i])
+            cluster_matches.append((i_0_cluster_start,
+         i_1_cluster_end, score_max_cluster, 
+         curr_query_id, target_hit, strand))
+ 
+    print(cluster_matches)
+    return cluster_matches
 
 
-def generate_mmseqs_ffindex(sign_clusters_df):
+def initialize_singleton_score():
+    pass
+
+
+def preprocess_singleton_main():
+    make_profiles()
+    run_search()
+    mapped_res = ResultsMapping.map_target_to_coord()
+    mapped_res.res_map_to_header.to_csv('mapped_results_mish', sep = '\t')
+
+    cluster_matches = find_singletons(mapped_res)
+    print(x)
     pass
 
 
@@ -1223,6 +1276,8 @@ if __name__ == "__main__":
     #iterations = int(input())
     iterations = int(input())
 
+    print('do you have singleton queries? 1 for yes, 0 for no')
+    if_singleton = int(input())
     # ADD check if file exists!!!
     files = FilePath.get_path()
     print(files.query_db)
@@ -1233,6 +1288,10 @@ if __name__ == "__main__":
 
     # UNCOMMENT, real mapping!
     #mapped_res = ResultsMapping.map_target_to_coord()
+
+    # For 0th iteration with query containing singletons
+    if if_singleton == 1:
+        preprocess_singleton_main()
 
     
     iter_counter = 1
