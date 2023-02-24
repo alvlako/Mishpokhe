@@ -897,11 +897,11 @@ def extract_proteins_cluster_neighborhood(sign_clusters_df):
     # getting the target prots matched to query
     print('significant (?) clusters table')
     print(sign_clusters_df)
-    
+
     # calling initial fasta for target and query
     # CHANGE it to not ask user again
     #query_fasta = input('Enter query_sequences (fasta) path: ')
-    target_fasta = input('Enter target_sequence (fasta) path: ')
+    target_fasta = input('Enter target_sequence (fasta (linearized!!!)) path: ')
 
     # adding matched target prots to the query set to make the profiles again
     # THINK if it is a good way to add all matched target prots to all queries and run clustering again
@@ -940,37 +940,26 @@ def extract_proteins_cluster_neighborhood(sign_clusters_df):
         #seqs, error = matches_seqs.communicate()
         #target_clusters_matches.write(seqs.decode("utf-8"))
 
+
         target_prot_left = target_prot_cluster[0]
         target_prot_right = target_prot_cluster[-1]
         print('left and right proteins per cycle')
         print(target_prot_left, target_prot_right)
-        # extracting header + seq lines between left and right edge proteins in cluster
-        # all prots within cluster extracted, but the rightest dont have seq line after this step, only header
-        within = subprocess.Popen(['sed', '-n', '/%s /,/%s /p' %(target_prot_left, target_prot_right) + ' ', target_fasta], stdout=subprocess.PIPE)
-        
-        # FIX FIX FIX
-        #remov_pat = '-- "^--$"'
-        #print(remov_pat)
-        #p_matches_in_cluster = subprocess.Popen(['grep', '-A1', '-F', '-f', 'target_protID_cluster_file', target_fasta, ], stdout=subprocess.PIPE, encoding='utf-8')
-        #p2_matches_in_cluster = subprocess.Popen(['grep', '-v', '--'], stdin=p_matches_in_cluster, stdout=subprocess.PIPE, encoding='utf-8')
-        #p_matches_in_cluster.stdout.close()
-        #print(("the commandline is {}".format(p_matches_in_cluster.args)))
-        #print('these are matches in cluster')
-        #matches_in_cluster, err_cl = p2_matches_in_cluster.communicate()
-        #print(err_cl)
-        #print(matches_in_cluster)
 
-
-
-        target_clusters_within, error = within.communicate()
-        print(target_clusters_within.decode('utf-8'))
-
-        p1_within = subprocess.Popen(['grep', '-A1', target_prot_right + ' ', target_fasta], stdout=subprocess.PIPE)
-        # dont communicate if you dont want the pipe to be closed
-        p2 = subprocess.Popen(['grep', '-v', target_prot_right], stdin=p1_within.stdout, stdout=subprocess.PIPE)
-        p1_within.stdout.close()
-        right_protein_seq, err = p2.communicate()
-        print('rest',right_protein_seq.decode('utf-8'))
+        # if i have singletons, the withit extraction would extract too many prots,
+        # as the left and the right proteins are the same
+        if iter_counter != 0:
+            # extracting header + seq lines between left and right edge proteins in cluster
+            # all prots within cluster extracted, but the rightest dont have seq line after this step, only header
+            within = subprocess.Popen(['sed', '-n', '/%s /,/%s /p' %(target_prot_left, target_prot_right) + ' ', target_fasta], stdout=subprocess.PIPE)
+            target_clusters_within, error = within.communicate()
+            print(target_clusters_within.decode('utf-8'))
+            p1_within = subprocess.Popen(['grep', '-A1', target_prot_right + ' ', target_fasta], stdout=subprocess.PIPE)
+            # dont communicate if you dont want the pipe to be closed
+            p2 = subprocess.Popen(['grep', '-v', target_prot_right], stdin=p1_within.stdout, stdout=subprocess.PIPE)
+            p1_within.stdout.close()
+            right_protein_seq, err = p2.communicate()
+            print('rest',right_protein_seq.decode('utf-8'))
         #target_clusters_within = within
         # extracting 3 prots before and after + seq line for the last prot of the cluster
         # pipes are to get rid of rightest and leftest prots headers
@@ -986,6 +975,9 @@ def extract_proteins_cluster_neighborhood(sign_clusters_df):
         genome_id = target_prot_right.split('_')[0] + '_' + target_prot_right.split('_')[1]
         # For the format of YN055116.1_25
         #genome_id = target_prot_right.split('_')[0]
+
+        print(group_sep)
+        print(genome_id)
 
         # extracting not 3 but 6 prots from each side
         p1_left = subprocess.Popen(['grep', '-A1', genome_id, target_fasta], stdout=subprocess.PIPE)
@@ -1020,7 +1012,6 @@ def extract_proteins_cluster_neighborhood(sign_clusters_df):
             p1_from_end.stdout.close()
             target_clusters_neighbourhood.write(output_file_end.decode("utf-8"))
 
-
         p1_right = subprocess.Popen(['grep', '-A1', genome_id, target_fasta], stdout=subprocess.PIPE)
         p2 = subprocess.Popen(['grep ' + '-v '+ group_sep], stdin=p1_right.stdout, stdout=subprocess.PIPE, shell = True)
         p3 = subprocess.Popen(['grep', '-A13', target_prot_right + ' '], stdin=p2.stdout, stdout=subprocess.PIPE)
@@ -1047,8 +1038,10 @@ def extract_proteins_cluster_neighborhood(sign_clusters_df):
         
         target_clusters_neighbourhood.write(output_left.decode("utf-8"))
         target_clusters_neighbourhood.write(output_right.decode("utf-8"))
-        target_clusters_neighbourhood.write(target_clusters_within.decode("utf-8"))
-        target_clusters_neighbourhood.write(right_protein_seq.decode("utf-8"))
+        # not for singletons
+        if iter_counter != 0:
+            target_clusters_neighbourhood.write(target_clusters_within.decode("utf-8"))
+            target_clusters_neighbourhood.write(right_protein_seq.decode("utf-8"))
         
         # Add target matches to their neighbourhood
         #subprocess.call(['cat', 'target_clusters_matches', '>>', 'target_clusters_neighbourhood'])
@@ -1056,7 +1049,7 @@ def extract_proteins_cluster_neighborhood(sign_clusters_df):
         command_cat = 'cat ' + 'target_clusters_matches ' + '>> ' + neighbourhood_path
         print('command_cat', command_cat)
         os.system(command_cat)
-
+        
         # FIX!
         #target_clusters_matches.write(matches_in_cluster)
         
@@ -1169,7 +1162,9 @@ def find_singletons(mapped_res):
         if target_db_h["ID"].values[i] in matches_ids_list:
             curr_query_id = mapped_results.loc[mapped_results['ID'] == target_db_h["ID"].values[i], 'query_ID'].iloc[0]
             strand = int(target_db_h["strand"].values[i])
-            target_hit = target_db_h["ID"].values[i]
+            # making list just to fit to the format
+            # expected by extract_proteins_neighbourhood
+            target_hit = [target_db_h["ID"].values[i]]
             i_0_cluster_start = int(target_db_h["coord1"].values[i])
             i_1_cluster_end = int(target_db_h["coord2"].values[i])
             cluster_matches.append((i_0_cluster_start,
@@ -1180,7 +1175,7 @@ def find_singletons(mapped_res):
     return cluster_matches
 
 
-def initialize_singleton_score(sign_clusters_df, mapped_res):
+def run_singleton_search():
     # Running search to get if the neighbourhood proteins are enriched 
     # in these "pseudoclusters"
     print('running search for singletons scores')
@@ -1198,10 +1193,28 @@ def initialize_singleton_score(sign_clusters_df, mapped_res):
      files.res + '_prof_search',
      'tmp', '-a'])
     subprocess.call(['mmseqs', 'convertalis', files.query_db + '_clu' + '_rep' + '_profile',
-     files.target_db, files.res + '_prof_search',
-      files.res + '_prof_search' +'.m8'])
+     files.target_db, files.res + '_singleton_prof_search',
+      files.res + '_singleton_prof_search' +'.m8'])
 
-    # Calculating scores
+
+def initialize_singleton_score(sign_clusters_df, mapped_res):
+    # FIX IT!!! setting up the hits score to 1 (as at the begin of the 1st iter)
+    # and the neighbourhood prots to 0 currently as it happens practically
+    # for neighbourhood scores for other iterations
+    print('calculating singleton score')
+    search_result_file = pd.read_csv(files.res + '_singleton_prof_search' +'.m8', dtype={'str':'float'}, sep='\t', header = None)
+    query_db_path = str(files.query_db)
+    new_query_db_lookup = pd.read_csv(query_db_path+str(iter_counter) + 'iter_db.lookup', dtype=None, sep='\t', header = None)
+    mapped_results = mapped_res.res_map_to_header
+
+    for new_prot_id in new_query_db_lookup.loc[:,1]:
+        if new_prot_id in mapped_results['ID']:
+            old_query_upd_scores[new_prot_id] = 1
+        else:
+            old_query_upd_scores[new_prot_id] = 0
+    
+        print(old_query_upd_scores)
+        return(old_query_upd_scores)
 
 
 def preprocess_singleton_main():
@@ -1215,12 +1228,12 @@ def preprocess_singleton_main():
     cluster_matches_df = pd.DataFrame(cluster_matches)
     cluster_matches_df.to_csv('single_matches_raw', sep = '\t', index = False)
     print('number of singletons', len(cluster_matches_df.index))
-
-    print(cluster_matches_df)
     
     sign_clusters_df = cluster_matches_df.copy()
     sign_clusters_df.columns = ["coord1", "coord2", "score",
-     "query", "target", "strand"]
+     "query", "target_prots", "strand"]
+    
+    print(sign_clusters_df)
 
     extract_proteins_cluster_neighborhood(sign_clusters_df)
     make_new_query()
