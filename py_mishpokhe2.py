@@ -4,6 +4,7 @@ from ctypes import *
 import numpy as np
 import pandas as pd
 
+import argparse
 import itertools
 import os
 import re
@@ -12,6 +13,35 @@ import sys
 from sys import stdout
 
 # version 2 accordingly to the written in the proposal
+
+def arg_parser():
+    if len(sys.argv) == 1:
+        sys.exit("No arguments provided. You need to provide path to the files (see py_mishpokhe2.py -h)")
+    parser = argparse.ArgumentParser(description="Mishpokhe: self-supervised discovery of spatial clusters")
+    parser.add_argument("-q", "--querydb",
+     help="Provide path to query MMseqs2 database (protein, unordered)")
+    parser.add_argument("-t", "--targetdb",
+     help="Provide path to target MMseqs2 database (protein, ordered)")
+    parser.add_argument("-r", "--res",
+     help="Specify the name to be given to the results of the search")
+    parser.add_argument("-tf", "--targetfa",
+     help="Provide path to target sequence (fasta (linearized!))")
+    parser.add_argument("-qf", "--queryfa",
+     help="Provide path to query sequence (fasta)")
+    parser.add_argument("-i", "--iter",
+     help="Give the number of iterations, default is 1", default = 1)
+    parser.add_argument("-s", "--singleton",
+     help="Set to 1 if you have singleton queries, default is 0",  default=0)
+    # make separate func?
+    # CHECK is it ok to make global?
+    global args
+    args, unknown = parser.parse_known_args()
+    print(vars(args))
+    for argument in vars(args):
+        arg_path = getattr(args, argument)
+        if not os.path.exists((arg_path)):
+            if argument not in ['res', 'iter', 'singleton']:
+                sys.exit(f"{arg_path} not found")
 
 class FilePath:
      """
@@ -28,9 +58,9 @@ class FilePath:
      def get_path(self):
          while 1:
             try:
-                query_db = input('Enter query_db path: ')
-                target_db = input('Enter target_db path: ')
-                res = input('Enter results file path: ')
+                query_db = args.querydb
+                target_db = args.targetdb
+                res = args.res
                 return self(query_db,target_db, res)
             except:
                 print('Invalid input!')
@@ -659,7 +689,8 @@ def calculate_karlin_stat(cluster_matches, mapped_res):
      # # expand unique scores in order to have larger range of integer, wider range to calc e-value
     # # multipliying param for log-scores
     #mult_param = 6
-    mult_param = int(input('enter multiplying value '))
+    # THINK if I should give an option to set the multiplying parameter to the user
+    mult_param = 1
     scores_bins = np.histogram_bin_edges(enrich_scores, bins='auto')
     print('BINS', scores_bins)
     print('bins diff', scores_bins[1]-scores_bins[0])
@@ -840,8 +871,8 @@ def set_strand_flip_penalty(cluster_matches, mapped_res):
 def calculate_e_value(stat_lambda, stat_K, significant_cluster_df_enriched, mapped_res):
     # FIX to be variable taken from number of prots in target
     # CHANGE it to be linked and the same with the used in calculate_karlin_stat
-    mult_param = 6
-    mult_param = int(input('enter multiplying value '))
+    # THINK if I should give an option to set the multiplying param to an user
+    mult_param = 1
     print('calculating e-value')
     target_db_lookup = mapped_res.target_db_lookup
     L = len(target_db_lookup.index)
@@ -896,7 +927,7 @@ def extract_proteins_cluster_neighborhood(sign_clusters_df):
     # calling initial fasta for target and query
     # CHANGE it to not ask user again
     #query_fasta = input('Enter query_sequences (fasta) path: ')
-    target_fasta = input('Enter target_sequence (fasta (linearized!!!)) path: ')
+    target_fasta = args.targetfa
 
     # adding matched target prots to the query set to make the profiles again
     # THINK if it is a good way to add all matched target prots to all queries and run clustering again
@@ -1077,7 +1108,7 @@ def extract_proteins_cluster_neighborhood(sign_clusters_df):
 def make_new_query():
     print('making new query set')
     print('it is iteration ', iter_counter, ' do -1')
-    query_fasta = input('Enter query_sequences (fasta) path: ')
+    query_fasta = args.queryfa
     # to have names like query_prot_db2iter_db, not like query_prot_db2iter_db1iter_db
     query_db_path = str(files.query_db)
     print('iter_counter', iter_counter)
@@ -1246,6 +1277,7 @@ def preprocess_singleton_main():
 
 
 def main(old_query_upd_scores, d_strand_flip_penalty, s_0):
+
     make_profiles()
 
     # CHECK if it works with multihitdb (just from command line it worked)
@@ -1322,13 +1354,10 @@ if __name__ == "__main__":
 
     print("starting")
 
-    print('type number of iterations')
-    #iterations = int(input())
-    iterations = int(input())
-
-    print('do you have singleton queries? 1 for yes, 0 for no')
-    if_singleton = int(input())
-    # ADD check if file exists!!!
+    arg_parser()
+    iterations = int(args.iter)
+    if_singleton = int(args.singleton)
+    
     files = FilePath.get_path()
     print(files.query_db)
     print(files.target_db)
