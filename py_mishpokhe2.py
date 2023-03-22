@@ -344,19 +344,14 @@ def find_clusters(mapped_res, old_query_upd_scores, d_strand_flip_penalty, s_0):
         # THINK if it should be done better
         # also it relies on having "." in prot id
         # CHECK if I should compare with the prev prot
-        # ADD something because now it depends a lot on format, indices would be different here
-        # if ids are NC_111.1_1 or something else like MT333.1_2
-        # Here for the format of  NC_111.1_1
-        #print(target_db_h["ID"].values[i].split("_")[0]+target_db_h["ID"].values[i].split("_")[1])
-        #print(target_db_h["ID"].values[i+1].split("_")[0]+target_db_h["ID"].values[i+1].split("_")[1])
-        # Here for the format of MT333.1_2
-        #print(target_db_h["ID"].values[i].split("_")[0])
-        #print(target_db_h["ID"].values[i+1].split("_")[0])
-        # CHANGE here if the dataset big or small
-        # Here for the format of MT333.1_2
-        #if target_db_h["ID"].values[i].split("_")[0]!= target_db_h["ID"].values[i+1].split("_")[0]:
-        # Here for the format of  NC_111.1_1
-        if target_db_h["ID"].values[i].split("_")[0]+target_db_h["ID"].values[i].split("_")[1] != target_db_h["ID"].values[i+1].split("_")[0]+target_db_h["ID"].values[i+1].split("_")[1]:
+        # THINK if there might be other formats of protein/genome id?
+        target_prot_id_i = target_db_h["ID"].values[i]
+        target_prot_id_i_plus_1 = target_db_h["ID"].values[i+1]
+        # that makes genome id out of prot id, e.g. NC_111.1_1 -> NC_111.1
+        target_genome_id_i = '_'.join(target_prot_id_i.split('_')[:-1])
+        target_genome_id_i_plus_1 = '_'.join(target_prot_id_i_plus_1.split('_')[:-1])
+        print('target_genome_id_i', target_genome_id_i)
+        if  target_genome_id_i != target_genome_id_i_plus_1:
             print('different genomes!!!')
             # is it a good idea?
             diff_genomes_penalty = 10000
@@ -1049,7 +1044,11 @@ def extract_proteins_cluster_neighborhood(sign_clusters_df):
         command_cat = 'cat ' + 'target_clusters_matches ' + '>> ' + neighbourhood_path
         print('command_cat', command_cat)
         os.system(command_cat)
-        
+        # !!! FIX later, extracts only matches for 0 iteration
+        if iter_counter == 0:
+            command_cat = 'cat ' + 'target_clusters_matches ' + '> ' + neighbourhood_path
+            print('command_cat', command_cat)
+
         # FIX!
         #target_clusters_matches.write(matches_in_cluster)
         
@@ -1202,10 +1201,13 @@ def initialize_singleton_score(sign_clusters_df, mapped_res):
     # and the neighbourhood prots to 0 currently as it happens practically
     # for neighbourhood scores for other iterations
     print('calculating singleton score')
-    search_result_file = pd.read_csv(files.res + '_singleton_prof_search' +'.m8', dtype={'str':'float'}, sep='\t', header = None)
+    #search_result_file = pd.read_csv(files.res + '_singleton_prof_search' +'.m8', dtype={'str':'float'}, sep='\t', header = None)
     query_db_path = str(files.query_db)
-    new_query_db_lookup = pd.read_csv(query_db_path+str(iter_counter) + 'iter_db.lookup', dtype=None, sep='\t', header = None)
+    new_query_db_lookup = pd.read_csv(query_db_path+'.lookup', dtype=None, sep='\t', header = None)
+    print(query_db_path+str(iter_counter) + 'iter_db.lookup')
+    #crass_query_db0iter_db
     mapped_results = mapped_res.res_map_to_header
+    old_query_upd_scores = dict()
 
     for new_prot_id in new_query_db_lookup.loc[:,1]:
         if new_prot_id in mapped_results['ID']:
@@ -1240,7 +1242,6 @@ def preprocess_singleton_main():
 
     files.query_db = str(files.query_db) + str(iter_counter) + 'iter_db'
     old_query_upd_scores = initialize_singleton_score(sign_clusters_df, mapped_res)
-    print(x)
     pass
 
 
