@@ -17,7 +17,7 @@ from sys import stdout
 def arg_parser():
     if len(sys.argv) == 1:
         sys.exit("No arguments provided. You need to provide path to the files (see py_mishpokhe2.py -h)")
-    parser = argparse.ArgumentParser(description="Mishpokhe: self-supervised discovery of spatial clusters")
+    parser = argparse.ArgumentParser(description="Mishpokhe: self-supervised discovery of functional clusters")
     parser.add_argument("-q", "--querydb",
      help="Provide path to query MMseqs2 database (protein, unordered)")
     parser.add_argument("-t", "--targetdb",
@@ -32,6 +32,10 @@ def arg_parser():
      help="Give the number of iterations, default is 1", default = 1)
     parser.add_argument("-s", "--singleton",
      help="Set to 1 if you have singleton queries, default is 0",  default=0)
+    parser.add_argument("-u", "--evalfilteruse",
+     help="Set to 1 if you want to use mishpokhe clusters e-value filter, default is 1",  default=1)
+    parser.add_argument("-e", "--eval",
+     help="Specify the e-value threshold, default is 1",  default=1)
     # make separate func?
     # CHECK is it ok to make global?
     global args
@@ -40,7 +44,7 @@ def arg_parser():
     for argument in vars(args):
         arg_path = getattr(args, argument)
         if not os.path.exists((arg_path)):
-            if argument not in ['res', 'iter', 'singleton']:
+            if argument not in ['res', 'iter', 'singleton', 'evalfilteruse']:
                 sys.exit(f"{arg_path} not found")
 
 class FilePath:
@@ -610,8 +614,12 @@ def update_scores_for_cluster_matches(cluster_matches, mapped_res):
 def calculate_karlin_stat(cluster_matches, mapped_res):
     print('using c code for Karlin-Altschul statistics')
 
-    subprocess.call(['cc', '-fPIC', '-shared', '-o', 'karlin_c.so', 'karlin_c.c'])
+    curr_file_path = os.path.realpath(__file__)
+    print(curr_file_path)
+    karlin_file_path = '/'.join(curr_file_path.split('/')[:-1]) + '/karlin_c.c'
+    subprocess.call(['cc', '-fPIC', '-shared', '-o', 'karlin_c.so', karlin_file_path])
     # !! CHANGE the path later
+    # THINK to do it only once
     so_file = "./karlin_c.so"
     my_functions = CDLL(so_file)
 
@@ -901,8 +909,8 @@ def calculate_e_value(stat_lambda, stat_K, significant_cluster_df_enriched, mapp
     cluster_path = files.res + '_' + str(iter_counter) + '_iter_sign_clusters_enrich_stat'
     significant_cluster_df_enriched.to_csv(cluster_path, sep = '\t', index = False)
     # Check if e-val = 0.01 is good filtering
-    eval_filter = 1
-    use_eval_filter = 1
+    eval_filter = args.eval
+    use_eval_filter = args.evalfilteruse
     if use_eval_filter == 1:
         significant_clusters_eval_filter_df = significant_cluster_df_enriched.loc[(significant_cluster_df_enriched['e-value'] <eval_filter) & (significant_cluster_df_enriched['e-value'] > 0)]
         cluster_path2 = files.res + '_' + str(iter_counter) + '_iter_sign_clusters_enrich_stat_filtered'
