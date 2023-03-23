@@ -1,18 +1,8 @@
 # Mishpokhe is a self-supervised algorithm to discover functional spatial clusters
 
-
-## Mishpokhe is a command line tool
-
-----------------------------
-Requirements:
-It is important to keep mishpokhe together with other accessory scripts in one directory. 
-Mishpokhe requires python3 and libraries:
-	cmath
-	ctypes
-	numpy
-	pandas
-
 ## Usage
+
+Mishpokhe is a command line tool
 
 `python3 py_mishpokhe2.py -q {QUERYDB} -t {TARGETDB} -r {RES} -tf {TARGETFA} -qf {QUERYFA}`
 
@@ -60,6 +50,8 @@ MMseqs2 database can be made with:
 Fasta can be linearized with:
 
 `awk '/^>/ { print (NR==1 ? "" : RS) $0; next } { printf "%s", $0 } END { printf RS }' your_seqs.fasta > your_seqs.faa_lin`
+
+It is important to keep mishpokhe together with other accessory scripts in one directory. 
 
 
 
