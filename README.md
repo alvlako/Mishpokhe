@@ -1,7 +1,7 @@
-## Mishpokhe is a self-supervised algorithm to discover functional spatial clusters
+# Mishpokhe is a self-supervised algorithm to discover functional spatial clusters
 
 
-# Mishpokhe is a command line tool
+## Mishpokhe is a command line tool
 
 ----------------------------
 Requirements:
@@ -12,7 +12,7 @@ Mishpokhe requires python3 and libraries:
 	numpy
 	pandas
 
-# Usage
+## Usage
 
 `python3 py_mishpokhe2.py -q {QUERYDB} -t {TARGETDB} -r {RES} -tf {TARGETFA} -qf {QUERYFA}`
 
@@ -44,7 +44,7 @@ The help can be called with
 		        Only set in quite special cases
 
 
-# Tips:
+## Tips:
 
 MMseqs2 can be installed via conda. MMseqs2 database can be made with:
 
