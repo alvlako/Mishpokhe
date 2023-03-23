@@ -56,5 +56,7 @@ Fasta can be linearized with:
 It is important to keep mishpokhe together with other accessory scripts in one directory. 
 
 
+# Credits
 
+https://github.com/vlcc/basplice
 
