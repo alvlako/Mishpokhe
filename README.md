@@ -22,8 +22,8 @@ The help can be called with
 
 # Options
 
-  * -h, --help            show this help message and exit
-  -q QUERYDB, --querydb QUERYDB
+  * `-h`, `--help`            show this help message and exit
+  * `-q QUERYDB`, `--querydb QUERYDB`
                         Provide path to query MMseqs2 database (protein,
                         unordered)
   -t TARGETDB, --targetdb TARGETDB
