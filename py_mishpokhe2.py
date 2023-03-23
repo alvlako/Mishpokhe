@@ -6,6 +6,7 @@ import pandas as pd
 
 import argparse
 import itertools
+import logging
 import os
 import re
 import subprocess
@@ -154,7 +155,7 @@ class ResultsMapping:
         #search_result_file = pd.read_csv('/Users/Sasha/Documents/GitHub/mishpokhe_test/py2_multihit_res', dtype={'int':'float'}, sep='\t')
         #search_result_file = pd.read_csv('/Users/Sasha/Documents/GitHub/mishpokhe_test/py_norm_res_prof_search.m8', dtype={'str':'float'}, sep='\t', header = None)
         search_result_file = pd.read_csv(files.res + '_prof_search' +'.m8', dtype={'str':'float'}, sep='\t', header = None)
-        print(search_result_file)
+        logging.debug(f'search_result_file: {search_result_file}')
         #target_db_lookup = np.genfromtxt(str(files.target_db)+str(".lookup"), dtype = None, delimiter="\t", encoding=None)
         target_db_lookup = pd.read_csv(str(files.target_db)+str(".lookup"), dtype=None, sep='\t', header = None)
         target_db_h = pd.read_csv(str(files.target_db)+str("_h"), sep='\s+#\s+', header=None, engine='python')
@@ -179,13 +180,13 @@ class ResultsMapping:
         #add_row = ['SEWIN93251.1','MT006214.1_2','0.991','207','8','0','1','207','1','207', '2.364000e-178', '501']
         #search_result_file.loc[len(search_result_file)] = add_row
         search_result_file["eval"] = pd.to_numeric(search_result_file["eval"])
-        print(search_result_file)
+        logging.debug(f'search_result_file with cols: {search_result_file}')
         #print(search_result_file.groupby('target_id')["eval"].transform('min'))
         search_result_file = search_result_file.loc[search_result_file.groupby('target_id')['eval'].idxmin()].reset_index(drop=True)
 
         # REMOVE unique? it's unique from the prev step
         real_id_list = pd.Series(pd.unique(search_result_file.iloc[:, 1]))
-        print("real ids list", real_id_list)
+        logging.debug(f'real ids list: {real_id_list}')
         # map by 1st (0) column with real ids from search res
         # print(target_db_h.loc[target_db_h.iloc[:, 0].astype(str) == 'MT006214.1_1'])
         tmp_res_map_to_header = target_db_h.loc[target_db_h.iloc[:, 0].astype(str).isin(real_id_list)]
@@ -275,13 +276,12 @@ def find_clusters(mapped_res, old_query_upd_scores, d_strand_flip_penalty, s_0):
 
     # to fix the problem with the nan coming from reading the table
     results = results[results.iloc[:, 0].notna()]
-    print(results)
-    print('mapped results')
-    print(mapped_results)
-    print("index list", index_list)
+    logging.debug(f'results: {results}')
+    logging.debug(f'mapped results: {mapped_results}')
+    logging.debug(f'index list: {index_list}')
 
     #Algorithm 1 - iterate through target prot
-    print(results.iloc[:, 0].size)
+    logging.debug(f'results.iloc[:, 0].size: {results.iloc[:, 0].size}')
 
     cluster_matches = list()
     # CHECK if score max cluster set up correct
@@ -306,13 +306,11 @@ def find_clusters(mapped_res, old_query_upd_scores, d_strand_flip_penalty, s_0):
     # CHECK if correct (esp if cluster does not start from the 1st gene)
     i_0_cluster_start = int(target_db_h["coord1"].values[0])
     pd.set_option('display.max_columns', None)
-    #print(mapped_results)
-    print("cluster start", i_0_cluster_start)
+    logging.debug(f"cluster start: {i_0_cluster_start}")
     i_1_cluster_end = int(target_db_h["coord2"].values[0])
     # CHECK if correct
     init_strand = int(target_db_h["strand"].values[0])
-    print('strand is')
-    print(init_strand)
+    logging.debug(f"strand is {init_strand}")
 
     query_genes_ids = []
     target_genes_ids = []
@@ -324,14 +322,12 @@ def find_clusters(mapped_res, old_query_upd_scores, d_strand_flip_penalty, s_0):
     # CHECK it now ignores the last line, is it a constant feature to
     # have empty line at the ened of the results file???
     # FIX genes ids retrieval
-    print('target lookup')
-    print(target_db_lookup.iloc[:, 1])
+    logging.debug(f"target lookup: \n {target_db_lookup.iloc[:, 1]}")
     for i in range(0, len(target_db_lookup.iloc[:, 1])-1):
-        print('NEW cycle starts')
-        print(i)
-        print(target_db_lookup.iloc[:, 1].values[i])
+        logging.debug(f"NEW cycle starts")
+        logging.debug(f"i: {i}")
+        logging.debug(f"target_db_lookup.iloc[:, 1].values[i]: {target_db_lookup.iloc[:, 1].values[i]}")
         diff_genomes_penalty = 0
-
         
         # CHANGE this score (to 0 and 1 for 1st iter?)
         #score_x_i = float(results.iloc[i,10])
@@ -352,7 +348,7 @@ def find_clusters(mapped_res, old_query_upd_scores, d_strand_flip_penalty, s_0):
         # CHECK in evalue section how to initialize this score
         # CHECK if -1 (and other potential values) properly read
         strand = int(target_db_h["strand"].values[i])
-        print("strand is", strand)
+        logging.debug(f"strand: {strand}")
 
         # gap changed to use gene number, not the coordinate diff
         #gap = abs(int(mapped_results["coord1"].values[i])- int((mapped_results["coord2"].values[i-1]))) - 1
@@ -369,9 +365,9 @@ def find_clusters(mapped_res, old_query_upd_scores, d_strand_flip_penalty, s_0):
         # FIX use another, calculated strand flip penalty (d) in the next iterations
         if strand == init_strand:
             f_strand_flip = 0
-            print('same strand')
+            logging.debug(f"same strand")
         else:
-            print('different strand')
+            logging.debug(f"different strand")
             f_strand_flip = 1
 
         # to check whether proteins are from the same genome
@@ -384,9 +380,9 @@ def find_clusters(mapped_res, old_query_upd_scores, d_strand_flip_penalty, s_0):
         # that makes genome id out of prot id, e.g. NC_111.1_1 -> NC_111.1
         target_genome_id_i = '_'.join(target_prot_id_i.split('_')[:-1])
         target_genome_id_i_plus_1 = '_'.join(target_prot_id_i_plus_1.split('_')[:-1])
-        print('target_genome_id_i', target_genome_id_i)
+        logging.debug(f"target_genome_id_i: {target_genome_id_i}")
         if  target_genome_id_i != target_genome_id_i_plus_1:
-            print('different genomes!!!')
+            logging.debug(f"different genomes!!!")
             # is it a good idea?
             diff_genomes_penalty = 10000
             #continue
@@ -395,22 +391,20 @@ def find_clusters(mapped_res, old_query_upd_scores, d_strand_flip_penalty, s_0):
         # updating previous gene strand (current gene = previous for next for loop iter)
         init_strand= strand
         
-        print('scores')
-        print('prev cluster score', score_i_minus_1_cluster)
-        print('strand flip', f_strand_flip*d_strand_flip_penalty)
-        print('current score', score_x_i)
-        print('  ')
-        print(score_i_minus_1_cluster - f_strand_flip*d_strand_flip_penalty + score_x_i)
-        print(max(0, score_x_i))
-
+        logging.debug(f"scores")
+        logging.debug(f"prev cluster score: {score_i_minus_1_cluster}")
+        logging.debug(f"strand flip*penalty: {f_strand_flip*d_strand_flip_penalty}")
+        logging.debug(f"current score: {score_x_i}")
+        logging.debug(f"{score_i_minus_1_cluster - f_strand_flip*d_strand_flip_penalty + score_x_i}")
+        logging.debug(f" {max(0, score_x_i)}")
 
         if (score_i_minus_1_cluster - f_strand_flip*d_strand_flip_penalty - diff_genomes_penalty + score_x_i) > max(0, score_x_i):
             score_i_cluster = score_i_minus_1_cluster - f_strand_flip*d_strand_flip_penalty  - diff_genomes_penalty + score_x_i
-            print('proceed', score_i_cluster, score_max_cluster)
-            print('score i-1', score_i_minus_1_cluster)
+            logging.debug(f"proceed: {score_i_cluster, score_max_cluster}")
+            logging.debug(f"score i-1: {score_i_minus_1_cluster}")
             
             if score_i_cluster > score_max_cluster:
-                print('first')
+                logging.debug(f"first")
                 score_max_cluster = score_i_cluster
                 # CHECK if correct, CHANGE to look better
                 #i_1_cluster_end = str(mapped_results.iloc[i,1])
@@ -418,20 +412,20 @@ def find_clusters(mapped_res, old_query_upd_scores, d_strand_flip_penalty, s_0):
                 # CHECK changing of score_i_minus_1_cluster
                 # CHECK why did add this? it is not in the Johannes pseudocode
                 #score_i_minus_1_cluster = score_i_cluster
-                print('upd prev cluster score', score_i_minus_1_cluster)
+                logging.debug(f"upd prev cluster score {score_i_minus_1_cluster}")
 
                 #last_target_gene = mapped_results["ID"].values[i]
                 # ADD best match??
-                print('first 1st append')
+                logging.debug(f"first 1st append")
                 query_genes_ids.append(curr_query_id)
                 target_genes_ids.append(target_db_h["ID"].values[i])
                 prots_strands.append(int(target_db_h["strand"].values[i]))
 
         else:
-            print('second')
+            logging.debug(f"second")
             score_i_cluster = score_i_minus_1_cluster - f_strand_flip*d_strand_flip_penalty  - diff_genomes_penalty + score_x_i
-            print('second_proceed', score_i_cluster, score_max_cluster)
-            print('score i-1', score_i_minus_1_cluster)
+            logging.debug(f"second_proceed {score_i_cluster, score_max_cluster}")
+            logging.debug(f"score i-1: {score_i_minus_1_cluster}")
             score_i_cluster = score_x_i
 
             # CHECK if correct, CHANGE to get right coord
@@ -441,9 +435,9 @@ def find_clusters(mapped_res, old_query_upd_scores, d_strand_flip_penalty, s_0):
             # THINK if the next line here or below
             #i_0_cluster_start = int(mapped_results["coord1"].values[i])
             
-            print(score_max_cluster, score_min_cluster)
+            logging.debug(f"score_max_cluster, score_min_cluster: {score_max_cluster, score_min_cluster}")
             if score_max_cluster > score_min_cluster:
-                print('second 1st append')
+                logging.debug(f"second 1st append")
                 cluster_matches.append((i_0_cluster_start,
                 i_1_cluster_end, score_max_cluster,
                 query_genes_ids, target_genes_ids, prots_strands))
@@ -464,19 +458,19 @@ def find_clusters(mapped_res, old_query_upd_scores, d_strand_flip_penalty, s_0):
             #target_genes_ids.append(mapped_results["ID"].values[i])
         # CHECK if correct, not as in latex
         score_i_minus_1_cluster = score_i_cluster
-        print('max and min scores', score_max_cluster, score_min_cluster)
-        print('cluster coord', i_0_cluster_start, i_1_cluster_end)
+        logging.debug(f"max and min scores: {score_max_cluster, score_min_cluster}")
+        logging.debug(f"cluster coord: {i_0_cluster_start, i_1_cluster_end}")
         #print('cluster matches', cluster_matches)
 
     if score_max_cluster > score_min_cluster:
-        print('second 2nd append')
+        logging.debug(f"second 2nd append")
         cluster_matches.append((i_0_cluster_start,
          i_1_cluster_end, score_max_cluster, 
          query_genes_ids, target_genes_ids, prots_strands))
     # add more to cluster matches table? prot id?
     # ADD return of the changed ResultsMapping object? (with added scores?)
     # FIX to be faster or remove
-    print(cluster_matches)
+    logging.debug(f"cluster_matches: \n {cluster_matches}")
     return cluster_matches
 
 
@@ -497,14 +491,14 @@ def update_scores_for_cluster_matches(cluster_matches, mapped_res):
     K = len(significant_clusters)
     L = len(target_db_lookup.index)
 
-    print(L)
+    logging.debug(f"L: {L}")
     
     bias = 0
     sign_clusters_df = pd.DataFrame(significant_clusters)
     sign_clusters_df.columns = ["coord1", "coord2", "score",
     "query_prots", "target_prots", "strand"]
 
-    print(sign_clusters_df)
+    logging.debug(f"sign_clusters_df: \n {sign_clusters_df}")
     sign_clusters_df['new_score_enrich'] = 0
     sign_clusters_df['list_new_scoreS_enrich'] = 0
 
@@ -523,24 +517,21 @@ def update_scores_for_cluster_matches(cluster_matches, mapped_res):
 
     old_query_upd_scores = dict()
 
-    print("K, L, l", K, L, l)
+    logging.debug(f"K, L, l: {K, L, l}")
     
-    print('sign_clusters_df')
-    print(sign_clusters_df)
-    print('cluster_prots')
-    print(cluster_prots)
-    print('mapped results')
-    print(mapped_results)
+    logging.debug(f"sign_clusters_df: \n {sign_clusters_df}")
+    logging.debug(f"cluster_prots: \n {cluster_prots}")
+    logging.debug(f"mapped results: \n {mapped_results}")
     # CHECK if it is correct to iterate through cluster matches?
     # So I am calculating enrichment score for cluster matches and for cluster prots with no match
     # CHECK if leaving only unique entries is correct
     # pseudocounts are added with parameter aplha_pseudocount
     aplha_pseudocount = pow(10,np.log10(1/L)-1)
     x_number_of_queries = len(mapped_results['query_ID'].unique())
-    print('x_number_of_queries', x_number_of_queries)
+    logging.debug(f"x_number_of_queries: {x_number_of_queries}")
     # Do I need unique?
     for query_id in cluster_prots['query_id'].unique():
-        print(query_id)
+        logging.debug(f"query_id: {query_id}")
         # to avoid empty queries corresponding to prots with no match
         if query_id == '':
             continue
@@ -548,12 +539,12 @@ def update_scores_for_cluster_matches(cluster_matches, mapped_res):
         m_x = cluster_prots[cluster_prots['query_id'] == query_id]['query_id'].count()
         # in this case M_x and m_x are equal as there were no single hits. 
         # CHECK with other data where would be hits not only in clusters
-        print("M_x, m_x", M_x, m_x)
+        logging.debug(f"M_x, m_x: {M_x, m_x}")
         # using pseudocounts for m_x/l proportion to avoid zeros in log
         cluster_prot_proportion = np.divide(m_x, l)
         cluster_prot_proportion = np.divide((m_x+aplha_pseudocount), (l + x_number_of_queries*aplha_pseudocount))
         score_x = np.log(np.divide(cluster_prot_proportion, np.divide(M_x, L))) - bias
-        print("updated score for q", query_id, "is", score_x)
+        logging.debug(f"updated score for q: {query_id} is {score_x}")
 
         old_query_upd_scores[query_id] = score_x
 
@@ -581,31 +572,30 @@ def update_scores_for_cluster_matches(cluster_matches, mapped_res):
     M_x_sum = len(mapped_results['ID'])
 
     for target_id in cluster_prots['target_id']:
-        print('the cycle is running')
+        logging.debug(f"the cycle is running")
         if target_id not in matches_ids_list:
-            print('not in list')
-            print('no match', target_id)
+            logging.debug(f"not in list")
+            logging.debug(f"no match: {target_id}")
             s_0 = np.divide(np.divide((l-m_x_sum),l), np.divide((L-M_x_sum),L)) - bias
-            print('updates s_0 for', target_id, 'is = ', s_0)
-            print(sign_clusters_df[pd.DataFrame(sign_clusters_df['target_prots'].tolist()).isin(target_id.split()).any(1).values])
+            logging.debug(f"updates s_0 for: {target_id} is= {s_0}")
+            logging.debug(f"sign_clusters_df[pd.DataFrame(sign_clusters_df['target_prots'].tolist()).isin(target_id.split()).any(1).values]")
             tmp_df = sign_clusters_df[pd.DataFrame(sign_clusters_df['target_prots'].tolist()).isin(target_id.split()).any(1).values]['new_score_enrich'] + s_0
             array_of_bool = pd.DataFrame(sign_clusters_df['target_prots'].tolist()).isin(target_id.split()).any(1).values
             index_of_row = int(np.where(array_of_bool == True)[0])
             sign_clusters_df.loc[sign_clusters_df.index[index_of_row],'new_score_enrich'] = sign_clusters_df.loc[sign_clusters_df.index[index_of_row],'new_score_enrich'] + s_0
             # FIX to make the cell string 
             #sign_clusters_df.loc[sign_clusters_df.index[index_of_row],'list_new_scoreS_enrich'] = sign_clusters_df.loc[sign_clusters_df.index[index_of_row],'list_new_scoreS_enrich'] + ',' + str(s_0)
-            print(sign_clusters_df)
-            print(sign_clusters_df['list_new_scoreS_enrich'].tolist())
+            logging.debug(f"sign_clusters_df: \n {sign_clusters_df}")
+            logging.debug(f"sign_clusters_df['list_new_scoreS_enrich'].tolist(): {sign_clusters_df['list_new_scoreS_enrich'].tolist()}")
         else:
-            print('is in list')
+            logging.debug(f"is in list")
             s_0 = -1
     if len(cluster_prots['target_id']) == 0:
-        print('0 target in clusters')
+        logging.debug(f"0 target in clusters")
         s_0 = -1
-    print(s_0)
+    logging.debug(f"s_0: {s_0}")
             
-
-    print(sign_clusters_df)
+    logging.debug(f"sign_clusters_df: \n {sign_clusters_df}")
     sign_clusters_df.to_csv('sign_clusters_df', sep = '\t')
     return(sign_clusters_df, s_0, old_query_upd_scores, L, l)
 
@@ -615,7 +605,7 @@ def calculate_karlin_stat(cluster_matches, mapped_res):
     print('using c code for Karlin-Altschul statistics')
 
     curr_file_path = os.path.realpath(__file__)
-    print(curr_file_path)
+    logging.debug(f"curr_file_path: {curr_file_path}")
     karlin_file_path = '/'.join(curr_file_path.split('/')[:-1]) + '/karlin_c.c'
     subprocess.call(['cc', '-fPIC', '-shared', '-o', 'karlin_c.so', karlin_file_path])
     # !! CHANGE the path later
@@ -628,9 +618,8 @@ def calculate_karlin_stat(cluster_matches, mapped_res):
 
     mapped_results = mapped_res.res_map_to_header
 
-    print('calculating prob for each match')
-    print('mapped results')
-    print(mapped_results)
+    logging.debug(f"calculating prob for each match")
+    logging.debug(f"mapped_results: \n {mapped_results}")
 
     all_enrich_scores = []
 
@@ -653,33 +642,33 @@ def calculate_karlin_stat(cluster_matches, mapped_res):
     cluster_prots['target_id'] = sign_clusters_df['target_prots'].explode()
 
     l = len(cluster_prots)
-    print('len(cluster_prots)', l)
+    logging.debug(f"len(cluster_prots): {l}")
     aplha_pseudocount = pow(10,np.log10(1/L)-1)
     
     # CHECK if it is right that in case of all res probs I should iterate through target
     # NOT through query as in example above
     n_target = len(mapped_results['ID'].unique())
     for target_id in mapped_results['ID'].unique():
-        print(target_id)
+        logging.debug(f"target_id: {target_id}")
         M_x = mapped_results['ID'][mapped_results['ID'] == target_id].shape[0]
         m_x = cluster_prots[cluster_prots['target_id'] == target_id]['target_id'].count()
         # in this case M_x and m_x are equal as there were no single hits. 
         # CHECK with other data where would be hits not only in clusters
-        print("M_x, m_x", M_x, m_x)
+        logging.debug(f"M_x, m_x: {M_x, m_x}")
         # using pseudocounts for m_x/l proportion to avoid zeros in log
         # ASK Johannes if pseudocount is correct
         cluster_prot_proportion = np.divide(m_x, l)
         cluster_prot_proportion = np.divide((m_x+aplha_pseudocount), (l + n_target*aplha_pseudocount))
         score_x = np.log(np.divide(cluster_prot_proportion, np.divide(M_x, L))) - bias
-        print("updated score for t", target_id, "is", score_x)
+        logging.debug(f"updated score for t: {target_id} is {score_x}")
         all_enrich_scores.append(score_x)
     
-    print('scores for all res', all_enrich_scores)
+    logging.debug(f"scores for all res: \n {all_enrich_scores}")
 
 
 
     enrich_scores = np.array(all_enrich_scores)
-    print('len', len(enrich_scores))
+    logging.debug(f"len: {len(enrich_scores)}")
 
     #if 0 not in enrich_scores:
     #    no_0 = True
@@ -690,9 +679,7 @@ def calculate_karlin_stat(cluster_matches, mapped_res):
 
     # REMOVE later, just for current test
 
-
-    print(enrich_scores)
-    #print(x)
+    logging.debug(f"enrich_scores: \n {enrich_scores}")
     # ASK Johannes if I done the scores correctly
      # # expand unique scores in order to have larger range of integer, wider range to calc e-value
     # # multipliying param for log-scores
@@ -700,63 +687,56 @@ def calculate_karlin_stat(cluster_matches, mapped_res):
     # THINK if I should give an option to set the multiplying parameter to the user
     mult_param = 1
     scores_bins = np.histogram_bin_edges(enrich_scores, bins='auto')
-    print('BINS', scores_bins)
-    print('bins diff', scores_bins[1]-scores_bins[0])
-    #print(x)
+    logging.debug(f"BINS: {scores_bins}")
+    logging.debug(f"bins diff: {scores_bins[1]-scores_bins[0]}")
     # # THINK!
 
     # ASK Johannes, REMOVE later, that's just to fix problem with log when m_x = 0
     # ASK Johannes if it is ok to use binning, no I think, it is NOT ok
     unique_scores = mult_param*np.unique(enrich_scores)
     unique_scores = np.sort(unique_scores)
-    print('multiplied, sorted', unique_scores)
-    #print(x)
+    logging.debug(f"multiplied, sorted: \n {unique_scores}")
 
     unique_scores = np.round(unique_scores, decimals=0)
     unique_scores, score_counts = np.unique(unique_scores, return_counts=True)
     unique_scores = unique_scores.astype(int)
-    print(unique_scores)
-    print('uniq enrich scores', np.unique(enrich_scores))
-    print(np.unique(mult_param*enrich_scores))
-    print(np.round(unique_scores, decimals=0))
-    print('len of orig scores', len(np.unique(enrich_scores)))
-    print("len of scores", len(unique_scores))
+    logging.debug(f"unique_scores: \n {unique_scores}")
+    logging.debug(f"uniq enrich scores: \n {np.unique(enrich_scores)}")
+    logging.debug(f"{np.unique(mult_param*enrich_scores)}")
+    logging.debug(f"{np.round(unique_scores, decimals=0)}")
+    logging.debug(f"len of orig scores {len(np.unique(enrich_scores))}")
+    logging.debug(f"len of scores {len(unique_scores)}")
 
- 
-
-   
-
-    print(score_counts)
-    print('len', len(enrich_scores))
+    logging.debug(f"score_counts {score_counts}")
+    logging.debug(f"len {len(enrich_scores)}")
     
     score_prob = score_counts / len(enrich_scores)
-    print(score_prob)
+    logging.debug(f"score_prob {score_prob}")
 
     # figure out why round works weird so -3.5 > 4, -2.5 > 2
     scores_table = np.column_stack((np.round(unique_scores, decimals=0), score_prob))
-    print(scores_table)
-    #print(x)
+    logging.debug(f"scores_table \n {scores_table}")
     # MAKE faster!
     # the loop to insert missed integers (should be one by one) to scores and 0 to correspond. probs
     prev_int_val = int(scores_table[0][0])
     curr_row_ind = 0
     for i in scores_table:
-        print('start inserting')
-        print('int_val', prev_int_val)
-        print('i', i)
+        logging.debug(f"start inserting")
+        logging.debug(f"int_val {prev_int_val}")
+        logging.debug(f"i {i}")
         # CHECK what negative value in times_insert what do (seems like does nothing correctly)
         times_insert = int(i[0]) - prev_int_val - 1
-        print('times_insert', times_insert)
+        logging.debug(f"times_insert {times_insert}")
         
         for j in range(0, times_insert):
             insert_index = np.where(np.all(scores_table==i,axis=1))[0][0]
-            print('insert_index', insert_index)
+            logging.debug(f"insert_index {insert_index}")
             int_to_insert = prev_int_val + j + 1
             scores_table = np.insert(scores_table, insert_index, np.array((int_to_insert, 0)), 0)  
             j = j + 1
         prev_int_val = int(i[0])
         curr_row_ind = curr_row_ind + 1
-        print(scores_table)
+        logging.debug(f"scores_table {scores_table}")
 
     # REMOVE!! tmp! for little dataset testing to have 0
     #scores_table = np.insert(scores_table, 1, np.array((0, 0.33)), 0)  
@@ -770,8 +750,7 @@ def calculate_karlin_stat(cluster_matches, mapped_res):
     unique_scores
     index_of_0 = np.where(unique_scores == 0)[0][0]
     
-    
-    print('final uniq and prob', unique_scores, score_prob)
+    logging.debug(f"final uniq and prob \n {unique_scores} \n {score_prob}")
     arr = score_prob
     
     # ASK Johannes why I need log2 and where to make these scores conversions
@@ -791,38 +770,37 @@ def calculate_karlin_stat(cluster_matches, mapped_res):
     # REMOVE or FIX, all scores should be in the same format (log and so on)
     min_score = int(np.min(unique_scores))
     max_score = int(np.max(unique_scores))
-    print('min and max', min_score, max_score)
-
+    logging.debug(f"min and max {min_score, max_score}")
     
-    print("index_of_0", index_of_0)
-    print('prob of 0', arr[index_of_0:])
-    print('arr',arr)
+    logging.debug(f"index_of_0 {index_of_0}")
+    logging.debug(f"prob of 0 {arr[index_of_0:]}")
+    logging.debug(f"arr {arr}")
     arr = np.array(arr)
-    print(type(arr))
-    print('element type', type(arr[0]))
+    logging.debug(f" {type(arr)}")
+    logging.debug(f"element type {type(arr[0])}")
     
     pointer_to_middle = arr[index_of_0:].ctypes.data_as(ct.POINTER(ct.c_double))
     pointer_to_middle = arr[index_of_0:].ctypes.data_as(ct.POINTER(ct.c_double))
-    print(pointer_to_middle.contents)
+    logging.debug(f"{pointer_to_middle.contents}")
 
     
     my_functions.BlastKarlinLambdaNR.argtypes = [POINTER(c_double),c_int32, c_int32]
     my_functions.BlastKarlinLambdaNR.restype = c_double
     BlastKarlin_lambda = my_functions.BlastKarlinLambdaNR(pointer_to_middle, min_score, max_score)
-    print("lambda", BlastKarlin_lambda)
+    logging.debug(f"lambda {BlastKarlin_lambda}")
     BlastKarlin_lambda = ct.c_double(BlastKarlin_lambda)
     
     my_functions.BlastKarlinLtoH.restype = c_double
     BlastKarlin_H = my_functions.BlastKarlinLtoH(pointer_to_middle, min_score, max_score,
      BlastKarlin_lambda)
-    print('H', BlastKarlin_H)
+    logging.debug(f"H {BlastKarlin_H}")
     BlastKarlin_H = ct.c_double(BlastKarlin_H)
     
 
     my_functions.BlastKarlinLHtoK.restype = c_double
     BlastKarlin_K = my_functions.BlastKarlinLHtoK(pointer_to_middle, min_score, max_score,
      BlastKarlin_lambda, BlastKarlin_H)
-    print('K', BlastKarlin_K)
+    logging.debug(f"K {BlastKarlin_K}")
     return(BlastKarlin_lambda, BlastKarlin_K)
 
 
@@ -835,20 +813,20 @@ def set_strand_flip_penalty(cluster_matches, mapped_res):
     # this just delete the consecutive duplicates, therefore I can cound 
     # how many switches between strands are in the file (1 1 -1 -1 1 -> 1 -1 1)
     F = len([key for key, _group in itertools.groupby(target_db_h["strand"])]) - 1
-    print("F = ", F)
+    logging.debug(f"F = {F}")
     # CHANGE to not duplicate update_scores
     significant_clusters = cluster_matches
     sign_clusters_df = pd.DataFrame(significant_clusters)
     sign_clusters_df.columns = ["coord1", "coord2", "score",
     "query_prots", "target_prots", "strand"]
-    print(sign_clusters_df)
+    logging.debug(f"sign_clusters_df \n {sign_clusters_df}")
     f = 0
     # this should count number of flips in each cluster
     # think how to speed up this step
     for cluster_strands in sign_clusters_df["strand"]:
         n_flips_cluster = len([key for key, _group in itertools.groupby(cluster_strands)]) - 1
         f = f + n_flips_cluster
-    print("f = ", f)
+    logging.debug(f"f = {f}")
     # CHANGE to not duplicate scores updating
     K = len(significant_clusters)
     cluster_prots = pd.DataFrame()
@@ -869,7 +847,7 @@ def set_strand_flip_penalty(cluster_matches, mapped_res):
     cluster_flips_proportion = np.divide(f, (l - K))
     cluster_flips_proportion = np.divide(f + aplha_pseudocount, (l + n_target*aplha_pseudocount - K))
     d = np.log(np.divide(cluster_flips_proportion, np.divide(F, (L - 1))))
-    print(d)
+    logging.debug(f"d = {d}")
     # is it a good place to return?
     # CHECK if these are really significant clusters
     return(d)
@@ -884,14 +862,14 @@ def calculate_e_value(stat_lambda, stat_K, significant_cluster_df_enriched, mapp
     print('calculating e-value')
     target_db_lookup = mapped_res.target_db_lookup
     L = len(target_db_lookup.index)
-    print(significant_cluster_df_enriched)
+    logging.debug(f"significant_cluster_df_enriched \n {significant_cluster_df_enriched}")
     stat_lambda = stat_lambda.value
-    print(stat_lambda, stat_K)
+    logging.debug(f" {stat_lambda, stat_K}")
     significant_cluster_df_enriched["e-value"] = 0
     # PUT in correct place
     pd.options.display.float_format = '{:,.4f}'.format
     for r in range(0, len(significant_cluster_df_enriched.index)):
-        print(r)
+        logging.debug(f"r {r}")
         enrich_score = significant_cluster_df_enriched["new_score_enrich"][r]
         # REMOVE if not needed
         enrich_scores_list = significant_cluster_df_enriched["list_new_scoreS_enrich"][r].split(',')
@@ -899,11 +877,11 @@ def calculate_e_value(stat_lambda, stat_K, significant_cluster_df_enriched, mapp
         del(enrich_scores_list[0])
         # converting enrich score as for karlin stats calculation
         conv_enrich_score = int(np.round(enrich_score*mult_param, decimals = 0))
-        print('conv_enrich_score', conv_enrich_score)
+        logging.debug(f"conv_enrich_score {conv_enrich_score}")
         # is it okay if that's a sum?
         evalue = stat_K*L*np.exp(stat_lambda*(-1)*conv_enrich_score)
         significant_cluster_df_enriched.iat[r, significant_cluster_df_enriched.columns.get_loc("e-value")] = float(evalue)
-        print('eval =', evalue)
+        logging.debug(f"eval = {evalue}")
     # CHANGE the name? 
     # they are not filtered by e-val yet
     cluster_path = files.res + '_' + str(iter_counter) + '_iter_sign_clusters_enrich_stat'
@@ -918,8 +896,8 @@ def calculate_e_value(stat_lambda, stat_K, significant_cluster_df_enriched, mapp
     else:
         print('e-value filter disabled')
         significant_clusters_eval_filter_df = significant_cluster_df_enriched.copy()
-    print('significant_cluster_df_enriched', significant_cluster_df_enriched)
-    print(significant_clusters_eval_filter_df)
+    logging.debug(f"significant_cluster_df_enriched \n {significant_cluster_df_enriched}")
+    logging.debug(f"significant_clusters_eval_filter_df \n {significant_clusters_eval_filter_df}")
     return significant_cluster_df_enriched, significant_clusters_eval_filter_df
 
 
@@ -929,8 +907,7 @@ def extract_proteins_cluster_neighborhood(sign_clusters_df):
     print('updating query profile started (extracting prots_')
     # CHECK if only the significant clusters are used
     # getting the target prots matched to query
-    print('significant (?) clusters table')
-    print(sign_clusters_df)
+    logging.debug(f"significant (?) clusters table \n {sign_clusters_df}")
 
     # calling initial fasta for target and query
     # CHANGE it to not ask user again
@@ -941,7 +918,7 @@ def extract_proteins_cluster_neighborhood(sign_clusters_df):
     # THINK if it is a good way to add all matched target prots to all queries and run clustering again
 
     # extracting the left and the right edges proteins for clusters
-    print(sign_clusters_df['target_prots'])
+    logging.debug(f"{sign_clusters_df['target_prots']}")
     # extracting proteins matched, within and in +3 left and right neighbourhood of the clusters
     ##target_clusters_within = open("target_clusters_within", "w")
     neighbourhood_path = files.res + '_' + str(iter_counter) + '_iter_target_clusters_neighbourhood'
@@ -954,11 +931,11 @@ def extract_proteins_cluster_neighborhood(sign_clusters_df):
         # exclude them from new within cluster prots
         # WHY do I need this file?
         target_protID_cluster_file = open("target_protID_cluster_file", "w")
-        print(*target_prot_cluster)
+        logging.debug(*target_prot_cluster)
         # MAKE faster
         print('grepping matches')
         for protID in target_prot_cluster:
-            print(protID)
+            logging.debug(f"protID {protID}")
             # whitespace added to grep e.g. 1_1 but not 1_12, 1_13 etc
             target_protID_cluster_file.write(protID + ' ' + '\n')
             matches_seqs = subprocess.Popen(['grep', '-A1', protID + ' ',
@@ -977,8 +954,7 @@ def extract_proteins_cluster_neighborhood(sign_clusters_df):
 
         target_prot_left = target_prot_cluster[0]
         target_prot_right = target_prot_cluster[-1]
-        print('left and right proteins per cycle')
-        print(target_prot_left, target_prot_right)
+        logging.debug(f"left and right proteins per cycle {target_prot_left, target_prot_right}")
 
         # if i have singletons, the withit extraction would extract too many prots,
         # as the left and the right proteins are the same
@@ -987,13 +963,13 @@ def extract_proteins_cluster_neighborhood(sign_clusters_df):
             # all prots within cluster extracted, but the rightest dont have seq line after this step, only header
             within = subprocess.Popen(['sed', '-n', '/%s /,/%s /p' %(target_prot_left, target_prot_right) + ' ', target_fasta], stdout=subprocess.PIPE)
             target_clusters_within, error = within.communicate()
-            print(target_clusters_within.decode('utf-8'))
+            logging.debug(f"{target_clusters_within.decode('utf-8')}")
             p1_within = subprocess.Popen(['grep', '-A1', target_prot_right + ' ', target_fasta], stdout=subprocess.PIPE)
             # dont communicate if you dont want the pipe to be closed
             p2 = subprocess.Popen(['grep', '-v', target_prot_right], stdin=p1_within.stdout, stdout=subprocess.PIPE)
             p1_within.stdout.close()
             right_protein_seq, err = p2.communicate()
-            print('rest',right_protein_seq.decode('utf-8'))
+            logging.debug(f"rest {right_protein_seq.decode('utf-8')}")
         #target_clusters_within = within
         # extracting 3 prots before and after + seq line for the last prot of the cluster
         # pipes are to get rid of rightest and leftest prots headers
@@ -1010,8 +986,8 @@ def extract_proteins_cluster_neighborhood(sign_clusters_df):
         # For the format of YN055116.1_25
         #genome_id = target_prot_right.split('_')[0]
 
-        print(group_sep)
-        print(genome_id)
+        logging.debug(f"group_sep {group_sep}")
+        logging.debug(f"genome_id {genome_id}")
 
         # extracting not 3 but 6 prots from each side
         p1_left = subprocess.Popen(['grep', '-A1', genome_id, target_fasta], stdout=subprocess.PIPE)
@@ -1023,26 +999,25 @@ def extract_proteins_cluster_neighborhood(sign_clusters_df):
         p2_left.stdout.close()
         p4_left.stdout.close()
         output_left,err_left = p3_left.communicate()
-        print("left prots")
-        print(output_left.decode("utf-8"))
+        logging.debug(f"left prots {output_left.decode('utf-8')}")
         # counting how many proteins I got (in case if it is the end or the start of the file)
         left_prots_extracted_n = output_left.decode("utf-8").count('>')
-        print(left_prots_extracted_n)
+        logging.debug(f"left_prots_extracted_n {left_prots_extracted_n}")
         # CHANGE later for variable how many prots to extract? 
         # -1 is added to use it later in tail command
         left_prots_remained_to_extract_n_lines = str((6 - left_prots_extracted_n)*2*(-1))
-        print("remained", left_prots_remained_to_extract_n_lines)
+        logging.debug(f"remained {left_prots_remained_to_extract_n_lines}")
         # extract remaining number of proteins from another end of the file if any
         if int(left_prots_remained_to_extract_n_lines)*(-1) > 0:
-            print('extracting from the end of file')
-            print('genome_id', genome_id)
+            logging.debug(f"extracting from the end of file")
+            logging.debug(f"genome_id {genome_id}")
             p1_from_end = subprocess.Popen(['grep', '-A1', genome_id, target_fasta], stdout=subprocess.PIPE)
             p4_from_end = subprocess.Popen(['grep ' + '-v '+ group_sep], stdin=p1_from_end.stdout, stdout=subprocess.PIPE, shell = True)
             p2_from_end = subprocess.Popen(['tail', left_prots_remained_to_extract_n_lines], stdin=p4_from_end.stdout, stdout=subprocess.PIPE)
             output_file_end,err_file_end = p2_from_end.communicate()
-            print('end of the file')
-            print(left_prots_remained_to_extract_n_lines)
-            print(output_file_end.decode("utf-8"))
+            logging.debug(f"end of the file")
+            logging.debug(f"left_prots_remained_to_extract_n_lines{left_prots_remained_to_extract_n_lines}")
+            logging.debug(f"{output_file_end.decode('utf-8')}")
             p1_from_end.stdout.close()
             target_clusters_neighbourhood.write(output_file_end.decode("utf-8"))
 
@@ -1058,7 +1033,7 @@ def extract_proteins_cluster_neighborhood(sign_clusters_df):
         #print(output_right.decode("utf-8"))
 
         right_prots_extracted_n = output_right.decode("utf-8").count('>')
-        print(right_prots_extracted_n)
+        logging.debug(f"right_prots_extracted_n {right_prots_extracted_n}")
         right_prots_remained_to_extract_n_lines = str((6 - right_prots_extracted_n)*2*(-1))
         # extract remaining number of proteins from another end of the file if any
         if right_prots_remained_to_extract_n_lines != '0':
@@ -1079,14 +1054,14 @@ def extract_proteins_cluster_neighborhood(sign_clusters_df):
         
         # Add target matches to their neighbourhood
         #subprocess.call(['cat', 'target_clusters_matches', '>>', 'target_clusters_neighbourhood'])
-        print('neighbourhood_path', neighbourhood_path)
+        logging.debug(f"neighbourhood_path {neighbourhood_path}")
         command_cat = 'cat ' + 'target_clusters_matches ' + '>> ' + neighbourhood_path
         print('command_cat', command_cat)
         os.system(command_cat)
         # !!! FIX later, extracts only matches for 0 iteration
         if iter_counter == 0:
             command_cat = 'cat ' + 'target_clusters_matches ' + '> ' + neighbourhood_path
-            print('command_cat', command_cat)
+            logging.debug(f"command_cat {command_cat}")
 
         # FIX!
         #target_clusters_matches.write(matches_in_cluster)
@@ -1115,19 +1090,20 @@ def extract_proteins_cluster_neighborhood(sign_clusters_df):
 # ASK Johannes what order should it be done, if I initialize scores for proteins or profiles
 def make_new_query():
     print('making new query set')
-    print('it is iteration ', iter_counter, ' do -1')
+    #print('it is iteration ', iter_counter, ' do -1')
     query_fasta = args.queryfa
     # to have names like query_prot_db2iter_db, not like query_prot_db2iter_db1iter_db
     query_db_path = str(files.query_db)
     print('iter_counter', iter_counter)
+    logging.debug(f"iter_counter {iter_counter}")
     if iter_counter > 1:
         query_db_path = str(files.query_db)[:(str(files.query_db).find(str(iter_counter-1)))]
-    print('query_db_path', query_db_path)
+    logging.debug(f"query_db_path {query_db_path}")
     out_file = query_db_path + str(iter_counter) + 'iter.fasta'
-    print('out_file', out_file)
+    logging.debug(f"out_file {out_file}")
     neighbourhood_path = files.res + '_' + str(iter_counter) + '_iter_target_clusters_neighbourhood'
     command_cat = 'cat ' + query_fasta + ' ' + neighbourhood_path + ' >' + ' ' + out_file
-    print('command_cat', command_cat)
+    logging.debug(f"command_cat {command_cat}")
     os.system(command_cat)
     #with open(out_file, "w") as query_file:
     #    subprocess.Popen(['cat', query_fasta, 'target_clusters_neighbourhood'], stdout = query_file)
@@ -1148,23 +1124,23 @@ def initialize_new_prot_score2(sign_clusters_df, old_query_upd_scores, L, l, map
     # Is it correct to use for pseudocounts?
     # CHANGE to not include query prots to counting??
     x_number_of_new_prots = new_query_db_lookup.loc[:,1].size
-    print('x_number_of_new_prots', x_number_of_new_prots)
+    logging.debug(f"x_number_of_new_prots {x_number_of_new_prots}")
     for new_prot_id in new_query_db_lookup.loc[:,1]:
 
         M_x = mapped_results['ID'][mapped_results['ID'] == new_prot_id].shape[0]
         m_x = cluster_prots[cluster_prots['target_id'] == new_prot_id]['target_id'].count()
-        print(new_prot_id, M_x, m_x)
+        logging.debug(f"{new_prot_id, M_x, m_x}")
         cluster_prot_proportion = np.divide((m_x+aplha_pseudocount), (l + x_number_of_new_prots*aplha_pseudocount))
         score_x = np.log(np.divide(cluster_prot_proportion, np.divide(M_x, L))) - bias
-        print("updated score for new prot", new_prot_id, "is", score_x)
+        logging.debug(f"updated score for new prot {new_prot_id} is {score_x}")
         
         if new_prot_id not in old_query_upd_scores.keys():
             # FIX? it happens for proteins from neighbourhood, not from the clusters
             if score_x == inf:
                 score_x = 0
             old_query_upd_scores[new_prot_id] = score_x
-    
-    print(old_query_upd_scores)
+
+    logging.debug(f"old_query_upd_scores \n {old_query_upd_scores}")
     return(old_query_upd_scores)
 
 
@@ -1186,10 +1162,9 @@ def find_singletons(mapped_res):
 
     # to fix the problem with the nan coming from reading the table
     results = results[results.iloc[:, 0].notna()]
-    print(results)
-    print('mapped results')
-    print(mapped_results)
-    print("index list", index_list)
+    logging.debug(f"results \n {results}")
+    logging.debug(f"mapped_results \n {mapped_results}")
+    logging.debug(f"index_list \n {index_list}")
 
     cluster_matches = list()
     matches_ids_list = mapped_results['ID'].tolist()
@@ -1209,7 +1184,7 @@ def find_singletons(mapped_res):
          i_1_cluster_end, score_max_cluster, 
          curr_query_id, target_hit, strand))
  
-    print(cluster_matches)
+    logging.debug(f"cluster_matches \n {cluster_matches}")
     return cluster_matches
 
 
@@ -1243,7 +1218,7 @@ def initialize_singleton_score(sign_clusters_df, mapped_res):
     #search_result_file = pd.read_csv(files.res + '_singleton_prof_search' +'.m8', dtype={'str':'float'}, sep='\t', header = None)
     query_db_path = str(files.query_db)
     new_query_db_lookup = pd.read_csv(query_db_path+'.lookup', dtype=None, sep='\t', header = None)
-    print(query_db_path+str(iter_counter) + 'iter_db.lookup')
+    logging.debug(f"{query_db_path+str(iter_counter) + 'iter_db.lookup'}")
     #crass_query_db0iter_db
     mapped_results = mapped_res.res_map_to_header
     old_query_upd_scores = dict()
@@ -1253,8 +1228,8 @@ def initialize_singleton_score(sign_clusters_df, mapped_res):
             old_query_upd_scores[new_prot_id] = 1
         else:
             old_query_upd_scores[new_prot_id] = 0
-    
-        print(old_query_upd_scores)
+
+        logging.debug(f"old_query_upd_scores \n {old_query_upd_scores}")
         return(old_query_upd_scores)
 
 
@@ -1274,7 +1249,7 @@ def preprocess_singleton_main():
     sign_clusters_df.columns = ["coord1", "coord2", "score",
      "query", "target_prots", "strand"]
     
-    print(sign_clusters_df)
+    logging.debug(f"sign_clusters_df \n {sign_clusters_df}")
 
     extract_proteins_cluster_neighborhood(sign_clusters_df)
     make_new_query()
@@ -1362,9 +1337,15 @@ if __name__ == "__main__":
 
     print("starting")
 
+
     arg_parser()
     iterations = int(args.iter)
     if_singleton = int(args.singleton)
+
+    # To write log file from scratch, otherwise would add to the file content
+    if os.path.exists(f"{args.res}_mishpokhe.log"):
+        os.remove(f"{args.res}_mishpokhe.log")
+    logging.basicConfig(filename=f"{args.res}_mishpokhe.log", format='%(name)s - %(levelname)s -%(funcName)s() - %(message)s', level=logging.DEBUG)
     
     files = FilePath.get_path()
     print(files.query_db)
@@ -1385,8 +1366,8 @@ if __name__ == "__main__":
     
     iter_counter = 1
     while iterations > 0:
-        print(iter_counter)
-        print(files.query_db)
+        print('iter_counter:',iter_counter)
+        logging.debug(f"iter_counter, files.query_db: {iter_counter, files.query_db}")
         if iter_counter == 1:
             old_query_upd_scores = None
             s_0 = None
@@ -1400,7 +1381,7 @@ if __name__ == "__main__":
             files.query_db = query_db_path + str(iter_counter-1) + 'iter_db'
             res_path = str(files.res)[:str(files.res).find(str(iter_counter-2))]
             files.res = res_path + str(iter_counter-1) + 'iter_res'
-        print('files.query_db in main', files.query_db)
+        logging.debug(f"files.query_db in main: {files.query_db}")
 
 
         #print('here is main running')
