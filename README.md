@@ -1,5 +1,7 @@
 # Mishpokhe is a self-supervised algorithm to discover functional spatial clusters
 
+It predicts the spatial functional clusters in ordered proteomes based on the unordered set of functionally related proteins.
+
 ## Usage
 
 Mishpokhe is a command line tool
