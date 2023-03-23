@@ -54,7 +54,7 @@ MMseqs2 database can be made with:
 
 `mmseqs createdb yourseq.fasta yourseq_db`
 
-For more options on the installation and usage of MMseqs2, please, visit the GitHub  [Named Link](https://github.com/soedinglab/MMseqs2/ "Named link title")
+For more options on the installation and usage of MMseqs2, please, visit the GitHub  [Named Link](https://github.com/soedinglab/MMseqs2/ "MMseqs2")
 
 
 Fasta can be linearized with:
