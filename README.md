@@ -20,12 +20,12 @@ The help can be called with
                         unordered)
   * `-t TARGETDB`, `--targetdb TARGETDB`
                         Provide path to target MMseqs2 database (protein,
-                        ordered)
+                        ordered, provided in Prodigal .faa format)
   * `-r RES`, `--res RES`     Specify the name to be given to the results of the
                         search
   * `-tf TARGETFA`, `--targetfa TARGETFA`
                         Provide path to target sequence (fasta (linearized!))
-			That is the initial fasta containing proteomes (ordered) to use as a target
+			That is the initial fasta containing proteomes (ordered) to use as a target, provided in Prodigal .faa format
   * `-qf QUERYFA`, `--queryfa QUERYFA`
                         Provide path to query sequence (fasta)
 			That is the initial fasta containing proteins (unordered) to use as query
