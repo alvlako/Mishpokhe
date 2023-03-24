@@ -1088,7 +1088,13 @@ def extract_proteins_cluster_neighborhood(sign_clusters_df):
 def make_new_query():
     print('making new query set')
     #print('it is iteration ', iter_counter, ' do -1')
-    query_fasta = args.queryfa
+    if iter_counter == 1:
+        query_fasta = args.queryfa
+    if iter_counter == 0:
+        query_fasta = files.query_db + '0iter.fasta'
+    if iter_counter > 1:
+        query_fasta = str(files.query_db)[:(str(files.query_db).find(str(iter_counter-1)))] + str(iter_counter-1) + 'iter.fasta'
+        print(query_fasta)
     # to have names like query_prot_db2iter_db, not like query_prot_db2iter_db1iter_db
     query_db_path = str(files.query_db)
     print('iter_counter', iter_counter)
