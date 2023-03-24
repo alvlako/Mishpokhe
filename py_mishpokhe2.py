@@ -333,11 +333,10 @@ def find_clusters(mapped_res, old_query_upd_scores, d_strand_flip_penalty, s_0):
         #score_x_i = float(results.iloc[i,10])
         # CHECK if correct
         if target_db_h["ID"].values[i] in matches_ids_list:
-            score_x_i = 1
-            is_match = 1
             curr_query_id = mapped_results.loc[mapped_results['ID'] == target_db_h["ID"].values[i], 'query_ID'].iloc[0]
-            if old_query_upd_scores is not None:
-                score_x_i = old_query_upd_scores[curr_query_id]
+            is_match = 1
+            # In the 1st iter old_query_upd_scores are filled with 1
+            score_x_i = old_query_upd_scores[curr_query_id]
         else:
             score_x_i = s_0
             is_match = 0
@@ -514,8 +513,6 @@ def update_scores_for_cluster_matches(cluster_matches, mapped_res):
 
     # CHANGE later, THINK
     bias = 0
-
-    old_query_upd_scores = dict()
 
     logging.debug(f"K, L, l: {K, L, l}")
     
@@ -1109,6 +1106,38 @@ def make_new_query():
     #    subprocess.Popen(['cat', query_fasta, 'target_clusters_neighbourhood'], stdout = query_file)
     subprocess.call(['mmseqs', 'createdb', query_db_path + str(iter_counter) + 'iter.fasta', query_db_path + str(iter_counter) + 'iter_db'])
 
+
+# THINK is it a good way to get the values for the enrichment score?
+def search_new_query():
+    # This search is to get values for the neighbourhood prots enrichment scores
+    neighbourhood_path = files.res + '_' + str(iter_counter) + '_iter_target_clusters_neighbourhood'
+    subprocess.call(['mmseqs', 'createdb', neighbourhood_path, neighbourhood_path + str(iter_counter) + 'iter_db'])
+    # THINK should I cluster and make profiles before the search?
+    query_db_path = str(files.query_db)
+    if iter_counter > 1:
+        query_db_path = str(files.query_db)[:(str(files.query_db).find(str(iter_counter-1)))]
+    # The search of neighbors prots against all prots in clusters (incl neighbors)
+    subprocess.call(['mmseqs', 'search', 
+    neighbourhood_path + str(iter_counter) + 'iter_db',
+     query_db_path + str(iter_counter) + 'iter_db',
+     neighbourhood_path + str(iter_counter) + '_ag_clusters_res',
+     'tmp', '-a'])
+    subprocess.call(['mmseqs', 'convertalis', neighbourhood_path + str(iter_counter) + 'iter_db',
+     query_db_path + str(iter_counter) + 'iter_db',
+     neighbourhood_path + str(iter_counter) + '_ag_clusters_res',
+      neighbourhood_path + str(iter_counter) + '_ag_clusters_res' +'.m8'])
+    # The search of neighbors prots against all prots in search space (target)
+    subprocess.call(['mmseqs', 'search', 
+    neighbourhood_path + str(iter_counter) + 'iter_db',
+     files.target_db,
+     neighbourhood_path + str(iter_counter) + '_ag_target_res',
+     'tmp', '-a'])
+    subprocess.call(['mmseqs', 'convertalis', neighbourhood_path + str(iter_counter) + 'iter_db',
+     files.target_db, neighbourhood_path + str(iter_counter) + '_ag_target_res',
+      neighbourhood_path + str(iter_counter) + '_ag_target_res' +'.m8'])
+    pass
+
+
 def initialize_new_prot_score2(sign_clusters_df, old_query_upd_scores, L, l, mapped_res):
     query_db_path = str(files.query_db)
     if iter_counter > 1:
@@ -1125,18 +1154,31 @@ def initialize_new_prot_score2(sign_clusters_df, old_query_upd_scores, L, l, map
     # CHANGE to not include query prots to counting??
     x_number_of_new_prots = new_query_db_lookup.loc[:,1].size
     logging.debug(f"x_number_of_new_prots {x_number_of_new_prots}")
+
+    neighbourhood_path = files.res + '_' + str(iter_counter) + '_iter_target_clusters_neighbourhood'
+    neighbors_clusters_matches_path = neighbourhood_path + str(iter_counter) + '_ag_clusters_res' +'.m8'
+    neighbors_target_matches_path = neighbourhood_path + str(iter_counter) + '_ag_target_res' +'.m8'
+    
     for new_prot_id in new_query_db_lookup.loc[:,1]:
 
-        M_x = mapped_results['ID'][mapped_results['ID'] == new_prot_id].shape[0]
-        m_x = cluster_prots[cluster_prots['target_id'] == new_prot_id]['target_id'].count()
-        logging.debug(f"{new_prot_id, M_x, m_x}")
-        cluster_prot_proportion = np.divide((m_x+aplha_pseudocount), (l + x_number_of_new_prots*aplha_pseudocount))
-        score_x = np.log(np.divide(cluster_prot_proportion, np.divide(M_x, L))) - bias
-        logging.debug(f"updated score for new prot {new_prot_id} is {score_x}")
+        # THINK do I need to update the scores for, in fact, the old prots or the matches
+        # to old prots?
+        if new_prot_id in old_query_upd_scores.keys():
+            M_x = mapped_results['ID'][mapped_results['ID'] == new_prot_id].shape[0]
+            m_x = cluster_prots[cluster_prots['target_id'] == new_prot_id]['target_id'].count()
+            logging.debug(f"{new_prot_id, M_x, m_x}")
+            cluster_prot_proportion = np.divide((m_x+aplha_pseudocount), (l + x_number_of_new_prots*aplha_pseudocount))
+            score_x = np.log(np.divide(cluster_prot_proportion, np.divide(M_x, L))) - bias
+            logging.debug(f"updated score for new prot {new_prot_id} is {score_x}")
         
+        print(old_query_upd_scores.keys())
         if new_prot_id not in old_query_upd_scores.keys():
-            # FIX? it happens for proteins from neighbourhood, not from the clusters
             if score_x == inf:
+                cmd1 = f'grep {new_prot_id} {neighbors_clusters_matches_path} | wc -l'
+                m_x = os.popen(cmd1).readline()
+                print(new_prot_id)
+                print(m_x)
+                print(x)
                 score_x = 0
             old_query_upd_scores[new_prot_id] = score_x
 
@@ -1327,6 +1369,7 @@ def main(old_query_upd_scores, d_strand_flip_penalty, s_0):
 
     extract_proteins_cluster_neighborhood(sign_clusters_df)
     make_new_query()
+    search_new_query()
     old_query_upd_scores = initialize_new_prot_score2(sign_clusters_df, old_query_upd_scores, L, l, mapped_res)
 
 
@@ -1369,7 +1412,18 @@ if __name__ == "__main__":
         print('iter_counter:',iter_counter)
         logging.debug(f"iter_counter, files.query_db: {iter_counter, files.query_db}")
         if iter_counter == 1:
-            old_query_upd_scores = None
+            # get queries ids to fill the scores dict with 1
+            sep = r"'\t'"
+            awk_print = "'{print $2}'"
+            cmd = f'awk -F {sep} {awk_print} {files.query_db}.lookup'
+            print(cmd)
+            # WARNING: popen is deprecated, think about it
+            queries = os.popen(cmd).read().splitlines()
+            old_query_upd_scores = dict()
+            for q in queries:
+                print(q)
+                old_query_upd_scores[q] = 1
+                print(old_query_upd_scores)
             s_0 = None
             d_strand_flip_penalty = None
             files.query_db = files.query_db
