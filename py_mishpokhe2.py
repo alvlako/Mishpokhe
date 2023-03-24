@@ -1117,6 +1117,7 @@ def search_new_query():
     if iter_counter > 1:
         query_db_path = str(files.query_db)[:(str(files.query_db).find(str(iter_counter-1)))]
     # The search of neighbors prots against all prots in clusters (incl neighbors)
+    # That is a new query db, as itercounter sets the iter number for querydb going to next iter
     subprocess.call(['mmseqs', 'search', 
     neighbourhood_path + str(iter_counter) + 'iter_db',
      query_db_path + str(iter_counter) + 'iter_db',
@@ -1155,34 +1156,41 @@ def initialize_new_prot_score2(sign_clusters_df, old_query_upd_scores, L, l, map
     x_number_of_new_prots = new_query_db_lookup.loc[:,1].size
     logging.debug(f"x_number_of_new_prots {x_number_of_new_prots}")
 
+    # changing l, as given l is for cluster matches, not including the neighbors
+    cmd0 = f'wc -l {query_db_path}{iter_counter}iter_db'
+    # WARNING, popen is deprecated, think about this
+    # wc -l works weirdly, so have to split the output 
+    # 4 -> ['', '', '', '', '', '', '', '4\n', 'query_prot_db1iter_db']
+    l = int(''.join(os.popen(cmd0).readline().split(' ')[-2].splitlines()))
+    logging.debug(f"updated l including neighbors is {l}")
+
     neighbourhood_path = files.res + '_' + str(iter_counter) + '_iter_target_clusters_neighbourhood'
     neighbors_clusters_matches_path = neighbourhood_path + str(iter_counter) + '_ag_clusters_res' +'.m8'
     neighbors_target_matches_path = neighbourhood_path + str(iter_counter) + '_ag_target_res' +'.m8'
     
     for new_prot_id in new_query_db_lookup.loc[:,1]:
 
-        # THINK do I need to update the scores for, in fact, the old prots or the matches
-        # to old prots?
-        if new_prot_id in old_query_upd_scores.keys():
-            M_x = mapped_results['ID'][mapped_results['ID'] == new_prot_id].shape[0]
-            m_x = cluster_prots[cluster_prots['target_id'] == new_prot_id]['target_id'].count()
-            logging.debug(f"{new_prot_id, M_x, m_x}")
-            cluster_prot_proportion = np.divide((m_x+aplha_pseudocount), (l + x_number_of_new_prots*aplha_pseudocount))
-            score_x = np.log(np.divide(cluster_prot_proportion, np.divide(M_x, L))) - bias
-            logging.debug(f"updated score for new prot {new_prot_id} is {score_x}")
-        
-        print(old_query_upd_scores.keys())
+        #print(old_query_upd_scores)
+        #print(old_query_upd_scores.keys())
         if new_prot_id not in old_query_upd_scores.keys():
-            if score_x == inf:
-                cmd1 = f'grep {new_prot_id} {neighbors_clusters_matches_path} | wc -l'
-                m_x = os.popen(cmd1).readline()
-                print(new_prot_id)
-                print(m_x)
-                print(x)
-                score_x = 0
+            # awk to count only in queries = neighbors, not in what they are search against
+            sep = r"'\t'"
+            awk_print = "'{print $1}'"
+            cmd1 = f'awk -F {sep} {awk_print} {neighbors_clusters_matches_path} | grep -w {new_prot_id} | wc -l'
+            # WARNING, popen is deprecated, think about this
+            # wc -l works weirdly, so have to split the output 
+            # 4 -> ['', '', '', '', '', '', '', '4\n']
+            m_x = int(''.join(os.popen(cmd1).readline().split(' ')[-1].splitlines()))
+            awk_print2 = "'{print $1}'"
+            cmd2 = f'awk -F {sep} {awk_print} {neighbors_target_matches_path} | grep -w {new_prot_id} | wc -l'
+            # WARNING, popen is deprecated, think about this
+            M_x = int(''.join(os.popen(cmd2).readline().split(' ')[-1].splitlines()))
+            score_x = np.log(np.divide(np.divide((m_x),l), np.divide((M_x), L))) - bias
+            
+            logging.debug(f"updated score for new prot {new_prot_id} is {score_x}")
             old_query_upd_scores[new_prot_id] = score_x
 
-    logging.debug(f"old_query_upd_scores \n {old_query_upd_scores}")
+    logging.debug(f"old_query_upd_scores updated with neighbours \n {old_query_upd_scores}")
     return(old_query_upd_scores)
 
 
