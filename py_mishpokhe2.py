@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 
 import argparse
+import glob
 import itertools
 import logging
 import os
@@ -1117,6 +1118,11 @@ def make_new_query():
 def search_new_query():
     # This search is to get values for the neighbourhood prots enrichment scores
     neighbourhood_path = files.res + '_' + str(iter_counter) + '_iter_target_clusters_neighbourhood'
+    try:
+        for file in glob.glob(f"{neighbourhood_path}{iter_counter}*"):
+            os.remove(file) 
+    except FileNotFoundError:
+        pass
     subprocess.call(['mmseqs', 'createdb', neighbourhood_path, neighbourhood_path + str(iter_counter) + 'iter_db'])
     # THINK should I cluster and make profiles before the search?
     query_db_path = str(files.query_db)
@@ -1188,7 +1194,7 @@ def initialize_new_prot_score2(sign_clusters_df, old_query_upd_scores, L, l, map
             # 4 -> ['', '', '', '', '', '', '', '4\n']
             m_x = int(''.join(os.popen(cmd1).readline().split(' ')[-1].splitlines()))
             awk_print2 = "'{print $1}'"
-            cmd2 = f'awk -F {sep} {awk_print} {neighbors_target_matches_path} | grep -w {new_prot_id} | wc -l'
+            cmd2 = f'awk -F {sep} {awk_print2} {neighbors_target_matches_path} | grep -w {new_prot_id} | wc -l'
             # WARNING, popen is deprecated, think about this
             M_x = int(''.join(os.popen(cmd2).readline().split(' ')[-1].splitlines()))
             score_x = np.log(np.divide(np.divide((m_x),l), np.divide((M_x), L))) - bias
