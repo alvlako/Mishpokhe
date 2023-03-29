@@ -718,11 +718,12 @@ def calculate_karlin_stat(cluster_matches, mapped_res):
     # the loop to insert missed integers (should be one by one) to scores and 0 to correspond. probs
     prev_int_val = int(scores_table[0][0])
     curr_row_ind = 0
+    # CHECK if the table is sorted
     for i in scores_table:
         logging.debug(f"start inserting")
         logging.debug(f"int_val {prev_int_val}")
         logging.debug(f"i {i}")
-        # CHECK what negative value in times_insert what do (seems like does nothing correctly)
+        # CHECK what negative value in times_insert would do (seems like does nothing correctly)
         times_insert = int(i[0]) - prev_int_val - 1
         logging.debug(f"times_insert {times_insert}")
         
@@ -745,7 +746,7 @@ def calculate_karlin_stat(cluster_matches, mapped_res):
     score_prob = scores_table[:,1]
 
     # ASK Johannes what to do if all the scores are negative?
-    unique_scores
+    print(unique_scores)
     index_of_0 = np.where(unique_scores == 0)[0][0]
     
     logging.debug(f"final uniq and prob \n {unique_scores} \n {score_prob}")
@@ -899,184 +900,84 @@ def calculate_e_value(stat_lambda, stat_K, significant_cluster_df_enriched, mapp
     return significant_cluster_df_enriched, significant_clusters_eval_filter_df
 
 
-
-# THINK about writing already to a file in subprocess Popen
-def extract_proteins_cluster_neighborhood(sign_clusters_df):
-    print('updating query profile started (extracting prots_')
-    # CHECK if only the significant clusters are used
-    # getting the target prots matched to query
+def extract_proteins_cluster_neighborhood(sign_clusters_df, mapped_res):
+    print('updating query profile started (extracting prots)')
     logging.debug(f"significant (?) clusters table \n {sign_clusters_df}")
-
-    # calling initial fasta for target and query
-    # CHANGE it to not ask user again
-    #query_fasta = input('Enter query_sequences (fasta) path: ')
     target_fasta = args.targetfa
-
-    # adding matched target prots to the query set to make the profiles again
-    # THINK if it is a good way to add all matched target prots to all queries and run clustering again
-
-    # extracting the left and the right edges proteins for clusters
     logging.debug(f"{sign_clusters_df['target_prots']}")
-    # extracting proteins matched, within and in +3 left and right neighbourhood of the clusters
-    ##target_clusters_within = open("target_clusters_within", "w")
     neighbourhood_path = files.res + '_' + str(iter_counter) + '_iter_target_clusters_neighbourhood'
     
     target_clusters_neighbourhood = open(neighbourhood_path, "w")
     target_clusters_matches = open("target_clusters_matches", "w")
+
+    # making index range for genomes to grep only in the range of the genomes
+    # and dont get to other genomes (e.g. if the left protein close to start or right to end)
+    genome_start_idxs = dict()
+    genome_end_idxs = dict()
+
+    # extracting 3 neghbours from each side
+    # MAKE a parameter
+    neighbors_number_1side = 3
+
+    # WHY do I need this file?
+    target_protID_cluster_file_idx = open("target_protID_cluster_file_idx", "w")
+    target_db_lookup = mapped_res.target_db_lookup
+
     for target_prot_cluster in sign_clusters_df['target_prots']:
-        # MAKE faster
         # that is to save cluster prots ids and grep with them to find cluster matches sequences and 
         # exclude them from new within cluster prots
-        # WHY do I need this file?
-        target_protID_cluster_file = open("target_protID_cluster_file", "w")
-        logging.debug(*target_prot_cluster)
-        # MAKE faster
-        print('grepping matches')
-        for protID in target_prot_cluster:
-            logging.debug(f"protID {protID}")
-            # whitespace added to grep e.g. 1_1 but not 1_12, 1_13 etc
-            target_protID_cluster_file.write(protID + ' ' + '\n')
-            matches_seqs = subprocess.Popen(['grep', '-A1', protID + ' ',
-             target_fasta], stdout=subprocess.PIPE)
-            seqs, error = matches_seqs.communicate()
-            target_clusters_matches.write(seqs.decode("utf-8"))
-        # REMOVE this file if you wont grep file in file
-        target_protID_cluster_file.close()
-        # extracting sequences for matches in cluster and writing to the file
-        # file - file grep - would not use for now
-        #matches_seqs = subprocess.Popen(['grep', '-A1','-f', 'target_protID_cluster_file',
-        # target_fasta], stdout=subprocess.PIPE)
-        #seqs, error = matches_seqs.communicate()
-        #target_clusters_matches.write(seqs.decode("utf-8"))
 
-
-        target_prot_left = target_prot_cluster[0]
-        target_prot_right = target_prot_cluster[-1]
-        logging.debug(f"left and right proteins per cycle {target_prot_left, target_prot_right}")
-
-        # if i have singletons, the withit extraction would extract too many prots,
-        # as the left and the right proteins are the same
-        if iter_counter != 0:
-            # extracting header + seq lines between left and right edge proteins in cluster
-            # all prots within cluster extracted, but the rightest dont have seq line after this step, only header
-            within = subprocess.Popen(['sed', '-n', '/%s /,/%s /p' %(target_prot_left, target_prot_right) + ' ', target_fasta], stdout=subprocess.PIPE)
-            target_clusters_within, error = within.communicate()
-            logging.debug(f"{target_clusters_within.decode('utf-8')}")
-            p1_within = subprocess.Popen(['grep', '-A1', target_prot_right + ' ', target_fasta], stdout=subprocess.PIPE)
-            # dont communicate if you dont want the pipe to be closed
-            p2 = subprocess.Popen(['grep', '-v', target_prot_right], stdin=p1_within.stdout, stdout=subprocess.PIPE)
-            p1_within.stdout.close()
-            right_protein_seq, err = p2.communicate()
-            logging.debug(f"rest {right_protein_seq.decode('utf-8')}")
-        #target_clusters_within = within
-        # extracting 3 prots before and after + seq line for the last prot of the cluster
-        # pipes are to get rid of rightest and leftest prots headers
-        #subprocess.call(['grep', '-A7', target_prot_right + ' ', target_fasta], stdout=target_clusters_neighbourhood)
-        # filtering only concrete genome in db, CHECK if correct for all formats
-        # Does it limit the formats option? So I somehow rely on the fact that I have a protein ID 
-        # of the format “MW067000.1_2”, and genome ID is of the format “MW067000.1”.
-        #genome_id = target_prot_right.split('_')[0]
-        group_sep = ''.join(['--', ' ', '"', '^--$','"'])
-        # Changed genome id to format of prot = NC_055116.1_25
-        # MAKE more general format!
-        # For the format of NC_055116.1_25
-        genome_id = target_prot_right.split('_')[0] + '_' + target_prot_right.split('_')[1]
-        # For the format of YN055116.1_25
-        #genome_id = target_prot_right.split('_')[0]
-
-        logging.debug(f"group_sep {group_sep}")
+        # getting the ranges of indices for a genome
+        # THINK if it worth to check in keys
+        genome_id = ''.join(target_prot_cluster[0].split('_')[:-1])
         logging.debug(f"genome_id {genome_id}")
+        if genome_id not in genome_end_idxs.keys():
+            genome_start = target_db_lookup[target_db_lookup['ID'].str.contains(pat = genome_id)].index[0]
+            genome_end = target_db_lookup[target_db_lookup['ID'].str.contains(pat = genome_id)].index[-1]
+            genome_start_idxs[genome_id] = genome_start
+            genome_end_idxs[genome_id] = genome_end
+            logging.debug(genome_id, genome_start, genome_end)
 
-        # extracting not 3 but 6 prots from each side
-        p1_left = subprocess.Popen(['grep', '-A1', genome_id, target_fasta], stdout=subprocess.PIPE)
-        p4_left = subprocess.Popen(['grep ' + '-v '+ group_sep], stdin=p1_left.stdout, stdout=subprocess.PIPE, shell = True)
-        p2_left = subprocess.Popen(['grep', '-B12', target_prot_left + ' '], stdin=p4_left.stdout, stdout=subprocess.PIPE)
-        # dont communicate if you dont want the pipe to be closed
-        p3_left = subprocess.Popen(['grep', '-v', target_prot_left], stdin=p2_left.stdout, stdout=subprocess.PIPE)
-        p1_left.stdout.close()
-        p2_left.stdout.close()
-        p4_left.stdout.close()
-        output_left,err_left = p3_left.communicate()
-        logging.debug(f"left prots {output_left.decode('utf-8')}")
-        # counting how many proteins I got (in case if it is the end or the start of the file)
-        left_prots_extracted_n = output_left.decode("utf-8").count('>')
-        logging.debug(f"left_prots_extracted_n {left_prots_extracted_n}")
-        # CHANGE later for variable how many prots to extract? 
-        # -1 is added to use it later in tail command
-        left_prots_remained_to_extract_n_lines = str((6 - left_prots_extracted_n)*2*(-1))
-        logging.debug(f"remained {left_prots_remained_to_extract_n_lines}")
-        # extract remaining number of proteins from another end of the file if any
-        if int(left_prots_remained_to_extract_n_lines)*(-1) > 0:
-            logging.debug(f"extracting from the end of file")
-            logging.debug(f"genome_id {genome_id}")
-            p1_from_end = subprocess.Popen(['grep', '-A1', genome_id, target_fasta], stdout=subprocess.PIPE)
-            p4_from_end = subprocess.Popen(['grep ' + '-v '+ group_sep], stdin=p1_from_end.stdout, stdout=subprocess.PIPE, shell = True)
-            p2_from_end = subprocess.Popen(['tail', left_prots_remained_to_extract_n_lines], stdin=p4_from_end.stdout, stdout=subprocess.PIPE)
-            output_file_end,err_file_end = p2_from_end.communicate()
-            logging.debug(f"end of the file")
-            logging.debug(f"left_prots_remained_to_extract_n_lines{left_prots_remained_to_extract_n_lines}")
-            logging.debug(f"{output_file_end.decode('utf-8')}")
-            p1_from_end.stdout.close()
-            target_clusters_neighbourhood.write(output_file_end.decode("utf-8"))
+        target_protID_cluster_idx = []
+        logging.debug(*target_prot_cluster)
+        print('creating subdb')
 
-        p1_right = subprocess.Popen(['grep', '-A1', genome_id, target_fasta], stdout=subprocess.PIPE)
-        p2 = subprocess.Popen(['grep ' + '-v '+ group_sep], stdin=p1_right.stdout, stdout=subprocess.PIPE, shell = True)
-        p3 = subprocess.Popen(['grep', '-A13', target_prot_right + ' '], stdin=p2.stdout, stdout=subprocess.PIPE)
-        p4 = subprocess.Popen(['grep', '-v', target_prot_right], stdin=p3.stdout, stdout=subprocess.PIPE)
-        p5 = subprocess.Popen(['tail', '-12'], stdin=p4.stdout, stdout=subprocess.PIPE)
-        output_right,err_right = p5.communicate()
-        p1_right.stdout.close()
-        p4.stdout.close()
-        p3.stdout.close()
-        #print(output_right.decode("utf-8"))
-
-        right_prots_extracted_n = output_right.decode("utf-8").count('>')
-        logging.debug(f"right_prots_extracted_n {right_prots_extracted_n}")
-        right_prots_remained_to_extract_n_lines = str((6 - right_prots_extracted_n)*2*(-1))
-        # extract remaining number of proteins from another end of the file if any
-        if right_prots_remained_to_extract_n_lines != '0':
-            p1_from_begin = subprocess.Popen(['grep', genome_id, target_fasta], stdout=subprocess.PIPE)
-            p2_from_begin = subprocess.Popen(['head',  right_prots_remained_to_extract_n_lines, target_fasta], stdin=p1_from_begin.stdout, stdout=subprocess.PIPE)
-            output_file_begin,err_file_begin = p2_from_begin.communicate()
-            p1_from_begin.stdout.close()
-            target_clusters_neighbourhood.write(output_file_begin.decode("utf-8"))
-
-
+        protID_left = target_prot_cluster[0]
+        protID_right = target_prot_cluster[-1]
+        print(target_prot_cluster, protID_left, protID_right)
         
-        target_clusters_neighbourhood.write(output_left.decode("utf-8"))
-        target_clusters_neighbourhood.write(output_right.decode("utf-8"))
-        # not for singletons
-        if iter_counter != 0:
-            target_clusters_neighbourhood.write(target_clusters_within.decode("utf-8"))
-            target_clusters_neighbourhood.write(right_protein_seq.decode("utf-8"))
-        
-        # Add target matches to their neighbourhood
-        #subprocess.call(['cat', 'target_clusters_matches', '>>', 'target_clusters_neighbourhood'])
-        logging.debug(f"neighbourhood_path {neighbourhood_path}")
-        command_cat = 'cat ' + 'target_clusters_matches ' + '>> ' + neighbourhood_path
-        print('command_cat', command_cat)
-        os.system(command_cat)
-        # !!! FIX later, extracts only matches for 0 iteration
-        if iter_counter == 0:
-            command_cat = 'cat ' + 'target_clusters_matches ' + '> ' + neighbourhood_path
-            logging.debug(f"command_cat {command_cat}")
-
-        # FIX!
-        #target_clusters_matches.write(matches_in_cluster)
-        
-    ##target_clusters_within.close()
+        logging.debug(f"protID_left {protID_left} protID_right {protID_right}")
+        print(target_db_lookup)
+        # THINK Is it fast enough?
+        protID_left_ind = target_db_lookup.loc[target_db_lookup['ID'] == protID_left, 'ind_id'].iloc[0]
+        protID_right_ind = target_db_lookup.loc[target_db_lookup['ID'] == protID_right, 'ind_id'].iloc[0]
+        logging.debug(f"protID_left_ind {protID_left_ind} protID_right_ind {protID_right_ind}")
+        # MAKE file.write faster? dont write every line?
+        for id in range(protID_left_ind-neighbors_number_1side, protID_right_ind+neighbors_number_1side+1):
+            if id >= genome_start and id <= genome_end:
+                target_protID_cluster_file_idx.write(f'{str(id)}\n')
+                #print(id)
+            else:
+                if id < genome_start:
+                    id_left = genome_end - abs(genome_start - abs(id) + 1)
+                    target_protID_cluster_file_idx.write(f'{str(id_left)}\n')
+                    #print(id_left)
+                if id > genome_end:
+                    id_right = genome_start + abs(genome_end - abs(id) - 1)
+                    target_protID_cluster_file_idx.write(f'{str(id_right)}\n')  
+                    #print(id_right)
+    target_protID_cluster_file_idx.close()
+    with open('target_protID_cluster_file_idx_sorted','w') as out:
+        subprocess.Popen(['sort', '-u', 'target_protID_cluster_file_idx'],stdout=out)
+    # BE careful! this db accessory files are not in order with db seqs
+    subprocess.Popen(['mmseqs', 'createsubdb', 'target_protID_cluster_file_idx_sorted', 
+     args.targetdb, str(neighbourhood_path)+'_db'])
+    subprocess.Popen(['mmseqs', 'createsubdb', 'target_protID_cluster_file_idx_sorted', 
+     str(args.targetdb)+'_h', str(neighbourhood_path)+'_db_h'])
+    subprocess.Popen(['mmseqs', 'convert2fasta', str(neighbourhood_path)+'_db', 
+     neighbourhood_path])
+    
     target_clusters_neighbourhood.close()
-    # FIX!
-    target_clusters_matches.close()
-    
-    # CHECK if you can make faster
-    # CHECK if you need to delete duplicates from target prots
-    
-
-    #making a new query db
-    # THINK if I want not to renew the file but make a separate file for each iteration
-    ##subprocess.call(['mmseqs', 'createdb', 'query_fasta_copy_iter', 'query_fasta_copy_iter_db'])
-
     pass
 
 
@@ -1387,7 +1288,7 @@ def main(old_query_upd_scores, d_strand_flip_penalty, s_0):
     # Is it okay to use e-val filtering here?
     sign_clusters_df = significant_clusters_eval_filter_df
 
-    extract_proteins_cluster_neighborhood(sign_clusters_df)
+    extract_proteins_cluster_neighborhood(sign_clusters_df, mapped_res)
     make_new_query()
     search_new_query()
     old_query_upd_scores = initialize_new_prot_score2(sign_clusters_df, old_query_upd_scores, L, l, mapped_res)
