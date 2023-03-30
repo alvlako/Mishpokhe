@@ -545,6 +545,9 @@ def update_scores_for_cluster_matches(cluster_matches, mapped_res):
         logging.debug(f"updated score for q: {query_id} is {score_x}")
 
         old_query_upd_scores[query_id] = score_x
+        # giving the same enrichment scores to target cluster matches to the current query
+        for target_id in cluster_prots['target_id'][cluster_prots['query_id'] == query_id]:
+            old_query_upd_scores[target_id] = score_x
 
         # MAKE faster?
         # adding score of the query prot to get summarized score for the cluster
@@ -1007,9 +1010,8 @@ def make_new_query():
     out_file = query_db_path + str(iter_counter) + 'iter.fasta'
     logging.debug(f"out_file {out_file}")
     neighbourhood_path = files.res + '_' + str(iter_counter) + '_iter_target_clusters_neighbourhood'
-    command_cat = 'cat ' + query_fasta + ' ' + neighbourhood_path + ' >' + ' ' + out_file
-    logging.debug(f"command_cat {command_cat}")
-    os.system(command_cat)
+    cmd = 'cat ' + str(query_fasta) + ' ' + str(neighbourhood_path) + ' > ' + str(out_file)
+    subprocess.call(cmd,shell=True)
     #with open(out_file, "w") as query_file:
     #    subprocess.Popen(['cat', query_fasta, 'target_clusters_neighbourhood'], stdout = query_file)
     subprocess.call(['mmseqs', 'createdb', query_db_path + str(iter_counter) + 'iter.fasta', query_db_path + str(iter_counter) + 'iter_db'])
@@ -1017,6 +1019,7 @@ def make_new_query():
 
 # THINK is it a good way to get the values for the enrichment score?
 def search_new_query():
+    print('searching new query')
     # This search is to get values for the neighbourhood prots enrichment scores
     neighbourhood_path = files.res + '_' + str(iter_counter) + '_iter_target_clusters_neighbourhood'
     try:
@@ -1026,18 +1029,19 @@ def search_new_query():
         pass
     subprocess.call(['mmseqs', 'createdb', neighbourhood_path, neighbourhood_path + str(iter_counter) + 'iter_db'])
     # THINK should I cluster and make profiles before the search?
-    query_db_path = str(files.query_db)
+    new_query_db_path = str(files.query_db) + str(iter_counter) + 'iter_db'
     if iter_counter > 1:
-        query_db_path = str(files.query_db)[:(str(files.query_db).find(str(iter_counter-1)))]
+        new_query_db_path = str(files.query_db)[:(str(files.query_db).find(str(iter_counter-1)))] + str(iter_counter) + 'iter_db'
+    logging.debug(f'query_db_path {new_query_db_path}')
     # The search of neighbors prots against all prots in clusters (incl neighbors)
     # That is a new query db, as itercounter sets the iter number for querydb going to next iter
     subprocess.call(['mmseqs', 'search', 
     neighbourhood_path + str(iter_counter) + 'iter_db',
-     query_db_path + str(iter_counter) + 'iter_db',
+     new_query_db_path,
      neighbourhood_path + str(iter_counter) + '_ag_clusters_res',
      'tmp', '-a'])
     subprocess.call(['mmseqs', 'convertalis', neighbourhood_path + str(iter_counter) + 'iter_db',
-     query_db_path + str(iter_counter) + 'iter_db',
+     new_query_db_path,
      neighbourhood_path + str(iter_counter) + '_ag_clusters_res',
       neighbourhood_path + str(iter_counter) + '_ag_clusters_res' +'.m8'])
     # The search of neighbors prots against all prots in search space (target)
@@ -1053,10 +1057,11 @@ def search_new_query():
 
 
 def initialize_new_prot_score2(sign_clusters_df, old_query_upd_scores, L, l, mapped_res):
-    query_db_path = str(files.query_db)
+    new_query_db_path = str(files.query_db) + str(iter_counter) + 'iter_db'
     if iter_counter > 1:
-        query_db_path = str(files.query_db)[:str(files.query_db).find(str(iter_counter-1))]
-    new_query_db_lookup = pd.read_csv(query_db_path+str(iter_counter) + 'iter_db.lookup', dtype=None, sep='\t', header = None)
+        new_query_db_path = str(files.query_db)[:(str(files.query_db).find(str(iter_counter-1)))] + str(iter_counter) + 'iter_db'
+    logging.debug(new_query_db_path)
+    new_query_db_lookup = pd.read_csv(str(new_query_db_path) +'.lookup', dtype=None, sep='\t', header = None)
     mapped_results = mapped_res.res_map_to_header
     cluster_prots = pd.DataFrame()
     cluster_prots['target_id'] = sign_clusters_df['target_prots'].explode()
@@ -1070,7 +1075,7 @@ def initialize_new_prot_score2(sign_clusters_df, old_query_upd_scores, L, l, map
     logging.debug(f"x_number_of_new_prots {x_number_of_new_prots}")
 
     # changing l, as given l is for cluster matches, not including the neighbors
-    cmd0 = f'wc -l {query_db_path}{iter_counter}iter_db'
+    cmd0 = f'wc -l {new_query_db_path}'
     # WARNING, popen is deprecated, think about this
     # wc -l works weirdly, so have to split the output 
     # 4 -> ['', '', '', '', '', '', '', '4\n', 'query_prot_db1iter_db']
@@ -1082,7 +1087,6 @@ def initialize_new_prot_score2(sign_clusters_df, old_query_upd_scores, L, l, map
     neighbors_target_matches_path = neighbourhood_path + str(iter_counter) + '_ag_target_res' +'.m8'
     
     for new_prot_id in new_query_db_lookup.loc[:,1]:
-
         #print(old_query_upd_scores)
         #print(old_query_upd_scores.keys())
         if new_prot_id not in old_query_upd_scores.keys():
@@ -1102,7 +1106,6 @@ def initialize_new_prot_score2(sign_clusters_df, old_query_upd_scores, L, l, map
             
             logging.debug(f"updated score for new prot {new_prot_id} is {score_x}")
             old_query_upd_scores[new_prot_id] = score_x
-
     logging.debug(f"old_query_upd_scores updated with neighbours \n {old_query_upd_scores}")
     return(old_query_upd_scores)
 
