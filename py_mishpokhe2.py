@@ -212,7 +212,7 @@ class ResultsMapping:
         print(' ')
         print(' ')
         print(' ')
-        print('start soritng')
+        print('start sorting')
         print(' ')
 
         human_ids = tmp_res_map_to_header['ID'].tolist()
@@ -264,6 +264,7 @@ class ResultsMapping:
 # CHECK all the scores
 def find_clusters(mapped_res, old_query_upd_scores, d_strand_flip_penalty, s_0):
 
+    print('finding clusters')
     mapped_results = mapped_res.res_map_to_header
     results = mapped_res.search_result_file
     index_list = mapped_res.ind_list
@@ -891,7 +892,7 @@ def calculate_e_value(stat_lambda, stat_K, significant_cluster_df_enriched, mapp
     # Check if e-val = 0.01 is good filtering
     eval_filter = args.eval
     use_eval_filter = args.evalfilteruse
-    if use_eval_filter == 1:
+    if use_eval_filter == '1':
         significant_clusters_eval_filter_df = significant_cluster_df_enriched.loc[(significant_cluster_df_enriched['e-value'] <eval_filter) & (significant_cluster_df_enriched['e-value'] > 0)]
         cluster_path2 = files.res + '_' + str(iter_counter) + '_iter_sign_clusters_enrich_stat_filtered'
         significant_clusters_eval_filter_df.to_csv(cluster_path2, sep = '\t', index = False)
@@ -910,7 +911,7 @@ def extract_proteins_cluster_neighborhood(sign_clusters_df, mapped_res):
     logging.debug(f"{sign_clusters_df['target_prots']}")
     neighbourhood_path = files.res + '_' + str(iter_counter) + '_iter_target_clusters_neighbourhood'
     
-    target_clusters_neighbourhood = open(neighbourhood_path, "w")
+    #target_clusters_neighbourhood = open(neighbourhood_path, "w")
     target_clusters_matches = open("target_clusters_matches", "w")
 
     # making index range for genomes to grep only in the range of the genomes
@@ -925,6 +926,8 @@ def extract_proteins_cluster_neighborhood(sign_clusters_df, mapped_res):
     # WHY do I need this file?
     target_protID_cluster_file_idx = open("target_protID_cluster_file_idx", "w")
     target_db_lookup = mapped_res.target_db_lookup
+    print(target_db_lookup)
+    print('creating subdb')
 
     for target_prot_cluster in sign_clusters_df['target_prots']:
         # that is to save cluster prots ids and grep with them to find cluster matches sequences and 
@@ -932,55 +935,78 @@ def extract_proteins_cluster_neighborhood(sign_clusters_df, mapped_res):
 
         # getting the ranges of indices for a genome
         # THINK if it worth to check in keys
-        genome_id = ''.join(target_prot_cluster[0].split('_')[:-1])
-        logging.debug(f"genome_id {genome_id}")
+        genome_id = '_'.join(target_prot_cluster[0].split('_')[:-1])
+        print('genome_id', genome_id)
+        #logging.debug(f"genome_id {genome_id}")
         if genome_id not in genome_end_idxs.keys():
             genome_start = target_db_lookup[target_db_lookup['ID'].str.contains(pat = genome_id)].index[0]
             genome_end = target_db_lookup[target_db_lookup['ID'].str.contains(pat = genome_id)].index[-1]
             genome_start_idxs[genome_id] = genome_start
             genome_end_idxs[genome_id] = genome_end
-            logging.debug(genome_id, genome_start, genome_end)
+            #logging.debug(genome_id, genome_start, genome_end)
 
         target_protID_cluster_idx = []
-        logging.debug(*target_prot_cluster)
-        print('creating subdb')
+        #logging.debug(*target_prot_cluster)
 
         protID_left = target_prot_cluster[0]
         protID_right = target_prot_cluster[-1]
-        print(target_prot_cluster, protID_left, protID_right)
+        #import time
         
-        logging.debug(f"protID_left {protID_left} protID_right {protID_right}")
-        print(target_db_lookup)
+        #logging.debug(f"protID_left {protID_left} protID_right {protID_right}")
         # THINK Is it fast enough?
-        protID_left_ind = target_db_lookup.loc[target_db_lookup['ID'] == protID_left, 'ind_id'].iloc[0]
-        protID_right_ind = target_db_lookup.loc[target_db_lookup['ID'] == protID_right, 'ind_id'].iloc[0]
-        logging.debug(f"protID_left_ind {protID_left_ind} protID_right_ind {protID_right_ind}")
+        #start_get = time.time()
+
+        # Unfortunately, ind_id can not be used , as close proteins might have 
+        # very distant ids in mmseqs database. So I just get pandas df index
+        # and retrieve the ind_id per each of such index
+        #protID_left_ind = target_db_lookup.loc[target_db_lookup['ID'] == protID_left, 'ind_id'].iloc[0]
+        #protID_right_ind = target_db_lookup.loc[target_db_lookup['ID'] == protID_right, 'ind_id'].iloc[0]
+
+        # As index gives a list, I just take 0th (hopefully the only) value of it
+        protID_left_ind = target_db_lookup.index[target_db_lookup['ID'] == protID_left][0]
+        protID_right_ind = target_db_lookup.index[target_db_lookup['ID'] == protID_right][0]
+        print('protID_left_ind', protID_left_ind, 'protID_right_ind', protID_right_ind)
+
+        logging.debug(f"protID_left_ind-neighbors_number_1side {protID_left_ind-neighbors_number_1side}")
+        logging.debug(f"protID_right_ind+neighbors_number_1side+1 {protID_right_ind+neighbors_number_1side+1}")
+
+        #end_get = time.time()
+        #print('start_get', end_get - start_get)
+        #logging.debug(f"protID_left_ind {protID_left_ind} protID_right_ind {protID_right_ind}")
         # MAKE file.write faster? dont write every line?
         for id in range(protID_left_ind-neighbors_number_1side, protID_right_ind+neighbors_number_1side+1):
             if id >= genome_start and id <= genome_end:
-                target_protID_cluster_file_idx.write(f'{str(id)}\n')
+                #print('if')
+                #start_write = time.time()
+                mmseqs_id = target_db_lookup.iloc[id]['ind_id']
+                target_protID_cluster_file_idx.write(f'{str(mmseqs_id)}\n')
+                #end_write = time.time()
+                #print('start_write', end_write - start_write)
                 #print(id)
             else:
                 if id < genome_start:
                     id_left = genome_end - abs(genome_start - abs(id) + 1)
-                    target_protID_cluster_file_idx.write(f'{str(id_left)}\n')
+                    mmseqs_id = target_db_lookup.iloc[id_left]['ind_id']
+                    target_protID_cluster_file_idx.write(f'{str(mmseqs_id)}\n')
                     #print(id_left)
                 if id > genome_end:
                     id_right = genome_start + abs(genome_end - abs(id) - 1)
-                    target_protID_cluster_file_idx.write(f'{str(id_right)}\n')  
+                    mmseqs_id = target_db_lookup.iloc[id_right]['ind_id']
+                    target_protID_cluster_file_idx.write(f'{str(mmseqs_id)}\n')  
                     #print(id_right)
     target_protID_cluster_file_idx.close()
     with open('target_protID_cluster_file_idx_sorted','w') as out:
-        subprocess.Popen(['sort', '-u', 'target_protID_cluster_file_idx'],stdout=out)
+        subprocess.call(['sort', '-u', '-n', 'target_protID_cluster_file_idx'],stdout=out)
     # BE careful! this db accessory files are not in order with db seqs
-    subprocess.Popen(['mmseqs', 'createsubdb', 'target_protID_cluster_file_idx_sorted', 
+    subprocess.call(['mmseqs', 'createsubdb', 'target_protID_cluster_file_idx_sorted', 
      args.targetdb, str(neighbourhood_path)+'_db'])
-    subprocess.Popen(['mmseqs', 'createsubdb', 'target_protID_cluster_file_idx_sorted', 
+    subprocess.call(['mmseqs', 'createsubdb', 'target_protID_cluster_file_idx_sorted', 
      str(args.targetdb)+'_h', str(neighbourhood_path)+'_db_h'])
-    subprocess.Popen(['mmseqs', 'convert2fasta', str(neighbourhood_path)+'_db', 
+    subprocess.call(['mmseqs', 'convert2fasta', str(neighbourhood_path)+'_db', 
      neighbourhood_path])
     
-    target_clusters_neighbourhood.close()
+    
+    #target_clusters_neighbourhood.close()
     pass
 
 
@@ -1022,11 +1048,11 @@ def search_new_query():
     print('searching new query')
     # This search is to get values for the neighbourhood prots enrichment scores
     neighbourhood_path = files.res + '_' + str(iter_counter) + '_iter_target_clusters_neighbourhood'
-    try:
-        for file in glob.glob(f"{neighbourhood_path}{iter_counter}*"):
-            os.remove(file) 
-    except FileNotFoundError:
-        pass
+    #try:
+    #    for file in glob.glob(f"{neighbourhood_path}{iter_counter}*"):
+            #os.remove(file) 
+    #except FileNotFoundError:
+    #    pass
     subprocess.call(['mmseqs', 'createdb', neighbourhood_path, neighbourhood_path + str(iter_counter) + 'iter_db'])
     # THINK should I cluster and make profiles before the search?
     new_query_db_path = str(files.query_db) + str(iter_counter) + 'iter_db'
@@ -1086,9 +1112,9 @@ def initialize_new_prot_score2(sign_clusters_df, old_query_upd_scores, L, l, map
     neighbors_clusters_matches_path = neighbourhood_path + str(iter_counter) + '_ag_clusters_res' +'.m8'
     neighbors_target_matches_path = neighbourhood_path + str(iter_counter) + '_ag_target_res' +'.m8'
     
+    print('neighbors_clusters_matches_path', neighbors_clusters_matches_path)
+    print('neighbors_target_matches_path', neighbors_target_matches_path)
     for new_prot_id in new_query_db_lookup.loc[:,1]:
-        #print(old_query_upd_scores)
-        #print(old_query_upd_scores.keys())
         if new_prot_id not in old_query_upd_scores.keys():
             # awk to count only in queries = neighbors, not in what they are search against
             sep = r"'\t'"
@@ -1102,6 +1128,7 @@ def initialize_new_prot_score2(sign_clusters_df, old_query_upd_scores, L, l, map
             cmd2 = f'awk -F {sep} {awk_print2} {neighbors_target_matches_path} | grep -w {new_prot_id} | wc -l'
             # WARNING, popen is deprecated, think about this
             M_x = int(''.join(os.popen(cmd2).readline().split(' ')[-1].splitlines()))
+            logging.debug(f'new_prot_id, mx, MX {new_prot_id} {m_x} {M_x}')
             score_x = np.log(np.divide(np.divide((m_x),l), np.divide((M_x), L))) - bias
             
             logging.debug(f"updated score for new prot {new_prot_id} is {score_x}")
@@ -1217,7 +1244,7 @@ def preprocess_singleton_main():
     
     logging.debug(f"sign_clusters_df \n {sign_clusters_df}")
 
-    extract_proteins_cluster_neighborhood(sign_clusters_df)
+    extract_proteins_cluster_neighborhood(sign_clusters_df, mapped_res)
     make_new_query()
 
     files.query_db = str(files.query_db) + str(iter_counter) + 'iter_db'
