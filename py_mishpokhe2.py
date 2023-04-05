@@ -386,7 +386,7 @@ def find_clusters(mapped_res, old_query_upd_scores, d_strand_flip_penalty, s_0):
             logging.debug(f"different genomes!!!")
             # is it a good idea?
             diff_genomes_penalty = 10000
-            #continue
+
 
         #print('passed')
         # updating previous gene strand (current gene = previous for next for loop iter)
@@ -427,7 +427,7 @@ def find_clusters(mapped_res, old_query_upd_scores, d_strand_flip_penalty, s_0):
             score_i_cluster = score_i_minus_1_cluster - f_strand_flip*d_strand_flip_penalty  - diff_genomes_penalty + score_x_i
             logging.debug(f"second_proceed {score_i_cluster, score_max_cluster}")
             logging.debug(f"score i-1: {score_i_minus_1_cluster}")
-            score_i_cluster = score_x_i
+            score_i_cluster = score_x_i - diff_genomes_penalty
 
             # CHECK if correct, CHANGE to get right coord
             # CHECK, maybe I have to take i-1 coord? otherwise
@@ -443,6 +443,9 @@ def find_clusters(mapped_res, old_query_upd_scores, d_strand_flip_penalty, s_0):
                 i_1_cluster_end, score_max_cluster,
                 query_genes_ids, target_genes_ids, prots_strands))
                 score_max_cluster = 0
+                logging.debug([i_0_cluster_start,
+                i_1_cluster_end, score_max_cluster,
+                query_genes_ids, target_genes_ids, prots_strands])
             # THINK if it is okay to be here or above
             # for some reasons if here it gives proper result
             i_0_cluster_start = int(target_db_h["coord1"].values[i])
@@ -468,6 +471,9 @@ def find_clusters(mapped_res, old_query_upd_scores, d_strand_flip_penalty, s_0):
         cluster_matches.append((i_0_cluster_start,
          i_1_cluster_end, score_max_cluster, 
          query_genes_ids, target_genes_ids, prots_strands))
+        logging.debug([i_0_cluster_start,
+                i_1_cluster_end, score_max_cluster,
+                query_genes_ids, target_genes_ids, prots_strands])
     # add more to cluster matches table? prot id?
     # ADD return of the changed ResultsMapping object? (with added scores?)
     # FIX to be faster or remove
