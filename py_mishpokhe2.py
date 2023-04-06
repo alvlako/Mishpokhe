@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 
 import argparse
+import ast
 import glob
 import itertools
 import logging
@@ -896,7 +897,7 @@ def calculate_e_value(stat_lambda, stat_K, significant_cluster_df_enriched, mapp
     cluster_path = files.res + '_' + str(iter_counter) + '_iter_sign_clusters_enrich_stat'
     significant_cluster_df_enriched.to_csv(cluster_path, sep = '\t', index = False)
     # Check if e-val = 0.01 is good filtering
-    eval_filter = args.eval
+    eval_filter = float(args.eval)
     use_eval_filter = args.evalfilteruse
     if use_eval_filter == '1':
         significant_clusters_eval_filter_df = significant_cluster_df_enriched.loc[(significant_cluster_df_enriched['e-value'] <eval_filter) & (significant_cluster_df_enriched['e-value'] > 0)]
@@ -928,6 +929,8 @@ def extract_proteins_cluster_neighborhood(sign_clusters_df, mapped_res):
     # extracting 3 neghbours from each side
     # MAKE a parameter
     neighbors_number_1side = 3
+    if if_singleton == '1':
+        neighbors_number_1side = 0
 
     # WHY do I need this file?
     target_protID_cluster_file_idx = open("target_protID_cluster_file_idx", "w")
@@ -1250,11 +1253,53 @@ def preprocess_singleton_main():
     
     logging.debug(f"sign_clusters_df \n {sign_clusters_df}")
 
+    # For singletons, I do not extract proteins from sides, in the function 
+    # if_snigleton = '1' the number of prots from 1 side set to 0. So I only extract matches 
     extract_proteins_cluster_neighborhood(sign_clusters_df, mapped_res)
     make_new_query()
 
     files.query_db = str(files.query_db) + str(iter_counter) + 'iter_db'
     old_query_upd_scores = initialize_singleton_score(sign_clusters_df, mapped_res)
+    pass
+
+
+def cluster_clusters():
+    path_to_test = '/Users/Sasha/Documents/GitHub/mishpokhe_test/anti_crispr_res_wOld_6_guo1iter_res_2_iter_sign_clusters_enrich_stat_filtered'
+    # ast.literal_eval is used to read rows looking like [1,2,3] as python list
+    clusters_stat = pd.read_csv(path_to_test, dtype=None, sep='\t',
+     converters={'query_prots':ast.literal_eval})
+    clusters_queries = clusters_stat['query_prots'].copy()
+    queries_set = set()
+    for row in clusters_queries:
+        for query in row:
+            queries_set.add(query)
+    queries_set.remove('')
+    queries_list = list(queries_set)
+    print(queries_set)
+    print(len(queries_set))
+    # Dont forget that set makes random order, so order in list every run of function varies
+    clusters_dict = dict()
+    i = 0
+    
+    for row in clusters_queries:
+        query_presence_array = np.zeros(len(queries_set))
+        cluster_set = set(row)
+        try:
+            cluster_set.remove('')
+        except KeyError:
+            pass
+        print(cluster_set)
+        clusters_dict[i] = query_presence_array
+        print(clusters_dict[i])
+        for prot in cluster_set:
+            if prot in queries_list:
+                ind = queries_list.index(prot)
+                clusters_dict[i][ind] = 1    
+        i = i + 1
+        print(queries_list[ind])
+        print(clusters_dict[i-1])
+    print(x)
+    print(clusters_dict)
     pass
 
 
@@ -1337,7 +1382,6 @@ if __name__ == "__main__":
 
     print("starting")
 
-
     arg_parser()
     iterations = int(args.iter)
     if_singleton = int(args.singleton)
@@ -1358,11 +1402,14 @@ if __name__ == "__main__":
     #mapped_res = ResultsMapping.map_target_to_coord()
 
     # For 0th iteration with query containing singletons
+    print(if_singleton)
     if if_singleton == 1:
+        print('doing singletons')
         iter_counter = 0
         preprocess_singleton_main()
         
-
+    cluster_clusters()
+    print(x)
     
     iter_counter = 1
     while iterations > 0:
