@@ -1280,26 +1280,138 @@ def cluster_clusters():
     # Dont forget that set makes random order, so order in list every run of function varies
     clusters_dict = dict()
     i = 0
-    
+    list_presence_lists = list()
+    dict_presence_lists = dict()
     for row in clusters_queries:
-        query_presence_array = np.zeros(len(queries_set))
+        query_presence_list = np.zeros(len(queries_set))
         cluster_set = set(row)
         try:
             cluster_set.remove('')
         except KeyError:
             pass
         print(cluster_set)
-        clusters_dict[i] = query_presence_array
-        print(clusters_dict[i])
+        clusters_dict[i] = row
+        list_presence_lists.append(query_presence_list)
+        print(list_presence_lists[i])
         for prot in cluster_set:
             if prot in queries_list:
                 ind = queries_list.index(prot)
-                clusters_dict[i][ind] = 1    
+                list_presence_lists[i][ind] = 1    
+        dict_presence_lists[i] = list_presence_lists[i]
         i = i + 1
-        print(queries_list[ind])
-        print(clusters_dict[i-1])
-    print(x)
+        #print(queries_list[ind])
+        #print(list_presence_lists[i-1])
+        #print(dict_presence_lists)
+    print(len(list_presence_lists))
     print(clusters_dict)
+
+    print('clustering of clusters start')
+    # From https://www.science.org/doi/10.1126/science.1242072
+    cutoff_dist = 2.5
+    points = dict()
+    for spatial in dict_presence_lists.keys():
+        print(spatial)
+        vec0 = dict_presence_lists[spatial]
+        print(vec0)
+        loc_density = 0
+        for spatial_compare in dict_presence_lists.keys():
+            print(spatial_compare)
+            vec1 = dict_presence_lists[spatial_compare]
+            # ADD JOHANNESS CORRECTION OF DISTANCE!!!!
+            dist = np.linalg.norm(vec1-vec0)
+            if dist < cutoff_dist:
+                loc_density = loc_density + 1
+            print(dist)
+        points[spatial] = loc_density
+    print(points)
+
+    distance_from_highest = dict()
+    # CHANGE to sorting of the array and faster finding of higher density point
+    #clustering from Rodriguez and Laio
+    for p in points.keys():
+        p0_dens = points[p]
+        vec0 = dict_presence_lists[p]
+        for p1 in points.keys():
+            p1_dens = points[p1]
+            if p1_dens > p0_dens:
+                vec1 = dict_presence_lists[p1]
+                distance_from_highest[p] = np.linalg.norm(vec1-vec0)
+    print(distance_from_highest)
+
+    cluster_centroids = []
+    for p in distance_from_highest.keys():
+        if distance_from_highest[p] > 3:
+            cluster_centroids.append(clusters_dict[p])
+    print(cluster_centroids)
+    import matplotlib.pyplot as plt
+    plt.scatter(distance_from_highest.keys(), distance_from_highest.values())
+    plt.show()
+    print(len(cluster_centroids))
+
+
+    print(x)
+
+    from sklearn.neighbors import NearestNeighbors
+    X = list_presence_lists
+    print(len(X))
+    nbrs = NearestNeighbors(n_neighbors=4, algorithm='ball_tree').fit(X)
+    distances, indices = nbrs.kneighbors(X)
+    print(indices)
+    #set1 = set()
+    #for i in indices:
+    #    for l in i:
+    #        set1.add(l)
+    #for d in clusters_dict.keys():
+    #    if ('NC_022776.1_47' in clusters_dict[d]) and len(clusters_dict[d]) == 2:
+    #        print(d, clusters_dict[d])
+    #        if d not in set1:
+    #            print('not in set')
+    #print(set1)
+    #print(len(set1))
+    #print(x)
+
+    #np.savetxt("neighbors_indices.tsv", indices, delimiter="\t", fmt='%i')
+    #pd.DataFrame.from_dict(data=clusters_dict,
+    # orient='index').to_csv('clusters_dict_indices.tsv',
+    # header=False, sep = '\t')
+    
+    not_clustered_to_initial_acrs = list()
+    clustered_to_initial_acrs = list()
+    for l in indices: 
+        print(l)
+        not_associated = 0
+        for i in l:
+            string_of_queries = ''.join(clusters_dict[i])
+            if 'anti' not in string_of_queries:
+                #print(string_of_queries)
+                not_associated = 1
+            #print(not_associated, string_of_queries)
+        if not_associated == 1:
+            not_clustered_to_initial_acrs.append(l.tolist())
+        else:
+            clustered_to_initial_acrs.append(l.tolist())
+    print(np.unique(np.array(not_clustered_to_initial_acrs), axis=0))
+    print(len(not_clustered_to_initial_acrs))
+    #print(not_clustered_to_initial_acrs.index(253))
+    print(len(np.unique(np.array(not_clustered_to_initial_acrs), axis=0)))
+    print(len(clustered_to_initial_acrs))
+    print(len(np.unique(np.array(clustered_to_initial_acrs), axis=0)))
+
+    set_non_ass_to_query_prots = set()
+    for lst in not_clustered_to_initial_acrs:
+        for i in lst:
+            #print(i)
+            set_non_ass_to_query_prots.add(i)
+    print(set_non_ass_to_query_prots)
+    print(len(set_non_ass_to_query_prots))
+
+    set_assoc_to_query_prots = set()
+    for lst in clustered_to_initial_acrs:
+        for i in lst:
+            set_assoc_to_query_prots.add(i)
+    print('set_assoc_to_query_prots', set_assoc_to_query_prots)
+    print(len(set_assoc_to_query_prots))
+
     pass
 
 
