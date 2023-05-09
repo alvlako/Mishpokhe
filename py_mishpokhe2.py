@@ -6,6 +6,7 @@ import pandas as pd
 
 import argparse
 import ast
+import copy
 import glob
 import itertools
 import logging
@@ -1305,49 +1306,311 @@ def cluster_clusters():
     print(len(list_presence_lists))
     print(clusters_dict)
 
+
     print('clustering of clusters start')
     # From https://www.science.org/doi/10.1126/science.1242072
-    cutoff_dist = 2.5
+    # clustering from Rodriguez and Laio
+    # CHANGE to set cutoff automatically
+    cutoff_dist = 1.5
     points = dict()
+    # making dict of dicts to save distance between data points (spatial clusters)
+    distance_mat_dict = dict()
     for spatial in dict_presence_lists.keys():
         print(spatial)
+        distance_mat_dict[spatial] = dict()
         vec0 = dict_presence_lists[spatial]
         print(vec0)
         loc_density = 0
         for spatial_compare in dict_presence_lists.keys():
             print(spatial_compare)
             vec1 = dict_presence_lists[spatial_compare]
-            # ADD JOHANNESS CORRECTION OF DISTANCE!!!!
-            dist = np.linalg.norm(vec1-vec0)
+            dist = (np.linalg.norm(vec1-vec0))**2
+            #sum(np.logical_or(vec1,vec0).astype(int))
+            distance_mat_dict[spatial][spatial_compare] = dist
             if dist < cutoff_dist:
                 loc_density = loc_density + 1
             print(dist)
         points[spatial] = loc_density
     print(points)
+    #print(distance_mat_dict)
+    #print(x)
 
-    distance_from_highest = dict()
-    # CHANGE to sorting of the array and faster finding of higher density point
-    #clustering from Rodriguez and Laio
-    for p in points.keys():
-        p0_dens = points[p]
-        vec0 = dict_presence_lists[p]
-        for p1 in points.keys():
-            p1_dens = points[p1]
-            if p1_dens > p0_dens:
-                vec1 = dict_presence_lists[p1]
-                distance_from_highest[p] = np.linalg.norm(vec1-vec0)
-    print(distance_from_highest)
+    # sort points dict by density
+    dens_sort_points = dict(sorted(points.items(), key=lambda item: item[1]))
+    print(dens_sort_points)
+    # get the minimum distance to higher density point
+    min_distance_from_higher = dict()
+    # dictionary to store the nearest neighbours of higher density for later steps
+    closest_higher_dens_neigh = dict()
+    # that is a list of spatial cluster ids sorted by density
+    list_of_sorted_spatials = list(dens_sort_points.keys())
+    print(list_of_sorted_spatials)
+    for spatial in list_of_sorted_spatials:
+        current_spatial_ind = list_of_sorted_spatials.index(spatial)
+        for i in list_of_sorted_spatials[current_spatial_ind+1:len(list_of_sorted_spatials)]:
+            if dens_sort_points[i] == dens_sort_points[spatial]:
+                current_spatial_ind = current_spatial_ind + 1
+            else:
+                break
+        print(current_spatial_ind)
+        print('current')
+
+        current_comparisons = list_of_sorted_spatials[current_spatial_ind+1:len(list_of_sorted_spatials)]
+        # the intermediate dict to find min contains not so many values as many distances
+        # are exactly equal and therefore removed from dict, only uniq left
+        try:
+            # ADD FIX strictly higher
+            min_dist = min({distance_mat_dict[spatial][k] for k in current_comparisons})
+            closest_neighbor_high_dens = (list(distance_mat_dict[spatial].keys())[list(distance_mat_dict[spatial].values()).index(min_dist)])
+            current_dist_mat_list = [distance_mat_dict[spatial][k] for k in current_comparisons]
+            min_dist = min(current_dist_mat_list)
+            min_dist_ind = current_dist_mat_list.index(min_dist)
+            closest_neighbor_high_dens = current_comparisons[min_dist_ind]
+            #closest_neighbor_high_dens = (list(distance_mat_dict[spatial].keys())[list(distance_mat_dict[spatial].values())[current_spatial_ind+1:].index(min_dist)])
+            if min_dist == 0:
+                pass
+                #q = 2
+                #while min_dist == 0:
+                #    current_comparisons = list_of_sorted_spatials[current_spatial_ind+q:len(list_of_sorted_spatials)]
+                #    min_dist = min({distance_mat_dict[spatial][k] for k in current_comparisons})
+                #    q = q + 1
+            closest_neighbor_high_dens = (list(distance_mat_dict[spatial].keys())[list(distance_mat_dict[spatial].values()).index(min_dist)])
+            closest_neighbor_high_dens = current_comparisons[min_dist_ind]
+            #closest_neighbor_high_dens = (list(distance_mat_dict[spatial].keys())[list(distance_mat_dict[spatial].values())[current_spatial_ind+1:].index(min_dist)])
+
+        # that's for the last, highest-dens point, as current_comparisons are empty
+        except ValueError:
+            min_dist = max(distance_mat_dict[spatial].values())
+        #print('current_comparisons', current_comparisons)
+        #print('distance_mat_dict[spatial]', distance_mat_dict[spatial])
+        #print({distance_mat_dict[spatial][k] for k in current_comparisons})
+        print(min_dist)
+        min_distance_from_higher[spatial] = min_dist
+        closest_higher_dens_neigh[spatial] = closest_neighbor_high_dens
+        if spatial == 87:
+            print('87')
+            print('sorted by dens', dens_sort_points)
+            print(current_comparisons)
+            print([distance_mat_dict[spatial][k] for k in current_comparisons])
+            min_dist = min([distance_mat_dict[spatial][k] for k in current_comparisons])
+            min_dist_ind = [distance_mat_dict[spatial][k] for k in current_comparisons].index(min_dist)
+            print(min_dist)
+            closest_neighbor_high_dens = current_comparisons[min_dist_ind]
+            print(closest_neighbor_high_dens)
+            print('l', list(distance_mat_dict[spatial].values())[current_spatial_ind+1:].index(min_dist))
+            print(dict_presence_lists.keys())
+            print(list(dict_presence_lists.keys())[30])
+            #print(x)
+    print(min_distance_from_higher)
+    #for i in closest_higher_dens_neigh.keys():
+    #    print(clusters_dict[i], clusters_dict[closest_higher_dens_neigh[i]])
+
+
+
+    # measure recommended by paper to find centroids?
+
+    dens_x_dist = dict()
+    for k in min_distance_from_higher.keys():
+        dens_x_dist[k] = min_distance_from_higher[k]*dens_sort_points[k]
+
+    import matplotlib.pyplot as plt
+    #plt.scatter(dens_sort_points.values(), min_distance_from_higher.values())
+    #plt.scatter(dens_x_dist.keys(), dens_x_dist.values())
+    #plt.ylim(top=100)
+    #plt.show()
+    #print(x)
+
+
+    all_dist = [distance_mat_dict[k][n]**2 for k in distance_mat_dict.keys() for n in distance_mat_dict[k].keys()]
+    #plt.hist(all_dist, bins=range(20))
+    #plt.show()
 
     cluster_centroids = []
-    for p in distance_from_highest.keys():
-        if distance_from_highest[p] > 3:
-            cluster_centroids.append(clusters_dict[p])
+    cluster_centroids_ids = []
+    # CHECK if I should use dens_x_dist
+    dens_x_dist_threshold = 20
+    dens_threshold = 400
+    dist_threshold = 5
+    for p in min_distance_from_higher.keys():
+        #if min_distance_from_higher[p] > dist_threshold and dens_sort_points[p] < dens_threshold:
+        if min_distance_from_higher[p]*dens_sort_points[p] > dens_x_dist_threshold:
+            # Ask Johannes if it is correct
+            # not letting identical duplicates to become separate cluster centroids
+            if clusters_dict[p] not in cluster_centroids:
+                cluster_centroids.append(clusters_dict[p])
+                cluster_centroids_ids.append(p)
     print(cluster_centroids)
-    import matplotlib.pyplot as plt
-    plt.scatter(distance_from_highest.keys(), distance_from_highest.values())
-    plt.show()
     print(len(cluster_centroids))
+    print(cluster_centroids_ids)
 
+
+    final_clusters_ids = {k: [] for k in cluster_centroids_ids}
+    final_clusters_reals = {', '.join(k): [] for k in cluster_centroids}
+    print(final_clusters_ids)
+    print(final_clusters_reals)
+    print(list_of_sorted_spatials)
+    print(closest_higher_dens_neigh)
+    print(min_distance_from_higher)
+    print(closest_higher_dens_neigh[87])
+    print(min_distance_from_higher[87])
+
+    #print(dens_sort_points)
+    print('assigning points to clusters')
+    iterate_over = list(dens_sort_points.keys())[::-1]
+    iterate_over = list(dens_sort_points.keys())
+    #print(iterate_over)
+    #for curr_centroid in final_clusters_ids:
+    #    neighbor = closest_higher_dens_neigh[curr_centroid]
+    #    final_clusters_ids[curr_centroid].append(neighbor)
+    #    final_clusters_reals[', '.join(clusters_dict[curr_centroid])].append(clusters_dict[neighbor])
+            
+    for point in iterate_over:
+        print(point)
+        if point not in final_clusters_ids.keys():
+            neighbor = closest_higher_dens_neigh[point]
+            while neighbor not in final_clusters_ids:
+                new = closest_higher_dens_neigh[neighbor]
+                neighbor = new
+            final_clusters_ids[neighbor].append(point)
+            final_clusters_reals[', '.join(clusters_dict[neighbor])].append(clusters_dict[point])
+
+    print(final_clusters_ids)
+    
+    print(final_clusters_reals)
+    print('here are your clusters')
+    for k, v in final_clusters_reals.items():
+        print(k, v)
+        print('-------')
+    print('number of clusters is', len(cluster_centroids))
+    
+    print(final_clusters_ids)
+
+    # INCORRECT!
+
+    final_clusters_ids1 = {k: [] for k in cluster_centroids_ids}
+    final_clusters_reals1 = {', '.join(k): [] for k in cluster_centroids}
+    print(final_clusters_ids1)
+    print(final_clusters_reals1)
+    print(dens_sort_points)
+    print('assigning points to clusters')
+    iterate_over1 = list(dens_sort_points.keys())[::-1]
+    for point in iterate_over1:
+        print('point', point)
+        if point not in final_clusters_ids:
+            distances_to_centroids = {ke: distance_mat_dict[point][ke] for ke in final_clusters_ids.keys()}
+            min_dist = min(distances_to_centroids.values())
+            #print('final_clusters_ids.keys()', final_clusters_ids.keys())
+            #print('distance_mat_dict[point]', distance_mat_dict[point])
+            #print('distances_to_centroids', distances_to_centroids)
+            #print(point_dist_mat)
+            # that is the closest centroid
+            curr_centroid = list(distances_to_centroids.keys())[list(distances_to_centroids.values()).index(min_dist)] 
+            print('curr_centroid', curr_centroid)
+            final_clusters_ids1[curr_centroid].append(point)
+            final_clusters_reals1[', '.join(clusters_dict[curr_centroid])].append(clusters_dict[point])
+    print(final_clusters_ids1)
+    #print(final_clusters_reals)
+    print('here are your clusters')
+    for k, v in final_clusters_reals1.items():
+        print(k, v)
+        print('-------')
+    print('number of clusters is', len(cluster_centroids))
+
+    # INCORRECT!
+
+
+    dict_presence_lists_incl_clu = copy.deepcopy(dict_presence_lists)
+    l_c = {}
+    for k in final_clusters_ids.keys():
+        dict_presence_lists_incl_clu[k] = np.append(dict_presence_lists_incl_clu[k],k)
+        l_c[k] = k
+        for v in final_clusters_ids[k]:
+            dict_presence_lists_incl_clu[v] = np.append(dict_presence_lists_incl_clu[v],k)
+            l_c[v] = k
+
+
+    print('l_c   ')
+    #print(l_c) 
+    
+    #print(dict_presence_lists_incl_clu)
+    # BE CAREFUL! the last values are cluster centroids
+    #  Looks like: {....,291: (array([0., 0., 0., 0., 1., ..., 70),
+    # 292: (array([0., 0., 0., ..., 0., 292)} 70 and 292 are centroids of the cluster here
+    print(final_clusters_ids)
+    print(len(final_clusters_ids.keys()))
+
+    #-------------UMAP
+    import plotly.io as pio
+    pio.renderers.default = "chrome"
+    import plotly.express as px
+    from umap import UMAP 
+
+    df = px.data.iris()
+
+    df_presence = pd.DataFrame(dict_presence_lists_incl_clu.items(), columns=['species', 'features'])
+    queries_list.append('centroids')
+    df_presence[queries_list] = pd.DataFrame(df_presence.features.tolist(),
+     index= df_presence.index)
+    df_presence.drop('features', axis=1, inplace=True)
+    #df_presence.centroids = df_presence.centroids.astype(str)
+    df_presence.centroids = df_presence.centroids.astype(int)
+    df_presence['cent_reals'] = pd.DataFrame(['<br>'.join(clusters_dict[c]) for c in df_presence["centroids"]])
+
+    #df1 = df_presence.iloc[:, 0:10].copy()
+    df1 = df_presence.copy()
+    #df1["centroids"] = df_presence["centroids"].copy()
+    features = queries_list
+    l_features = list(df1.columns.values)
+    print(l_features)
+    l_features.remove("centroids")
+    l_features.remove("species")
+    l_features.remove("cent_reals")
+    features1 = l_features
+    print(df1["cent_reals"])
+    #fig = px.scatter_matrix(df_presence, dimensions=features, color="species")
+    #fig = px.scatter_matrix(df1, dimensions=features1, color="centroids", color_discrete_sequence=px.colors.qualitative.Plotly)
+    #fig.show()
+
+    #print('features', df.loc[:, :'petal_width'])
+    #print('df1', df1)
+
+    umap_2d = UMAP(n_components=2, init='random', random_state=0)
+    umap_3d = UMAP(n_components=3, init='random', random_state=0)
+
+    proj_2d = umap_2d.fit_transform(df1[features1])
+    proj_3d = umap_3d.fit_transform(df1[features1])
+
+    fig_2d = px.scatter(
+        proj_2d, x=0, y=1,
+        color=df1.cent_reals, labels={'color': 'cent_reals'},
+        title=f"threshold is {dens_x_dist_threshold}, number of clusters is {len(cluster_centroids)}"
+        #title=f"threshold is {dens_threshold} and {dist_threshold}, number of clusters is {len(cluster_centroids)}"
+        #,color_discrete_sequence=px.colors.qualitative.Plotly
+    )
+    fig_3d = px.scatter_3d(
+        proj_3d, x=0, y=1, z=2,
+        color=df1.cent_reals, labels={'color': 'cent_reals'},
+        title=f"threshold is {dens_x_dist_threshold}, number of clusters is {len(cluster_centroids)}"
+        #title=f"threshold is {dens_threshold} and {dist_threshold}, number of clusters is {len(cluster_centroids)}"
+        #, color_discrete_sequence=px.colors.qualitative.Plotly
+    )
+    fig_3d.update_traces(marker_size=5)
+
+    fig_2d.show()
+    #fig_3d.show()
+
+    print('number of clusters is', len(cluster_centroids))
+    print(x)
+    #-------------UMAP
+
+
+    import matplotlib.pyplot as plt
+    #plt.scatter(dens_x_dist.keys(), dens_x_dist.values())
+    plt.scatter(dens_sort_points.values(), min_distance_from_higher.values())
+    #plt.scatter(dens_sort_points.keys(), dens_sort_points.values())
+    all_dist = [distance_mat_dict[k][n] for k in distance_mat_dict.keys() for n in distance_mat_dict[k].keys()]
+    #plt.hist(all_dist)
+    plt.show()
 
     print(x)
 
