@@ -1374,7 +1374,9 @@ def cluster_clusters():
                 len_vec0 = np.count_nonzero(vec0 == 1)
                 #print('align_part/len_vec1', align_part/len_vec1)
                 #print('align_part/len_vec0', align_part/len_vec0)
-                dist = 1 - (min((align_part/len_vec0), (align_part/len_vec1)))
+                #dist = 1 - (max((align_part/len_vec0), (align_part/len_vec1)))
+                #dist = 1 - (min((align_part/len_vec0), (align_part/len_vec1)))
+                dist = 1 - (align_part/np.sqrt(len_vec0*len_vec1))
 
                 # euclidean distance (misaligned) / aligned queries
                 #dist = np.linalg.norm(vec1-vec0)/ sum(np.logical_and(vec1,vec0))
@@ -1504,11 +1506,18 @@ def cluster_clusters():
                 #print('distance_mat_dict[point]', distance_mat_dict[point])
                 #print('distances_to_centroids', distances_to_centroids)
                 #print(point_dist_mat)
-                # that is the closest centroid
-                curr_centroid = list(distances_to_centroids.keys())[list(distances_to_centroids.values()).index(min_dist)] 
-                print('curr_centroid', curr_centroid)
-                final_clusters_ids1[curr_centroid].append(point)
-                final_clusters_reals1[', '.join(clusters_dict[curr_centroid])].append(clusters_dict[point])
+                if min_dist < 1.0:
+                    # that is the closest centroid
+                    curr_centroid = list(distances_to_centroids.keys())[list(distances_to_centroids.values()).index(min_dist)] 
+                    print('curr_centroid', curr_centroid)
+                    final_clusters_ids1[curr_centroid].append(point)
+                    final_clusters_reals1[', '.join(clusters_dict[curr_centroid])].append(clusters_dict[point])
+                else:
+                    print('curr centroid is itself')
+                    final_clusters_ids1[point] = []
+                    final_clusters_reals1[', '.join(clusters_dict[point])] = []
+                    cluster_centroids.append(clusters_dict[point])
+                    cluster_centroids_ids.append(point)
         print(final_clusters_ids1)
         #print(final_clusters_reals)
         print('here are your clusters')
@@ -1518,6 +1527,11 @@ def cluster_clusters():
                 print(f'member is {v}')
             print('-------')
         print('number of clusters is', len(cluster_centroids))
+
+        print('intercentroid dist')
+        for point in final_clusters_ids1.keys():
+            print({ke: distance_mat_dict[point][ke] for ke in final_clusters_ids1.keys()})
+        print(x)
 
         for c in cluster_centroids:
             print(c)
