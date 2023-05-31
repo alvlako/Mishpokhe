@@ -1265,7 +1265,13 @@ def preprocess_singleton_main():
 
 
 def cluster_clusters():
-    path_to_test = '/Users/Sasha/Documents/GitHub/mishpokhe_test/anti_crispr_res_wOld_6_guo1iter_res_2_iter_sign_clusters_enrich_stat_filtered'
+    print('clustering clusters')
+    if args.evalfilteruse == '1':
+        path_to = cluster_path2 = files.res + '_' + str(iter_counter) + '_iter_sign_clusters_enrich_stat_filtered'
+    else:
+        path_to = files.res + '_' + str(iter_counter) + '_iter_sign_clusters_enrich_stat'
+    path_to_test = path_to
+    #path_to_test = '/Users/Sasha/Documents/GitHub/mishpokhe_test/anti_crispr_res_wOld_6_guo1iter_res_2_iter_sign_clusters_enrich_stat_filtered'
     # ast.literal_eval is used to read rows looking like [1,2,3] as python list
     clusters_stat = pd.read_csv(path_to_test, dtype=None, sep='\t',
      converters={'query_prots':ast.literal_eval})
@@ -1274,7 +1280,10 @@ def cluster_clusters():
     for row in clusters_queries:
         for query in row:
             queries_set.add(query)
-    queries_set.remove('')
+    try:
+        queries_set.remove('')
+    except KeyError:
+        pass
     queries_list = list(queries_set)
     #print(queries_set)
     #print(len(queries_set))
@@ -1292,8 +1301,8 @@ def cluster_clusters():
             pass
         #print(cluster_set)
         # removing singleton clusters here
-        if len(cluster_set) == 1:
-            continue
+        #if len(cluster_set) == 1:
+        #    continue
         clusters_dict[i] = row
         list_presence_lists.append(query_presence_list)
         #print(list_presence_lists[i])
@@ -1311,38 +1320,9 @@ def cluster_clusters():
     # shape of stacked array = (214, 167) = (queries number, clusters number)
     array_presence_arrays = np.stack(list_presence_lists, axis=0)
 
-    def make_dist_matrix():
-        # making dict of dicts to save distance between data points (spatial clusters)
-        distance_mat_dict = dict()
-        n_possible_q = len(dict_presence_lists.keys())
-        np_dist_mat = np.zeros([n_possible_q,n_possible_q])
-        for spatial in dict_presence_lists.keys():
-            print(spatial)
-            distance_mat_dict[spatial] = dict()
-            vec0 = dict_presence_lists[spatial]
-            for spatial_compare in dict_presence_lists.keys():
-                #print(spatial_compare)
-                #print(clusters_dict[spatial])
-                #print(clusters_dict[spatial_compare])
-                vec1 = dict_presence_lists[spatial_compare]
-                # how many queries matches are in common
-                align_part = sum(np.logical_and(vec1,vec0))
-                len_vec1 = np.count_nonzero(vec1 == 1)
-                len_vec0 = np.count_nonzero(vec0 == 1)
-                dist = 1 - (max((align_part/len_vec0), (align_part/len_vec1)))
-                #if dist > 0.5:
-                #    dist = 10000
-                distance_mat_dict[spatial][spatial_compare] = dist
-                np_dist_mat[(spatial, spatial_compare)] = dist
-                #print(f'between {clusters_dict[spatial]} and {clusters_dict[spatial_compare]} = {dist}')
-        return np_dist_mat
-    
-    #print(make_dist_matrix())
-    #print(x)
-
 
     def R_L_density_clustering(dict_presence_lists):
-        print('clustering of clusters start')
+        #print('clustering of clusters start')
         # From https://www.science.org/doi/10.1126/science.1242072
         # clustering from Rodriguez and Laio
         # CHANGE to set cutoff automatically
@@ -1456,7 +1436,7 @@ def cluster_clusters():
         for k in min_distance_from_higher.keys():
             dens_x_dist[k] = min_distance_from_higher[k]*dens_sort_points[k]
 
-        import matplotlib.pyplot as plt
+        #import matplotlib.pyplot as plt
         #plt.scatter(dens_sort_points.values(), min_distance_from_higher.values())
         #plt.scatter(dens_x_dist.keys(), dens_x_dist.values())
         #plt.ylim(top=100)
@@ -1523,20 +1503,15 @@ def cluster_clusters():
         print('here are your clusters')
         for k in final_clusters_reals1.keys():
             print(f'centroid is {k}')
-            for v in final_clusters_reals1[k]:
-                print(f'member is {v}')
             print('-------')
         print('number of clusters is', len(cluster_centroids))
+        #print('intercentroid dist')
+        #for point in final_clusters_ids1.keys():
+        #    print({ke: distance_mat_dict[point][ke] for ke in final_clusters_ids1.keys()})
 
-        print('intercentroid dist')
-        for point in final_clusters_ids1.keys():
-            print({ke: distance_mat_dict[point][ke] for ke in final_clusters_ids1.keys()})
-        print(x)
-
-        for c in cluster_centroids:
-            print(c)
-            print('**')
-        # INCORRECT!
+        #for c in cluster_centroids:
+        #    print(c)
+        #    print('**')
 
         final_clusters_ids = final_clusters_ids1
         final_clusters_reals = final_clusters_reals1 
@@ -1566,163 +1541,38 @@ def cluster_clusters():
    
     final_clusters_ids = R_L_density_clustering(dict_presence_lists)
     #print(x)
-    #def custom_clustering():
-
-
-    #-------------UMAP
-    import plotly.io as pio
-    pio.renderers.default = "chrome"
-    import plotly.express as px
-    from umap import UMAP 
-
-    dict_presence_lists_incl_clu = copy.deepcopy(dict_presence_lists)
-    for k in final_clusters_ids.keys():
-        dict_presence_lists_incl_clu[k] = np.append(dict_presence_lists_incl_clu[k], k)
-        for v in final_clusters_ids[k]:
-            if v not in final_clusters_ids.keys():
-                dict_presence_lists_incl_clu[v] = np.append(dict_presence_lists_incl_clu[v], k)
-
-    df_presence = pd.DataFrame(dict_presence_lists_incl_clu.items(), columns=['species', 'features'])
-    queries_list.append('centroids')
-    df_presence[queries_list] = pd.DataFrame(df_presence.features.tolist(),
-     index= df_presence.index)
-    df_presence.drop('features', axis=1, inplace=True)
-    #df_presence.centroids = df_presence.centroids.astype(str)
-    df_presence.centroids = df_presence.centroids.astype(int)
-    df_presence['cent_reals'] = pd.DataFrame(['<br>'.join(clusters_dict[c]) for c in df_presence["centroids"]])
-    df_presence['memb_reals'] = pd.DataFrame(['<br>'.join(clusters_dict[s]) for s in df_presence["species"]])
-
-    #df1 = df_presence.iloc[:, 0:10].copy()
-    df1 = df_presence.copy()
-    #df1["centroids"] = df_presence["centroids"].copy()
-    features = queries_list
-    l_features = list(df1.columns.values)
-    #print(l_features)
-    l_features.remove("centroids")
-    l_features.remove("species")
-    l_features.remove("cent_reals")
-    l_features.remove("memb_reals")
-    features1 = l_features
-    #print(df1["cent_reals"])
-    #fig = px.scatter_matrix(df_presence, dimensions=features, color="species")
-    #fig = px.scatter_matrix(df1, dimensions=features1, color="centroids", color_discrete_sequence=px.colors.qualitative.Plotly)
-    #fig.show()
-
-    #print('features', df.loc[:, :'petal_width'])
-    #print('df1', df1)
-
-    umap_2d = UMAP(n_components=2, init='random', random_state=0)
-    umap_3d = UMAP(n_components=3, init='random', random_state=0)
-
-    proj_2d = umap_2d.fit_transform(df1[features1])
-    proj_2d_df = pd.DataFrame(proj_2d, columns = ['0','1'])
-    proj_2d_df["memb_reals"] = df1["memb_reals"].copy()
-    proj_3d = umap_3d.fit_transform(df1[features1])
-
-    dens_x_dist_threshold = 2.5
-    cutoff_dist = 0.5
-    dist_threshold = 10
-
-    fig_2d = px.scatter(
-        proj_2d_df, x='0', y='1',
-        color=df1.cent_reals, hover_data=["memb_reals"], labels={'color': 'cent_reals'},
-        #title = f'kmeans'
-        #title=f"dist threshold is {dist_threshold}, cutoff dist is {cutoff_dist}, number of clusters is {len(final_clusters_ids.keys())}"
-        title=f"threshold is {dens_x_dist_threshold}, cutoff dist is {cutoff_dist}, number of clusters is {len(final_clusters_ids.keys())}"
-        #title=f"threshold is {dens_x_dist_threshold}, cutoff dist is {cutoff_dist}, number of clusters is {len(cluster_centroids)}"
-        #title=f"threshold is {dens_threshold} and {dist_threshold}, number of clusters is {len(cluster_centroids)}"
-        #,color_discrete_sequence=px.colors.qualitative.Plotly
-    )
-    fig_3d = px.scatter_3d(
-        proj_3d, x=0, y=1, z=2,
-        color=df1.cent_reals, labels={'color': 'cent_reals'},
-        #title = f'kmeans clustering'
-        #title=f"threshold is {dens_x_dist_threshold},cutoff dist is {cutoff_dist}, number of clusters is {len(cluster_centroids)}"
-        #title=f"threshold is {dens_threshold} and {dist_threshold}, number of clusters is {len(cluster_centroids)}"
-        #, color_discrete_sequence=px.colors.qualitative.Plotly
-    )
-    #fig_3d.update_traces(marker_size=5)
-
-    fig_2d.update_layout(uniformtext_mode='hide')
-    fig_2d.show()
-    #fig_3d.show()
-
-    #print('number of clusters is', len(cluster_centroids))
-    print(x)
-    #-------------UMAP
-
-
-    import matplotlib.pyplot as plt
-    #plt.scatter(dens_x_dist.keys(), dens_x_dist.values())
-    plt.scatter(dens_sort_points.values(), min_distance_from_higher.values())
-    #plt.scatter(dens_sort_points.keys(), dens_sort_points.values())
-    all_dist = [distance_mat_dict[k][n] for k in distance_mat_dict.keys() for n in distance_mat_dict[k].keys()]
-    #plt.hist(all_dist)
-    plt.show()
-
-    print(x)
-
-    from sklearn.neighbors import NearestNeighbors
-    X = list_presence_lists
-    print(len(X))
-    nbrs = NearestNeighbors(n_neighbors=4, algorithm='ball_tree').fit(X)
-    distances, indices = nbrs.kneighbors(X)
-    print(indices)
-    #set1 = set()
-    #for i in indices:
-    #    for l in i:
-    #        set1.add(l)
-    #for d in clusters_dict.keys():
-    #    if ('NC_022776.1_47' in clusters_dict[d]) and len(clusters_dict[d]) == 2:
-    #        print(d, clusters_dict[d])
-    #        if d not in set1:
-    #            print('not in set')
-    #print(set1)
-    #print(len(set1))
-    #print(x)
-
-    #np.savetxt("neighbors_indices.tsv", indices, delimiter="\t", fmt='%i')
-    #pd.DataFrame.from_dict(data=clusters_dict,
-    # orient='index').to_csv('clusters_dict_indices.tsv',
-    # header=False, sep = '\t')
-    
+ 
     not_clustered_to_initial_acrs = list()
     clustered_to_initial_acrs = list()
-    for l in indices: 
-        print(l)
-        not_associated = 0
-        for i in l:
-            string_of_queries = ''.join(clusters_dict[i])
-            if 'anti' not in string_of_queries:
-                #print(string_of_queries)
-                not_associated = 1
-            #print(not_associated, string_of_queries)
-        if not_associated == 1:
-            not_clustered_to_initial_acrs.append(l.tolist())
+    for l in final_clusters_ids.keys(): 
+        #print(l)
+        associated = 0
+        #print(clusters_dict[l])
+        if 'anti' in ''.join(clusters_dict[l]):
+            associated = 1
         else:
-            clustered_to_initial_acrs.append(l.tolist())
-    print(np.unique(np.array(not_clustered_to_initial_acrs), axis=0))
-    print(len(not_clustered_to_initial_acrs))
-    #print(not_clustered_to_initial_acrs.index(253))
-    print(len(np.unique(np.array(not_clustered_to_initial_acrs), axis=0)))
-    print(len(clustered_to_initial_acrs))
-    print(len(np.unique(np.array(clustered_to_initial_acrs), axis=0)))
-
-    set_non_ass_to_query_prots = set()
-    for lst in not_clustered_to_initial_acrs:
-        for i in lst:
-            #print(i)
-            set_non_ass_to_query_prots.add(i)
-    print(set_non_ass_to_query_prots)
-    print(len(set_non_ass_to_query_prots))
-
-    set_assoc_to_query_prots = set()
-    for lst in clustered_to_initial_acrs:
-        for i in lst:
-            set_assoc_to_query_prots.add(i)
-    print('set_assoc_to_query_prots', set_assoc_to_query_prots)
-    print(len(set_assoc_to_query_prots))
-
+            for i in final_clusters_ids[l]:
+                string_of_queries = ''.join(clusters_dict[i])
+                if 'anti' in string_of_queries:
+                    #print(string_of_queries)
+                    associated = 1
+                    break
+        #print('associated is, ', associated)
+        if associated == 1:
+            clustered_to_initial_acrs.append(l)
+            clustered_to_initial_acrs.extend(final_clusters_ids[l])
+            #clustered_to_initial_acrs.append('----')
+        else:
+            not_clustered_to_initial_acrs.append(l)
+            not_clustered_to_initial_acrs.extend(final_clusters_ids[l])
+    print(clustered_to_initial_acrs)
+    positives_filtered = []
+    for c in clustered_to_initial_acrs:
+        #print('query string', clusters_dict[c])
+        print([clusters_stat['target_prots'][c], clusters_stat['coord1'][c], clusters_stat['coord2'][c]])
+        positives_filtered.append([clusters_stat['target_prots'][c], clusters_stat['coord1'][c], clusters_stat['coord2'][c]])
+    print('filtered positives', len(positives_filtered))
+    print(x)
     pass
 
 
@@ -1782,6 +1632,8 @@ def main(old_query_upd_scores, d_strand_flip_penalty, s_0):
     sign_clusters_df = significant_cluster_df_enriched
     significant_cluster_df_enriched, significant_clusters_eval_filter_df = calculate_e_value(stat_lambda, stat_K, significant_cluster_df_enriched, mapped_res)
 
+    cluster_clusters()
+    print(x)
     # CHANGE notation for significant clusters??
 
     d_strand_flip_penalty = set_strand_flip_penalty(cluster_matches, mapped_res)
@@ -1830,9 +1682,6 @@ if __name__ == "__main__":
         print('doing singletons')
         iter_counter = 0
         preprocess_singleton_main()
-        
-    cluster_clusters()
-    print(x)
     
     iter_counter = 1
     while iterations > 0:
