@@ -163,7 +163,6 @@ class ResultsMapping:
         target_db_lookup = pd.read_csv(str(files.target_db)+str(".lookup"), dtype=None, sep='\t', header = None)
         target_db_h = pd.read_csv(str(files.target_db)+str("_h"), sep='\s+#\s+', header=None, engine='python')
         #print(search_result_file.iloc[:, 0])
-
         target_db_lookup.columns = ["ind_id", "ID", "file_id"]
         
         # RENAME ID to target_ID
@@ -506,6 +505,7 @@ def update_scores_for_cluster_matches(cluster_matches, mapped_res):
     sign_clusters_df = pd.DataFrame(significant_clusters)
     sign_clusters_df.columns = ["coord1", "coord2", "score",
     "query_prots", "target_prots", "strand"]
+    sign_clusters_df["initial_q_or_match"] = False
 
     logging.debug(f"sign_clusters_df: \n {sign_clusters_df}")
     sign_clusters_df['new_score_enrich'] = 0
@@ -513,6 +513,7 @@ def update_scores_for_cluster_matches(cluster_matches, mapped_res):
 
     # MAKE faster?
     sign_clusters_df['queries_string'] = [','.join(map(str, l)) for l in sign_clusters_df['query_prots']]
+    sign_clusters_df['targets_string'] = [','.join(map(str, l)) for l in sign_clusters_df['target_prots']]
 
     # Should cluster prots be done better?
     cluster_prots = pd.DataFrame()
@@ -538,6 +539,11 @@ def update_scores_for_cluster_matches(cluster_matches, mapped_res):
     logging.debug(f"x_number_of_queries: {x_number_of_queries}")
     # Do I need unique?
     for query_id in cluster_prots['query_id'].unique():
+        # that is to write all the INITIAL queries to this list which
+        # allow later filter in the clustering of clusters. The filter would keep those clusters
+        # which are clustered together with those having match to the initial query/another match to the initial query
+        if iter_counter == 1:
+                q_and_matches.append(query_id)
         logging.debug(f"query_id: {query_id}")
         # to avoid empty queries corresponding to prots with no match
         if query_id == '':
@@ -553,10 +559,20 @@ def update_scores_for_cluster_matches(cluster_matches, mapped_res):
         score_x = np.log(np.divide(cluster_prot_proportion, np.divide(M_x, L))) - bias
         logging.debug(f"updated score for q: {query_id} is {score_x}")
 
+
         old_query_upd_scores[query_id] = score_x
         # giving the same enrichment scores to target cluster matches to the current query
         for target_id in cluster_prots['target_id'][cluster_prots['query_id'] == query_id]:
             old_query_upd_scores[target_id] = score_x
+            if iter_counter == 1:
+                q_and_matches.append(target_id)
+                sign_clusters_df.loc[sign_clusters_df['targets_string'].str.contains(str(target_id)),
+                    'initial_q_or_match'] = True
+            else:
+                if query_id in q_and_matches:
+                    sign_clusters_df.loc[sign_clusters_df['targets_string'].str.contains(str(target_id)),
+                    'initial_q_or_match'] = True
+                    q_and_matches.append(target_id)
 
         # MAKE faster?
         # adding score of the query prot to get summarized score for the cluster
@@ -567,10 +583,10 @@ def update_scores_for_cluster_matches(cluster_matches, mapped_res):
         sign_clusters_df.loc[sign_clusters_df['queries_string'].str.contains(str(query_id)),
         'list_new_scoreS_enrich'] = sign_clusters_df.loc[sign_clusters_df['queries_string'].str.contains(str(query_id)),
         'list_new_scoreS_enrich'].astype(str) + ',' + str(score_x)
+
         #print(sign_clusters_df['list_new_scoreS_enrich'])
         # FIX figure out how to set b and threshold for prot to be enriched in cluster
         # ADD file to store scores corresponding to profiles
-
     # calculating the scores for cluster prots with no match
     # THINK if it is ok to iterate again and also the order of scores adding to the
     # list of scores is not competely correct
@@ -936,8 +952,9 @@ def extract_proteins_cluster_neighborhood(sign_clusters_df, mapped_res):
     # WHY do I need this file?
     target_protID_cluster_file_idx = open("target_protID_cluster_file_idx", "w")
     target_db_lookup = mapped_res.target_db_lookup
-    print(target_db_lookup)
+    #print(target_db_lookup)
     print('creating subdb')
+    
 
     for target_prot_cluster in sign_clusters_df['target_prots']:
         # that is to save cluster prots ids and grep with them to find cluster matches sequences and 
@@ -973,6 +990,8 @@ def extract_proteins_cluster_neighborhood(sign_clusters_df, mapped_res):
         #protID_right_ind = target_db_lookup.loc[target_db_lookup['ID'] == protID_right, 'ind_id'].iloc[0]
 
         # As index gives a list, I just take 0th (hopefully the only) value of it
+        print('target_prot_cluster', target_prot_cluster)
+        print('protID_left', protID_left)
         protID_left_ind = target_db_lookup.index[target_db_lookup['ID'] == protID_left][0]
         protID_right_ind = target_db_lookup.index[target_db_lookup['ID'] == protID_right][0]
         print('protID_left_ind', protID_left_ind, 'protID_right_ind', protID_right_ind)
@@ -1139,6 +1158,8 @@ def initialize_new_prot_score2(sign_clusters_df, old_query_upd_scores, L, l, map
             # WARNING, popen is deprecated, think about this
             M_x = int(''.join(os.popen(cmd2).readline().split(' ')[-1].splitlines()))
             logging.debug(f'new_prot_id, mx, MX {new_prot_id} {m_x} {M_x}')
+            #print('L', L, 'l', l)
+            #print('m_x, M_x', m_x, M_x)
             score_x = np.log(np.divide(np.divide((m_x),l), np.divide((M_x), L))) - bias
             
             logging.debug(f"updated score for new prot {new_prot_id} is {score_x}")
@@ -1264,7 +1285,7 @@ def preprocess_singleton_main():
     pass
 
 
-def cluster_clusters():
+def cluster_clusters(significant_cluster_df_enriched):
     print('clustering clusters')
     if args.evalfilteruse == '1':
         path_to = cluster_path2 = files.res + '_' + str(iter_counter) + '_iter_sign_clusters_enrich_stat_filtered'
@@ -1548,12 +1569,14 @@ def cluster_clusters():
         #print(l)
         associated = 0
         #print(clusters_dict[l])
-        if 'anti' in ''.join(clusters_dict[l]):
+        #if 'anti' in ''.join(clusters_dict[l]):
+        if clusters_stat['initial_q_or_match'][l] == True:
             associated = 1
         else:
             for i in final_clusters_ids[l]:
                 string_of_queries = ''.join(clusters_dict[i])
-                if 'anti' in string_of_queries:
+                #if 'anti' in string_of_queries:
+                if clusters_stat['initial_q_or_match'][i] == True:
                     #print(string_of_queries)
                     associated = 1
                     break
@@ -1567,13 +1590,13 @@ def cluster_clusters():
             not_clustered_to_initial_acrs.extend(final_clusters_ids[l])
     print(clustered_to_initial_acrs)
     positives_filtered = []
+    significant_clusters_eval_filter_df_clu = significant_cluster_df_enriched.iloc[clustered_to_initial_acrs]
     for c in clustered_to_initial_acrs:
         #print('query string', clusters_dict[c])
         print([clusters_stat['target_prots'][c], clusters_stat['coord1'][c], clusters_stat['coord2'][c]])
         positives_filtered.append([clusters_stat['target_prots'][c], clusters_stat['coord1'][c], clusters_stat['coord2'][c]])
     print('filtered positives', len(positives_filtered))
-    print(x)
-    pass
+    return significant_clusters_eval_filter_df_clu
 
 
 def main(old_query_upd_scores, d_strand_flip_penalty, s_0):
@@ -1608,8 +1631,28 @@ def main(old_query_upd_scores, d_strand_flip_penalty, s_0):
 
     # Is it ok to assign to None?
 
-    cluster_matches = find_clusters(mapped_res, old_query_upd_scores, d_strand_flip_penalty, s_0)
-
+    #cluster_matches = find_clusters(mapped_res, old_query_upd_scores, d_strand_flip_penalty, s_0)
+    #print('n1', type(cluster_matches))
+    #print('n1', cluster_matches)
+    cluster_matches_fname = str(files.res) + str(iter_counter) + 'cluster_matches'
+    #f=open(cluster_matches_fname,"w")
+    #f.write(str(cluster_matches))
+    #f.close()
+    #print(x)
+    if iter_counter == 1:
+        f=open(cluster_matches_fname,"r")
+        lst=f.read()
+        f.close()
+        cluster_matches=eval(lst)
+    if iter_counter == 2:
+        cluster_matches = find_clusters(mapped_res, old_query_upd_scores, d_strand_flip_penalty, s_0)
+        print('n1', type(cluster_matches))
+        print('n1', cluster_matches)
+        cluster_matches_fname = str(files.res) + str(iter_counter) + 'cluster_matches'
+        f=open(cluster_matches_fname,"w")
+        f.write(str(cluster_matches))
+        f.close()
+    
     pd.set_option('display.max_rows', None)
     pd.set_option('display.max_columns', None)
     
@@ -1632,8 +1675,10 @@ def main(old_query_upd_scores, d_strand_flip_penalty, s_0):
     sign_clusters_df = significant_cluster_df_enriched
     significant_cluster_df_enriched, significant_clusters_eval_filter_df = calculate_e_value(stat_lambda, stat_K, significant_cluster_df_enriched, mapped_res)
 
-    cluster_clusters()
-    print(x)
+    significant_clusters_eval_filter_df_clu = cluster_clusters(significant_cluster_df_enriched)
+    if iter_counter == 2:
+        print(x)
+
     # CHANGE notation for significant clusters??
 
     d_strand_flip_penalty = set_strand_flip_penalty(cluster_matches, mapped_res)
@@ -1642,7 +1687,8 @@ def main(old_query_upd_scores, d_strand_flip_penalty, s_0):
     #sign_clusters_df = set_strand_flip_penalty(cluster_matches)
 
     # Is it okay to use e-val filtering here?
-    sign_clusters_df = significant_clusters_eval_filter_df
+    #sign_clusters_df = significant_clusters_eval_filter_df_clu
+    sign_clusters_df = significant_cluster_df_enriched
 
     extract_proteins_cluster_neighborhood(sign_clusters_df, mapped_res)
     make_new_query()
@@ -1693,6 +1739,7 @@ if __name__ == "__main__":
             awk_print = "'{print $2}'"
             cmd = f'awk -F {sep} {awk_print} {files.query_db}.lookup'
             print(cmd)
+            q_and_matches = list()
             # WARNING: popen is deprecated, think about it
             queries = os.popen(cmd).read().splitlines()
             old_query_upd_scores = dict()
