@@ -1631,27 +1631,22 @@ def main(old_query_upd_scores, d_strand_flip_penalty, s_0):
 
     # Is it ok to assign to None?
 
-    #cluster_matches = find_clusters(mapped_res, old_query_upd_scores, d_strand_flip_penalty, s_0)
-    #print('n1', type(cluster_matches))
-    #print('n1', cluster_matches)
-    cluster_matches_fname = str(files.res) + str(iter_counter) + 'cluster_matches'
-    #f=open(cluster_matches_fname,"w")
-    #f.write(str(cluster_matches))
-    #f.close()
-    #print(x)
-    if iter_counter == 1:
-        f=open(cluster_matches_fname,"r")
-        lst=f.read()
-        f.close()
-        cluster_matches=eval(lst)
-    if iter_counter == 2:
-        cluster_matches = find_clusters(mapped_res, old_query_upd_scores, d_strand_flip_penalty, s_0)
-        print('n1', type(cluster_matches))
-        print('n1', cluster_matches)
+    use_intermediate = 0
+    if use_intermediate == 1:
         cluster_matches_fname = str(files.res) + str(iter_counter) + 'cluster_matches'
-        f=open(cluster_matches_fname,"w")
-        f.write(str(cluster_matches))
-        f.close()
+        if iter_counter == 1:
+            f=open(cluster_matches_fname,"r")
+            lst=f.read()
+            f.close()
+            cluster_matches=eval(lst)
+        if iter_counter == 2:
+            cluster_matches = find_clusters(mapped_res, old_query_upd_scores, d_strand_flip_penalty, s_0)
+            print('n1', type(cluster_matches))
+            print('n1', cluster_matches)
+            cluster_matches_fname = str(files.res) + str(iter_counter) + 'cluster_matches'
+            f=open(cluster_matches_fname,"w")
+            f.write(str(cluster_matches))
+            f.close()
     
     pd.set_option('display.max_rows', None)
     pd.set_option('display.max_columns', None)
@@ -1659,6 +1654,12 @@ def main(old_query_upd_scores, d_strand_flip_penalty, s_0):
     cluster_matches_df = pd.DataFrame(cluster_matches)
     cluster_matches_df.to_csv('cluster_matches_raw', sep = '\t', index = False)
     print('number of clusters', len(cluster_matches_df.index))
+
+    # That is to keep intermediate cluster matches files
+    cluster_matches_fname = str(files.res) + str(iter_counter) + 'cluster_matches'
+    f=open(cluster_matches_fname,"w")
+    f.write(str(cluster_matches))
+    f.close()
 
     print(cluster_matches_df)
     # CHECK if it is optimal to divide scores update to few functions
@@ -1676,8 +1677,8 @@ def main(old_query_upd_scores, d_strand_flip_penalty, s_0):
     significant_cluster_df_enriched, significant_clusters_eval_filter_df = calculate_e_value(stat_lambda, stat_K, significant_cluster_df_enriched, mapped_res)
 
     significant_clusters_eval_filter_df_clu = cluster_clusters(significant_cluster_df_enriched)
-    if iter_counter == 2:
-        print(x)
+    #if iter_counter == 2:
+    #    print(x)
 
     # CHANGE notation for significant clusters??
 
