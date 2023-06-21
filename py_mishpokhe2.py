@@ -1632,27 +1632,24 @@ def main(old_query_upd_scores, d_strand_flip_penalty, s_0):
     # Is it ok to assign to None?
 
     use_intermediate = 0
+    cluster_matches_fname = str(files.res) + str(iter_counter) + 'cluster_matches'
     if use_intermediate == 1:
-        cluster_matches_fname = str(files.res) + str(iter_counter) + 'cluster_matches'
-        if iter_counter == 1:
-            f=open(cluster_matches_fname,"r")
-            lst=f.read()
-            f.close()
-            cluster_matches=eval(lst)
-        if iter_counter == 2:
-            cluster_matches = find_clusters(mapped_res, old_query_upd_scores, d_strand_flip_penalty, s_0)
-            print('n1', type(cluster_matches))
-            print('n1', cluster_matches)
-            cluster_matches_fname = str(files.res) + str(iter_counter) + 'cluster_matches'
-            f=open(cluster_matches_fname,"w")
-            f.write(str(cluster_matches))
-            f.close()
+        f=open(cluster_matches_fname,"r")
+        lst=f.read()
+        f.close()
+        cluster_matches=eval(lst)
+    else:
+        cluster_matches = find_clusters(mapped_res, old_query_upd_scores, d_strand_flip_penalty, s_0)
+        f=open(cluster_matches_fname,"w")
+        f.write(str(cluster_matches))
+        f.close()
+
     
     pd.set_option('display.max_rows', None)
     pd.set_option('display.max_columns', None)
     
     cluster_matches_df = pd.DataFrame(cluster_matches)
-    cluster_matches_df.to_csv('cluster_matches_raw', sep = '\t', index = False)
+    cluster_matches_df.to_csv(str(files.res) + str(iter_counter) + 'cluster_matches_raw', sep = '\t', index = False)
     print('number of clusters', len(cluster_matches_df.index))
 
     # That is to keep intermediate cluster matches files
@@ -1743,7 +1740,9 @@ if __name__ == "__main__":
             q_and_matches = list()
             # WARNING: popen is deprecated, think about it
             queries = os.popen(cmd).read().splitlines()
-            old_query_upd_scores = dict()
+            # this if is to avoid emptying this dict when it is not empty because of 0 iter
+            if if_singleton != 1:
+                old_query_upd_scores = dict()
             for q in queries:
                 print(q)
                 old_query_upd_scores[q] = 1
