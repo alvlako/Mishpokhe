@@ -1729,7 +1729,7 @@ if __name__ == "__main__":
             sep = r"'\t'"
             awk_print = "'{print $2}'"
             cmd = f'awk -F {sep} {awk_print} {files.query_db}.lookup'
-            print(cmd)
+            #print(cmd)
             q_and_matches = list()
             # WARNING: popen is deprecated, think about it
             queries = os.popen(cmd).read().splitlines()
@@ -1737,9 +1737,9 @@ if __name__ == "__main__":
             if if_singleton != 1:
                 old_query_upd_scores = dict()
             for q in queries:
-                print(q)
+                #print(q)
                 old_query_upd_scores[q] = 1
-                print(old_query_upd_scores)
+                #print(old_query_upd_scores)
             s_0 = None
             d_strand_flip_penalty = None
             files.query_db = files.query_db
