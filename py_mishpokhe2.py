@@ -1590,7 +1590,9 @@ def cluster_clusters(significant_cluster_df_enriched):
             not_clustered_to_initial_acrs.extend(final_clusters_ids[l])
     print(clustered_to_initial_acrs)
     positives_filtered = []
-    significant_clusters_eval_filter_df_clu = significant_cluster_df_enriched.iloc[clustered_to_initial_acrs]
+    # do not really understand why sorting needed in the next line. But otherwise it gets errors trying to assess
+    # non-existing elements of old_query_scores in the next iter (probably something related to the order?)
+    significant_clusters_eval_filter_df_clu = significant_cluster_df_enriched.iloc[sorted(clustered_to_initial_acrs)]
     for c in clustered_to_initial_acrs:
         #print('query string', clusters_dict[c])
         print([clusters_stat['target_prots'][c], clusters_stat['coord1'][c], clusters_stat['coord2'][c]])
@@ -1617,23 +1619,11 @@ def main(old_query_upd_scores, d_strand_flip_penalty, s_0):
     mapped_res = ResultsMapping.map_target_to_coord()
     mapped_res.res_map_to_header.to_csv('mapped_results_mish', sep = '\t')
 
-    # REMOVE, tmp!
-    #target_db_lookup = mapped_res.target_db_lookup
-    #pd.set_option('display.max_rows', None)
-    #print(target_db_lookup)
-    #print(x)
-    #for i in range(0, len(target_db_lookup.iloc[:, 1])-1):
-    #    print(target_db_lookup.iloc[:, 1].values[i])
-
-    # REMOVE, tmp!
-    #mapped_res.res_map_to_header = pd.read_csv('mapped_results_mish', sep = '\t', header = 0)
-    #print(mapped_res.res_map_to_header)
-
     # Is it ok to assign to None?
 
     use_intermediate = 0
     cluster_matches_fname = str(files.res) + str(iter_counter) + 'cluster_matches'
-    if use_intermediate == 1:
+    if use_intermediate == 1 and iter_counter == 1:
         f=open(cluster_matches_fname,"r")
         lst=f.read()
         f.close()
@@ -1685,8 +1675,11 @@ def main(old_query_upd_scores, d_strand_flip_penalty, s_0):
     #sign_clusters_df = set_strand_flip_penalty(cluster_matches)
 
     # Is it okay to use e-val filtering here?
-    #sign_clusters_df = significant_clusters_eval_filter_df_clu
-    sign_clusters_df = significant_cluster_df_enriched
+    sign_clusters_df = significant_clusters_eval_filter_df_clu
+    #sign_clusters_df = significant_cluster_df_enriched
+
+    path_clu_filter = files.res + '_' + str(iter_counter) + '_iter_sign_clusters_enrich_stat_filtered_clu_filter'
+    significant_clusters_eval_filter_df_clu.to_csv(path_clu_filter, sep = '\t', index = False)
 
     extract_proteins_cluster_neighborhood(sign_clusters_df, mapped_res)
     make_new_query()
@@ -1759,20 +1752,6 @@ if __name__ == "__main__":
             res_path = str(files.res)[:str(files.res).find(str(iter_counter-2))]
             files.res = res_path + str(iter_counter-1) + 'iter_res'
         logging.debug(f"files.query_db in main: {files.query_db}")
-
-
-        #print('here is main running')
-
-        #query_db_path = str(files.query_db)
-        #print('iter_counter', iter_counter)
-        #if iter_counter > 1:
-        #    query_db_path = str(files.query_db)[:(str(files.query_db).find(str(iter_counter-1)))]
-        #print('query_db_path', query_db_path)
-        #out_file = query_db_path + str(iter_counter) + 'iter.fasta'
-        #print('out_file', out_file)
-        #print('@1', query_db_path + str(iter_counter) + 'iter.fasta')
-        #print('@2', query_db_path + str(iter_counter) + 'iter_db')
-
 
         main(old_query_upd_scores, d_strand_flip_penalty, s_0)
         iterations -= 1
