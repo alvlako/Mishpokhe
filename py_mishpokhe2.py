@@ -279,12 +279,12 @@ def find_clusters(mapped_res, old_query_upd_scores, d_strand_flip_penalty, s_0):
 
     # to fix the problem with the nan coming from reading the table
     results = results[results.iloc[:, 0].notna()]
-    logging.debug(f'results: {results}')
-    logging.debug(f'mapped results: {mapped_results}')
-    logging.debug(f'index list: {index_list}')
+    #logging.debug(f'results: {results}')
+    #logging.debug(f'mapped results: {mapped_results}')
+    #logging.debug(f'index list: {index_list}')
 
     #Algorithm 1 - iterate through target prot
-    logging.debug(f'results.iloc[:, 0].size: {results.iloc[:, 0].size}')
+    #logging.debug(f'results.iloc[:, 0].size: {results.iloc[:, 0].size}')
 
     cluster_matches = list()
     # CHECK if score max cluster set up correct
@@ -303,17 +303,14 @@ def find_clusters(mapped_res, old_query_upd_scores, d_strand_flip_penalty, s_0):
         #s_0 = -0.01
         s_0 = -1
 
-    # Shows if the current protein has a query match
-    is_match = 1
-
     # CHECK if correct (esp if cluster does not start from the 1st gene)
     i_0_cluster_start = int(target_db_h["coord1"].values[0])
     pd.set_option('display.max_columns', None)
-    logging.debug(f"cluster start: {i_0_cluster_start}")
+    #logging.debug(f"cluster start: {i_0_cluster_start}")
     i_1_cluster_end = int(target_db_h["coord2"].values[0])
     # CHECK if correct
     init_strand = int(target_db_h["strand"].values[0])
-    logging.debug(f"strand is {init_strand}")
+    #logging.debug(f"strand is {init_strand}")
 
     query_genes_ids = []
     target_genes_ids = []
@@ -322,35 +319,63 @@ def find_clusters(mapped_res, old_query_upd_scores, d_strand_flip_penalty, s_0):
 
     matches_ids_list = mapped_results['ID'].tolist()
 
+    # Part made to speed finding clusters up
+    target_db_h_id_list = target_db_h["ID"].values.tolist()
+    target_db_h_strand_list = target_db_h["strand"].values.tolist()
+    target_db_h_coord1_list = target_db_h["coord1"].values.tolist()
+    target_db_h_coord2_list = target_db_h["coord2"].values.tolist()
+
     # CHECK it now ignores the last line, is it a constant feature to
     # have empty line at the ened of the results file???
     # FIX genes ids retrieval
-    logging.debug(f"target lookup: \n {target_db_lookup.iloc[:, 1]}")
+    #logging.debug(f"target lookup: \n {target_db_lookup.iloc[:, 1]}")
     for i in range(0, len(target_db_lookup.iloc[:, 1])-1):
-        logging.debug(f"NEW cycle starts")
+        #logging.debug(f"NEW cycle starts")
         logging.debug(f"i: {i}")
-        logging.debug(f"target_db_lookup.iloc[:, 1].values[i]: {target_db_lookup.iloc[:, 1].values[i]}")
+        #logging.debug(f"target_db_lookup.iloc[:, 1].values[i]: {target_db_lookup.iloc[:, 1].values[i]}")
+
+        # to check whether proteins are from the same genome
+        # THINK if it should be done better
+        # also it relies on having "." in prot id
+        # CHECK if I should compare with the prev prot
+        # THINK if there might be other formats of protein/genome id?
+        #target_prot_id_i = target_db_h["ID"].values[i]
+        target_prot_id_i = target_db_h_id_list[i]
+        #target_prot_id_i_plus_1 = target_db_h["ID"].values[i+1]
+        target_prot_id_i_plus_1 = target_db_h_id_list[i+1]
+        #if 'NC_004086.1' in target_prot_id_i or 'NC_004087.1' in target_prot_id_i:
+        #    print('target_prot_id_i', target_prot_id_i, 'target_prot_id_i_plus_1', target_prot_id_i_plus_1)
+        # that makes genome id out of prot id, e.g. NC_111.1_1 -> NC_111.1
+        target_genome_id_i = '_'.join(target_prot_id_i.split('_')[:-1])
+        target_genome_id_i_plus_1 = '_'.join(target_prot_id_i_plus_1.split('_')[:-1])
+        logging.debug(f"target_genome_id_i: {target_genome_id_i}")
         diff_genomes_penalty = 0
-        
+        #if iter_counter == 2 and target_genome_id_i == 'NC_004086.1' and target_genome_id_i_plus_1 == 'NC_004087.1':
+        #    print('problem', target_genome_id_i, target_genome_id_i_plus_1 )
+        if  target_genome_id_i != target_genome_id_i_plus_1:
+            #logging.debug(f"different genomes!!!")
+            # That should actually replace the line from above
+            diff_genomes_penalty = 10000
+            #if iter_counter == 2 and target_genome_id_i == 'NC_004086.1' and target_genome_id_i_plus_1 == 'NC_004087.1':
+            #    print('problem continue', target_genome_id_i, target_genome_id_i_plus_1)
+            #continue
         # CHANGE this score (to 0 and 1 for 1st iter?)
         #score_x_i = float(results.iloc[i,10])
         # CHECK if correct
-        if target_db_h["ID"].values[i] in matches_ids_list:
-            curr_query_id = mapped_results.loc[mapped_results['ID'] == target_db_h["ID"].values[i], 'query_ID'].iloc[0]
-            is_match = 1
+        if target_prot_id_i in matches_ids_list:
+            curr_query_id = mapped_results.loc[mapped_results['ID'] == target_db_h_id_list[i], 'query_ID'].iloc[0]
             # In the 1st iter old_query_upd_scores are filled with 1
             score_x_i = old_query_upd_scores[curr_query_id]
         else:
             score_x_i = s_0
-            is_match = 0
             # is it a good idea?
             curr_query_id = ''
         # FIX temporary solution to make score_x_i to overweight other scores to get significant clusters
         #score_x_i = -np.log(score_x_i)
         # CHECK in evalue section how to initialize this score
         # CHECK if -1 (and other potential values) properly read
-        strand = int(target_db_h["strand"].values[i])
-        logging.debug(f"strand: {strand}")
+        strand = int(target_db_h_strand_list[i])
+        #logging.debug(f"strand: {strand}")
 
         # gap changed to use gene number, not the coordinate diff
         #gap = abs(int(mapped_results["coord1"].values[i])- int((mapped_results["coord2"].values[i-1]))) - 1
@@ -367,67 +392,51 @@ def find_clusters(mapped_res, old_query_upd_scores, d_strand_flip_penalty, s_0):
         # FIX use another, calculated strand flip penalty (d) in the next iterations
         if strand == init_strand:
             f_strand_flip = 0
-            logging.debug(f"same strand")
+            #logging.debug(f"same strand")
         else:
-            logging.debug(f"different strand")
+            #logging.debug(f"different strand")
             f_strand_flip = 1
-
-        # to check whether proteins are from the same genome
-        # THINK if it should be done better
-        # also it relies on having "." in prot id
-        # CHECK if I should compare with the prev prot
-        # THINK if there might be other formats of protein/genome id?
-        target_prot_id_i = target_db_h["ID"].values[i]
-        target_prot_id_i_plus_1 = target_db_h["ID"].values[i+1]
-        # that makes genome id out of prot id, e.g. NC_111.1_1 -> NC_111.1
-        target_genome_id_i = '_'.join(target_prot_id_i.split('_')[:-1])
-        target_genome_id_i_plus_1 = '_'.join(target_prot_id_i_plus_1.split('_')[:-1])
-        logging.debug(f"target_genome_id_i: {target_genome_id_i}")
-        if  target_genome_id_i != target_genome_id_i_plus_1:
-            logging.debug(f"different genomes!!!")
-            # is it a good idea?
-            diff_genomes_penalty = 10000
 
 
         #print('passed')
         # updating previous gene strand (current gene = previous for next for loop iter)
         init_strand= strand
         
-        logging.debug(f"scores")
-        logging.debug(f"prev cluster score: {score_i_minus_1_cluster}")
-        logging.debug(f"strand flip*penalty: {f_strand_flip*d_strand_flip_penalty}")
-        logging.debug(f"current score: {score_x_i}")
-        logging.debug(f"{score_i_minus_1_cluster - f_strand_flip*d_strand_flip_penalty + score_x_i}")
-        logging.debug(f" {max(0, score_x_i)}")
+        #logging.debug(f"scores")
+        #logging.debug(f"prev cluster score: {score_i_minus_1_cluster}")
+        #logging.debug(f"strand flip*penalty: {f_strand_flip*d_strand_flip_penalty}")
+        #logging.debug(f"current score: {score_x_i}")
+        #logging.debug(f"{score_i_minus_1_cluster - f_strand_flip*d_strand_flip_penalty + score_x_i}")
+        #logging.debug(f" {max(0, score_x_i)}")
 
-        if (score_i_minus_1_cluster - f_strand_flip*d_strand_flip_penalty - diff_genomes_penalty + score_x_i) > max(0, score_x_i):
-            score_i_cluster = score_i_minus_1_cluster - f_strand_flip*d_strand_flip_penalty  - diff_genomes_penalty + score_x_i
-            logging.debug(f"proceed: {score_i_cluster, score_max_cluster}")
-            logging.debug(f"score i-1: {score_i_minus_1_cluster}")
+        if (score_i_minus_1_cluster - f_strand_flip*d_strand_flip_penalty + score_x_i - diff_genomes_penalty) > max(0, score_x_i):
+            score_i_cluster = score_i_minus_1_cluster - f_strand_flip*d_strand_flip_penalty + score_x_i - diff_genomes_penalty
+            #logging.debug(f"proceed: {score_i_cluster, score_max_cluster}")
+            #logging.debug(f"score i-1: {score_i_minus_1_cluster}")
             
             if score_i_cluster > score_max_cluster:
-                logging.debug(f"first")
+                #logging.debug(f"first")
                 score_max_cluster = score_i_cluster
                 # CHECK if correct, CHANGE to look better
                 #i_1_cluster_end = str(mapped_results.iloc[i,1])
-                i_1_cluster_end = int(target_db_h["coord2"].values[i])
+                i_1_cluster_end = int(target_db_h_coord2_list[i])
                 # CHECK changing of score_i_minus_1_cluster
                 # CHECK why did add this? it is not in the Johannes pseudocode
                 #score_i_minus_1_cluster = score_i_cluster
-                logging.debug(f"upd prev cluster score {score_i_minus_1_cluster}")
+                #logging.debug(f"upd prev cluster score {score_i_minus_1_cluster}")
 
                 #last_target_gene = mapped_results["ID"].values[i]
                 # ADD best match??
-                logging.debug(f"first 1st append")
+                #logging.debug(f"first 1st append")
                 query_genes_ids.append(curr_query_id)
-                target_genes_ids.append(target_db_h["ID"].values[i])
-                prots_strands.append(int(target_db_h["strand"].values[i]))
+                target_genes_ids.append(target_db_h_id_list[i])
+                prots_strands.append(int(target_db_h_strand_list[i]))
 
         else:
-            logging.debug(f"second")
-            score_i_cluster = score_i_minus_1_cluster - f_strand_flip*d_strand_flip_penalty  - diff_genomes_penalty + score_x_i
-            logging.debug(f"second_proceed {score_i_cluster, score_max_cluster}")
-            logging.debug(f"score i-1: {score_i_minus_1_cluster}")
+            #logging.debug(f"second")
+            score_i_cluster = score_i_minus_1_cluster - f_strand_flip*d_strand_flip_penalty + score_x_i - diff_genomes_penalty
+            #logging.debug(f"second_proceed {score_i_cluster, score_max_cluster}")
+            #logging.debug(f"score i-1: {score_i_minus_1_cluster}")
             score_i_cluster = score_x_i - diff_genomes_penalty
 
             # CHECK if correct, CHANGE to get right coord
@@ -437,44 +446,44 @@ def find_clusters(mapped_res, old_query_upd_scores, d_strand_flip_penalty, s_0):
             # THINK if the next line here or below
             #i_0_cluster_start = int(mapped_results["coord1"].values[i])
             
-            logging.debug(f"score_max_cluster, score_min_cluster: {score_max_cluster, score_min_cluster}")
+            #logging.debug(f"score_max_cluster, score_min_cluster: {score_max_cluster, score_min_cluster}")
             if score_max_cluster > score_min_cluster:
-                logging.debug(f"second 1st append")
+                #logging.debug(f"second 1st append")
                 cluster_matches.append((i_0_cluster_start,
                 i_1_cluster_end, score_max_cluster,
                 query_genes_ids, target_genes_ids, prots_strands))
                 score_max_cluster = 0
-                logging.debug([i_0_cluster_start,
-                i_1_cluster_end, score_max_cluster,
-                query_genes_ids, target_genes_ids, prots_strands])
+                #logging.debug([i_0_cluster_start,
+                #i_1_cluster_end, score_max_cluster,
+                #query_genes_ids, target_genes_ids, prots_strands])
             # THINK if it is okay to be here or above
             # for some reasons if here it gives proper result
-            i_0_cluster_start = int(target_db_h["coord1"].values[i])
+            i_0_cluster_start = int(target_db_h_coord1_list[i])
 
             #first_target_gene = mapped_results["ID"].values[i]
             query_genes_ids = []
             # ADD best match??
             query_genes_ids.append(curr_query_id)
             target_genes_ids = []
-            target_genes_ids.append(target_db_h["ID"].values[i])
+            target_genes_ids.append(target_db_h_id_list[i])
             prots_strands = []
-            prots_strands.append(int(target_db_h["strand"].values[i]))
+            prots_strands.append(int(target_db_h_strand_list[i]))
             #query_genes_ids.append(mapped_results["query_ID"].values[i])
             #target_genes_ids.append(mapped_results["ID"].values[i])
         # CHECK if correct, not as in latex
         score_i_minus_1_cluster = score_i_cluster
-        logging.debug(f"max and min scores: {score_max_cluster, score_min_cluster}")
-        logging.debug(f"cluster coord: {i_0_cluster_start, i_1_cluster_end}")
+        #logging.debug(f"max and min scores: {score_max_cluster, score_min_cluster}")
+        #logging.debug(f"cluster coord: {i_0_cluster_start, i_1_cluster_end}")
         #print('cluster matches', cluster_matches)
 
     if score_max_cluster > score_min_cluster:
-        logging.debug(f"second 2nd append")
+        #logging.debug(f"second 2nd append")
         cluster_matches.append((i_0_cluster_start,
          i_1_cluster_end, score_max_cluster, 
          query_genes_ids, target_genes_ids, prots_strands))
-        logging.debug([i_0_cluster_start,
-                i_1_cluster_end, score_max_cluster,
-                query_genes_ids, target_genes_ids, prots_strands])
+        #logging.debug([i_0_cluster_start,
+                #i_1_cluster_end, score_max_cluster,
+                #query_genes_ids, target_genes_ids, prots_strands])
     # add more to cluster matches table? prot id?
     # ADD return of the changed ResultsMapping object? (with added scores?)
     # FIX to be faster or remove
@@ -525,18 +534,18 @@ def update_scores_for_cluster_matches(cluster_matches, mapped_res):
     # CHANGE later, THINK
     bias = 0
 
-    logging.debug(f"K, L, l: {K, L, l}")
+    #logging.debug(f"K, L, l: {K, L, l}")
     
-    logging.debug(f"sign_clusters_df: \n {sign_clusters_df}")
-    logging.debug(f"cluster_prots: \n {cluster_prots}")
-    logging.debug(f"mapped results: \n {mapped_results}")
+    #logging.debug(f"sign_clusters_df: \n {sign_clusters_df}")
+    #logging.debug(f"cluster_prots: \n {cluster_prots}")
+    #logging.debug(f"mapped results: \n {mapped_results}")
     # CHECK if it is correct to iterate through cluster matches?
     # So I am calculating enrichment score for cluster matches and for cluster prots with no match
     # CHECK if leaving only unique entries is correct
     # pseudocounts are added with parameter aplha_pseudocount
     aplha_pseudocount = pow(10,np.log10(1/L)-1)
     x_number_of_queries = len(mapped_results['query_ID'].unique())
-    logging.debug(f"x_number_of_queries: {x_number_of_queries}")
+    #logging.debug(f"x_number_of_queries: {x_number_of_queries}")
     # Do I need unique?
     for query_id in cluster_prots['query_id'].unique():
         # that is to write all the INITIAL queries to this list which
@@ -1522,8 +1531,11 @@ def cluster_clusters(significant_cluster_df_enriched):
         print(final_clusters_ids1)
         #print(final_clusters_reals)
         print('here are your clusters')
+        raw_clu_of_clu = open(str(files.res) + str(iter_counter) +'_clu_of_clu_all', 'w')
         for k in final_clusters_reals1.keys():
-            print(f'centroid is {k}')
+            raw_clu_of_clu.write(f'centroid is {str(k)} \n')
+            for n in k:
+                raw_clu_of_clu.write(str(n)+'\n')
             print('-------')
         print('number of clusters is', len(cluster_centroids))
         #print('intercentroid dist')
@@ -1593,6 +1605,10 @@ def cluster_clusters(significant_cluster_df_enriched):
     # do not really understand why sorting needed in the next line. But otherwise it gets errors trying to assess
     # non-existing elements of old_query_scores in the next iter (probably something related to the order?)
     significant_clusters_eval_filter_df_clu = significant_cluster_df_enriched.iloc[sorted(clustered_to_initial_acrs)]
+    if iter_counter == 2:
+        for i in sorted(clustered_to_initial_acrs):
+            print(clusters_dict[i])
+        #print(x)
     for c in clustered_to_initial_acrs:
         #print('query string', clusters_dict[c])
         print([clusters_stat['target_prots'][c], clusters_stat['coord1'][c], clusters_stat['coord2'][c]])
@@ -1603,10 +1619,13 @@ def cluster_clusters(significant_cluster_df_enriched):
 
 def main(old_query_upd_scores, d_strand_flip_penalty, s_0):
 
+    # TMP ifs, remove later!!!
+    #if iter_counter > 1:
     make_profiles()
 
     # CHECK if it works with multihitdb (just from command line it worked)
     # CHECK why there are more results with multihitdb (target is converted to profiles??)
+    #if iter_counter > 1:
     run_search()
 
     # this class is to have order and strand for target proteins
