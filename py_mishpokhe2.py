@@ -1303,8 +1303,9 @@ def cluster_clusters(significant_cluster_df_enriched):
     path_to_test = path_to
     #path_to_test = '/Users/Sasha/Documents/GitHub/mishpokhe_test/anti_crispr_res_wOld_6_guo1iter_res_2_iter_sign_clusters_enrich_stat_filtered'
     # ast.literal_eval is used to read rows looking like [1,2,3] as python list
-    clusters_stat = pd.read_csv(path_to_test, dtype=None, sep='\t',
-     converters={'query_prots':ast.literal_eval})
+    #clusters_stat = pd.read_csv(path_to_test, dtype=None, sep='\t',
+    # converters={'query_prots':ast.literal_eval})
+    clusters_stat = significant_cluster_df_enriched
     clusters_queries = clusters_stat['query_prots'].copy()
     queries_set = set()
     for row in clusters_queries:
@@ -1575,6 +1576,7 @@ def cluster_clusters(significant_cluster_df_enriched):
     final_clusters_ids = R_L_density_clustering(dict_presence_lists)
     #print(x)
  
+ 
     not_clustered_to_initial_acrs = list()
     clustered_to_initial_acrs = list()
     for l in final_clusters_ids.keys(): 
@@ -1605,6 +1607,8 @@ def cluster_clusters(significant_cluster_df_enriched):
     # do not really understand why sorting needed in the next line. But otherwise it gets errors trying to assess
     # non-existing elements of old_query_scores in the next iter (probably something related to the order?)
     significant_clusters_eval_filter_df_clu = significant_cluster_df_enriched.iloc[sorted(clustered_to_initial_acrs)]
+    #print(clusters_stat)
+    #significant_clusters_eval_filter_df_clu = clusters_stat.iloc[sorted(clustered_to_initial_acrs)]
     if iter_counter == 2:
         for i in sorted(clustered_to_initial_acrs):
             print(clusters_dict[i])
