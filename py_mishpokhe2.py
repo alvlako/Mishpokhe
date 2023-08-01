@@ -1,6 +1,7 @@
 from cmath import inf
 import ctypes as ct
 from ctypes import *
+import numba as nb
 import numpy as np
 import pandas as pd
 
@@ -15,6 +16,7 @@ import re
 import subprocess
 import sys
 from sys import stdout
+import time
 
 # version 2 accordingly to the written in the proposal
 
@@ -1170,7 +1172,8 @@ def initialize_new_prot_score2(sign_clusters_df, old_query_upd_scores, L, l, map
             #print('L', L, 'l', l)
             #print('m_x, M_x', m_x, M_x)
             score_x = np.log(np.divide(np.divide((m_x),l), np.divide((M_x), L))) - bias
-            
+            #if score_x < enrichment_threshold:
+            #    score_x = -1
             logging.debug(f"updated score for new prot {new_prot_id} is {score_x}")
             old_query_upd_scores[new_prot_id] = score_x
     logging.debug(f"old_query_upd_scores updated with neighbours \n {old_query_upd_scores}")
@@ -1294,18 +1297,18 @@ def preprocess_singleton_main():
     pass
 
 
-def cluster_clusters(significant_cluster_df_enriched):
+#def cluster_clusters(significant_cluster_df_enriched):
+def cluster_clusters():
     print('clustering clusters')
-    if args.evalfilteruse == '1':
-        path_to = cluster_path2 = files.res + '_' + str(iter_counter) + '_iter_sign_clusters_enrich_stat_filtered'
-    else:
-        path_to = files.res + '_' + str(iter_counter) + '_iter_sign_clusters_enrich_stat'
-    path_to_test = path_to
-    #path_to_test = '/Users/Sasha/Documents/GitHub/mishpokhe_test/anti_crispr_res_wOld_6_guo1iter_res_2_iter_sign_clusters_enrich_stat_filtered'
+    #if args.evalfilteruse == '1':
+    #    path_to = cluster_path2 = files.res + '_' + str(iter_counter) + '_iter_sign_clusters_enrich_stat_filtered'
+    #else:
+    #    path_to = files.res + '_' + str(iter_counter) + '_iter_sign_clusters_enrich_stat'
+    #path_to_test = path_to
+    path_to_test = '/Users/Sasha/Documents/GitHub/mishpokhe_test/anti_crispr_res_wOld_6_guo1iter_res_2_iter_sign_clusters_enrich_stat_filtered'
     # ast.literal_eval is used to read rows looking like [1,2,3] as python list
-    #clusters_stat = pd.read_csv(path_to_test, dtype=None, sep='\t',
-    # converters={'query_prots':ast.literal_eval})
-    clusters_stat = significant_cluster_df_enriched
+    clusters_stat = pd.read_csv(path_to_test, dtype=None, sep='\t',
+     converters={'query_prots':ast.literal_eval})
     clusters_queries = clusters_stat['query_prots'].copy()
     queries_set = set()
     for row in clusters_queries:
@@ -1352,6 +1355,7 @@ def cluster_clusters(significant_cluster_df_enriched):
     array_presence_arrays = np.stack(list_presence_lists, axis=0)
 
 
+
     def R_L_density_clustering(dict_presence_lists):
         #print('clustering of clusters start')
         # From https://www.science.org/doi/10.1126/science.1242072
@@ -1362,45 +1366,32 @@ def cluster_clusters(significant_cluster_df_enriched):
         cutoff_dist = 0.5
         points = dict()
         # making dict of dicts to save distance between data points (spatial clusters)
-        distance_mat_dict = dict()
-        for spatial in dict_presence_lists.keys():
-            print(spatial)
-            #print(clusters_dict[spatial])
-            distance_mat_dict[spatial] = dict()
-            vec0 = dict_presence_lists[spatial]
-            #print(vec0)
-            loc_density = 0
-            for spatial_compare in dict_presence_lists.keys():
-                #print(spatial_compare)
-                #print(clusters_dict[spatial])
-                #print(clusters_dict[spatial_compare])
-                vec1 = dict_presence_lists[spatial_compare]
-                # Euclidean dist **2 = edit dist?
-                #dist = (np.linalg.norm(vec1-vec0))**2
-                #sum(np.logical_or(vec1,vec0).astype(int))
 
-                # how many queries matches are in common
-                align_part = sum(np.logical_and(vec1,vec0))
-                len_vec1 = np.count_nonzero(vec1 == 1)
-                len_vec0 = np.count_nonzero(vec0 == 1)
-                #print('align_part/len_vec1', align_part/len_vec1)
-                #print('align_part/len_vec0', align_part/len_vec0)
-                #dist = 1 - (max((align_part/len_vec0), (align_part/len_vec1)))
-                #dist = 1 - (min((align_part/len_vec0), (align_part/len_vec1)))
-                dist = 1 - (align_part/np.sqrt(len_vec0*len_vec1))
-
-                # euclidean distance (misaligned) / aligned queries
-                #dist = np.linalg.norm(vec1-vec0)/ sum(np.logical_and(vec1,vec0))
-                distance_mat_dict[spatial][spatial_compare] = dist
-                
-                if dist < cutoff_dist:
-                #if align_part/len_vec1 >= cutoff_dist or align_part/len_vec0 >= cutoff_dist:
-                    loc_density = loc_density + 1
-                #print('dist', dist)
-            points[spatial] = loc_density
-        print(points)
-        #print(distance_mat_dict)
-        #print(x)
+        @nb.njit(fastmath=True,error_model="numpy")
+        #,parallel=True)
+        def faster_dist_calc():
+            distance_mat_dict = nb.typed.Dict()
+            points = nb.typed.Dict()
+            for spatial in range(array_presence_arrays.shape[0]):
+                print(spatial)
+                distance_mat_dict[spatial] = nb.typed.Dict.empty(nb.types.int64, nb.types.float64)
+                vec0 = array_presence_arrays[spatial]
+                loc_density = 0
+                for spatial_compare in range(array_presence_arrays.shape[0]):
+                    vec1 = array_presence_arrays[spatial_compare]
+                    align_part = sum(np.logical_and(vec1,vec0))
+                    len_vec1 = np.count_nonzero(vec1 == 1)
+                    len_vec0 = np.count_nonzero(vec0 == 1)
+                    dist = 1 - (align_part/np.sqrt(len_vec0*len_vec1))
+                    distance_mat_dict[spatial][spatial_compare] = dist
+                        
+                    if dist < cutoff_dist:
+                        loc_density = loc_density + 1
+                points[spatial] = loc_density
+            print(points)
+            return points, distance_mat_dict
+        points, distance_mat_dict = faster_dist_calc()
+        
 
         # sort points dict by density
         dens_sort_points = dict(sorted(points.items(), key=lambda item: item[1]))
@@ -1535,10 +1526,11 @@ def cluster_clusters(significant_cluster_df_enriched):
         raw_clu_of_clu = open(str(files.res) + str(iter_counter) +'_clu_of_clu_all', 'w')
         for k in final_clusters_reals1.keys():
             raw_clu_of_clu.write(f'centroid is {str(k)} \n')
-            for n in k:
+            for n in final_clusters_reals1[k]:
                 raw_clu_of_clu.write(str(n)+'\n')
             print('-------')
         print('number of clusters is', len(cluster_centroids))
+        print(x)
         #print('intercentroid dist')
         #for point in final_clusters_ids1.keys():
         #    print({ke: distance_mat_dict[point][ke] for ke in final_clusters_ids1.keys()})
@@ -1572,7 +1564,6 @@ def cluster_clusters(significant_cluster_df_enriched):
         print(len(final_clusters_ids.keys()))
         return final_clusters_ids
     
-   
     final_clusters_ids = R_L_density_clustering(dict_presence_lists)
     #print(x)
  
@@ -1716,7 +1707,8 @@ def main(old_query_upd_scores, d_strand_flip_penalty, s_0):
 if __name__ == "__main__":
 
     print("starting")
-
+    cluster_clusters()
+    print(x)
     arg_parser()
     iterations = int(args.iter)
     if_singleton = int(args.singleton)
@@ -1743,6 +1735,9 @@ if __name__ == "__main__":
         iter_counter = 0
         preprocess_singleton_main()
     
+    # Make changeable
+    enrichment_threshold = 0
+
     iter_counter = 1
     while iterations > 0:
         print('iter_counter:',iter_counter)
