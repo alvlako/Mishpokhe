@@ -358,8 +358,6 @@ def find_clusters(mapped_res, old_query_upd_scores, d_strand_flip_penalty, s_0):
             #logging.debug(f"different genomes!!!")
             # That should actually replace the line from above
             diff_genomes_penalty = 10000
-            #if iter_counter == 2 and target_genome_id_i == 'NC_004086.1' and target_genome_id_i_plus_1 == 'NC_004087.1':
-            #    print('problem continue', target_genome_id_i, target_genome_id_i_plus_1)
             #continue
         # CHANGE this score (to 0 and 1 for 1st iter?)
         #score_x_i = float(results.iloc[i,10])
@@ -490,6 +488,8 @@ def find_clusters(mapped_res, old_query_upd_scores, d_strand_flip_penalty, s_0):
     # ADD return of the changed ResultsMapping object? (with added scores?)
     # FIX to be faster or remove
     logging.debug(f"cluster_matches: \n {cluster_matches}")
+    print(cluster_matches)
+    print(len(cluster_matches))
     return cluster_matches
 
 
@@ -1298,14 +1298,14 @@ def preprocess_singleton_main():
 
 
 #def cluster_clusters(significant_cluster_df_enriched):
-def cluster_clusters():
+def cluster_clusters(significant_cluster_df_enriched):
     print('clustering clusters')
-    #if args.evalfilteruse == '1':
-    #    path_to = cluster_path2 = files.res + '_' + str(iter_counter) + '_iter_sign_clusters_enrich_stat_filtered'
-    #else:
-    #    path_to = files.res + '_' + str(iter_counter) + '_iter_sign_clusters_enrich_stat'
-    #path_to_test = path_to
-    path_to_test = '/Users/Sasha/Documents/GitHub/mishpokhe_test/anti_crispr_res_wOld_6_guo1iter_res_2_iter_sign_clusters_enrich_stat_filtered'
+    if args.evalfilteruse == '1':
+        path_to = cluster_path2 = files.res + '_' + str(iter_counter) + '_iter_sign_clusters_enrich_stat_filtered'
+    else:
+        path_to = files.res + '_' + str(iter_counter) + '_iter_sign_clusters_enrich_stat'
+    path_to_test = path_to
+    #path_to_test = '/Users/Sasha/Documents/GitHub/mishpokhe_test/anti_crispr_res_wOld_6_guo1iter_res_2_iter_sign_clusters_enrich_stat_filtered'
     # ast.literal_eval is used to read rows looking like [1,2,3] as python list
     clusters_stat = pd.read_csv(path_to_test, dtype=None, sep='\t',
      converters={'query_prots':ast.literal_eval})
@@ -1528,9 +1528,8 @@ def cluster_clusters():
             raw_clu_of_clu.write(f'centroid is {str(k)} \n')
             for n in final_clusters_reals1[k]:
                 raw_clu_of_clu.write(str(n)+'\n')
-            print('-------')
+            raw_clu_of_clu.write('-------'+'\n')
         print('number of clusters is', len(cluster_centroids))
-        print(x)
         #print('intercentroid dist')
         #for point in final_clusters_ids1.keys():
         #    print({ke: distance_mat_dict[point][ke] for ke in final_clusters_ids1.keys()})
@@ -1707,8 +1706,6 @@ def main(old_query_upd_scores, d_strand_flip_penalty, s_0):
 if __name__ == "__main__":
 
     print("starting")
-    cluster_clusters()
-    print(x)
     arg_parser()
     iterations = int(args.iter)
     if_singleton = int(args.singleton)
