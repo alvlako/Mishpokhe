@@ -496,6 +496,7 @@ def find_clusters(mapped_res, old_query_upd_scores, d_strand_flip_penalty, s_0):
 # it re-defines the scores which I have got in the first iteration 
 # ADD significant clusters determination?
 def update_scores_for_cluster_matches(cluster_matches, mapped_res):
+
     # CHANGE for really significant clusters, not as it is?
     significant_clusters = cluster_matches 
     # ADD query id to mapped results
@@ -560,6 +561,12 @@ def update_scores_for_cluster_matches(cluster_matches, mapped_res):
         if query_id == '':
             continue
         M_x = mapped_results['query_ID'][mapped_results['query_ID'] == query_id].shape[0]
+        # There was a need to use this file (mapped_results_mish) here as the mapped results
+        # have only best hits, not like initial m8. Also query there is in col 9
+        #cmd = "cat mapped_results_mish | awk -F'\t' '{print $9}' | grep " + query_id +" | wc -l"
+        #pr = subprocess.Popen(cmd, shell = True, stdout = subprocess.PIPE)
+        #out, er = pr.communicate()
+        #M_x = int(out.decode('utf-8'))
         m_x = cluster_prots[cluster_prots['query_id'] == query_id]['query_id'].count()
         # in this case M_x and m_x are equal as there were no single hits. 
         # CHECK with other data where would be hits not only in clusters
@@ -615,15 +622,15 @@ def update_scores_for_cluster_matches(cluster_matches, mapped_res):
             logging.debug(f"no match: {target_id}")
             s_0 = np.divide(np.divide((l-m_x_sum),l), np.divide((L-M_x_sum),L)) - bias
             logging.debug(f"updates s_0 for: {target_id} is= {s_0}")
-            logging.debug(f"sign_clusters_df[pd.DataFrame(sign_clusters_df['target_prots'].tolist()).isin(target_id.split()).any(1).values]")
-            tmp_df = sign_clusters_df[pd.DataFrame(sign_clusters_df['target_prots'].tolist()).isin(target_id.split()).any(1).values]['new_score_enrich'] + s_0
+            #logging.debug(f"sign_clusters_df[pd.DataFrame(sign_clusters_df['target_prots'].tolist()).isin(target_id.split()).any(1).values]")
+            #tmp_df = sign_clusters_df[pd.DataFrame(sign_clusters_df['target_prots'].tolist()).isin(target_id.split()).any(1).values]['new_score_enrich'] + s_0
             array_of_bool = pd.DataFrame(sign_clusters_df['target_prots'].tolist()).isin(target_id.split()).any(1).values
             index_of_row = int(np.where(array_of_bool == True)[0])
             sign_clusters_df.loc[sign_clusters_df.index[index_of_row],'new_score_enrich'] = sign_clusters_df.loc[sign_clusters_df.index[index_of_row],'new_score_enrich'] + s_0
             # FIX to make the cell string 
             #sign_clusters_df.loc[sign_clusters_df.index[index_of_row],'list_new_scoreS_enrich'] = sign_clusters_df.loc[sign_clusters_df.index[index_of_row],'list_new_scoreS_enrich'] + ',' + str(s_0)
-            logging.debug(f"sign_clusters_df: \n {sign_clusters_df}")
-            logging.debug(f"sign_clusters_df['list_new_scoreS_enrich'].tolist(): {sign_clusters_df['list_new_scoreS_enrich'].tolist()}")
+            #logging.debug(f"sign_clusters_df: \n {sign_clusters_df}")
+            #logging.debug(f"sign_clusters_df['list_new_scoreS_enrich'].tolist(): {sign_clusters_df['list_new_scoreS_enrich'].tolist()}")
         else:
             logging.debug(f"is in list")
             s_0 = -1
@@ -1044,10 +1051,8 @@ def extract_proteins_cluster_neighborhood(sign_clusters_df, mapped_res):
      str(args.targetdb)+'_h', str(neighbourhood_path)+'_db_h'])
     subprocess.call(['mmseqs', 'convert2fasta', str(neighbourhood_path)+'_db', 
      neighbourhood_path])
-    
-    
+
     #target_clusters_neighbourhood.close()
-    pass
 
 
 # function to initialize score for new protein profiles from neighbourhood
@@ -1119,10 +1124,10 @@ def search_new_query():
     subprocess.call(['mmseqs', 'convertalis', neighbourhood_path + str(iter_counter) + 'iter_db',
      files.target_db, neighbourhood_path + str(iter_counter) + '_ag_target_res',
       neighbourhood_path + str(iter_counter) + '_ag_target_res' +'.m8'])
-    pass
 
 
 def initialize_new_prot_score2(sign_clusters_df, old_query_upd_scores, L, l, mapped_res):
+    print('initializing new proteins scores')
     new_query_db_path = str(files.query_db) + str(iter_counter) + 'iter_db'
     if iter_counter > 1:
         new_query_db_path = str(files.query_db)[:(str(files.query_db).find(str(iter_counter-1)))] + str(iter_counter) + 'iter_db'
@@ -1151,31 +1156,48 @@ def initialize_new_prot_score2(sign_clusters_df, old_query_upd_scores, L, l, map
     neighbourhood_path = files.res + '_' + str(iter_counter) + '_iter_target_clusters_neighbourhood'
     neighbors_clusters_matches_path = neighbourhood_path + str(iter_counter) + '_ag_clusters_res' +'.m8'
     neighbors_target_matches_path = neighbourhood_path + str(iter_counter) + '_ag_target_res' +'.m8'
+
+    #print('neighbors_clusters_matches_path', neighbors_clusters_matches_path)
+    #print('neighbors_target_matches_path', neighbors_target_matches_path)
     
-    print('neighbors_clusters_matches_path', neighbors_clusters_matches_path)
-    print('neighbors_target_matches_path', neighbors_target_matches_path)
-    for new_prot_id in new_query_db_lookup.loc[:,1]:
-        if new_prot_id not in old_query_upd_scores.keys():
-            # awk to count only in queries = neighbors, not in what they are search against
-            sep = r"'\t'"
-            awk_print = "'{print $1}'"
-            cmd1 = f'awk -F {sep} {awk_print} {neighbors_clusters_matches_path} | grep -w {new_prot_id} | wc -l'
-            # WARNING, popen is deprecated, think about this
-            # wc -l works weirdly, so have to split the output 
-            # 4 -> ['', '', '', '', '', '', '', '4\n']
-            m_x = int(''.join(os.popen(cmd1).readline().split(' ')[-1].splitlines()))
-            awk_print2 = "'{print $1}'"
-            cmd2 = f'awk -F {sep} {awk_print2} {neighbors_target_matches_path} | grep -w {new_prot_id} | wc -l'
-            # WARNING, popen is deprecated, think about this
-            M_x = int(''.join(os.popen(cmd2).readline().split(' ')[-1].splitlines()))
-            logging.debug(f'new_prot_id, mx, MX {new_prot_id} {m_x} {M_x}')
-            #print('L', L, 'l', l)
-            #print('m_x, M_x', m_x, M_x)
-            score_x = np.log(np.divide(np.divide((m_x),l), np.divide((M_x), L))) - bias
-            #if score_x < enrichment_threshold:
-            #    score_x = -1
-            logging.debug(f"updated score for new prot {new_prot_id} is {score_x}")
-            old_query_upd_scores[new_prot_id] = score_x
+    neighbors_clusters_matches_res = pd.read_csv(neighbors_clusters_matches_path, dtype={'str':'float'}, sep='\t', header = None)
+    neighbors_clusters_matches_res.columns = ["query_id", "target_id","seq_ident", "score",
+         "smth1", "smth2", "smth3", "smth4", "smth5", "smth6", "eval","score2"]
+    q_arr_neighbors_clusters_matches_res = neighbors_clusters_matches_res["query_id"].to_numpy()
+
+    neighbors_target_matches_res = pd.read_csv(neighbors_target_matches_path, dtype={'str':'float'}, sep='\t', header = None)
+    neighbors_target_matches_res.columns = ["query_id", "target_id","seq_ident", "score",
+         "smth1", "smth2", "smth3", "smth4", "smth5", "smth6", "eval","score2"]
+    q_arr_neighbors_target_matches_res = neighbors_target_matches_res["query_id"].to_numpy()
+
+    # Here I make arrays of queries from search res for neighbours prots 
+    # against clusters/target. The queries sorted to be unique, the counts for 
+    # every unique query are returned
+    clusters_search_uniq_q, clusters_search_uniq_q_counts = np.unique(q_arr_neighbors_clusters_matches_res, return_counts=True)
+    target_search_uniq_q, target_search_uniq_q_counts = np.unique(q_arr_neighbors_target_matches_res, return_counts=True)
+
+    # Here I find which proteins from the new query (added neighbours) are
+    # not yet in scores and need a score
+    arr_new_query_db_lookup = new_query_db_lookup.loc[:,1].to_numpy()
+    arr_old_query_upd_scores_keys = np.array(list(old_query_upd_scores.keys()))
+    arr_prot_to_add = np.setdiff1d(arr_new_query_db_lookup, arr_old_query_upd_scores_keys)
+
+    # Here I extract the indices of queries in clusters/target matches res that intersect with
+    # the new neighbours proteins that need a score to calculate
+    # The indices should be used to access the counts to calculate the score
+    xy, x_ind, y_ind = np.intersect1d(clusters_search_uniq_q,
+     arr_prot_to_add, return_indices=True)
+    xy1, x_ind1, y_ind1 = np.intersect1d(target_search_uniq_q,
+     arr_prot_to_add, return_indices=True)
+
+    arr_m_x = np.take(clusters_search_uniq_q_counts, x_ind)
+    arr_M_x = np.take(target_search_uniq_q_counts, x_ind1)
+
+    arr_score_x = np.log(np.divide(np.divide((arr_m_x),l), np.divide((arr_M_x), L))) - bias
+
+    # Here I add just to the scores dict the dict made out of new prots ids and their scores
+    dict_additional_scores = dict(zip(arr_prot_to_add, arr_score_x))
+    old_query_upd_scores.update(dict_additional_scores)
     logging.debug(f"old_query_upd_scores updated with neighbours \n {old_query_upd_scores}")
     return(old_query_upd_scores)
 
