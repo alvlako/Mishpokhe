@@ -947,19 +947,12 @@ def calculate_e_value(stat_lambda, stat_K, significant_cluster_df_enriched, mapp
 
 
 def extract_proteins_cluster_neighborhood(sign_clusters_df, mapped_res):
+
     print('updating query profile started (extracting prots)')
     logging.debug(f"significant (?) clusters table \n {sign_clusters_df}")
     target_fasta = args.targetfa
     logging.debug(f"{sign_clusters_df['target_prots']}")
     neighbourhood_path = files.res + '_' + str(iter_counter) + '_iter_target_clusters_neighbourhood'
-    
-    #target_clusters_neighbourhood = open(neighbourhood_path, "w")
-    target_clusters_matches = open("target_clusters_matches", "w")
-
-    # making index range for genomes to grep only in the range of the genomes
-    # and dont get to other genomes (e.g. if the left protein close to start or right to end)
-    genome_start_idxs = dict()
-    genome_end_idxs = dict()
 
     # extracting 3 neghbours from each side
     # MAKE a parameter
@@ -968,80 +961,40 @@ def extract_proteins_cluster_neighborhood(sign_clusters_df, mapped_res):
         neighbors_number_1side = 0
 
     # WHY do I need this file?
-    target_protID_cluster_file_idx = open("target_protID_cluster_file_idx", "w")
+    #target_protID_cluster_file_idx = open("target_protID_cluster_file_idx", "w")
     target_db_lookup = mapped_res.target_db_lookup
     #print(target_db_lookup)
     print('creating subdb')
-    
 
-    for target_prot_cluster in sign_clusters_df['target_prots']:
-        # that is to save cluster prots ids and grep with them to find cluster matches sequences and 
-        # exclude them from new within cluster prots
+    # arrays with the left and right proteins of each cluster
+    arr_prot_id_left = sign_clusters_df["target_prots"].str[0].to_numpy()
+    arr_prot_id_right = sign_clusters_df["target_prots"].str[-1].to_numpy()
+    arr_entire_cluster_id = sign_clusters_df["target_prots"].explode('target_prots').to_numpy()
+    # array with the protein real ids taken from target db lookup. Indices in array can be
+    # used to access the mmseqs ids (ind_id)
+    arr_target_db_lookup_real_ids = target_db_lookup['ID'].to_numpy()
+    arr_target_db_lookup_mmseqs_ind = target_db_lookup['ind_id'].to_numpy()
 
-        # getting the ranges of indices for a genome
-        # THINK if it worth to check in keys
-        genome_id = '_'.join(target_prot_cluster[0].split('_')[:-1])
-        print('genome_id', genome_id)
-        #logging.debug(f"genome_id {genome_id}")
-        if genome_id not in genome_end_idxs.keys():
-            genome_start = target_db_lookup[target_db_lookup['ID'].str.contains(pat = genome_id)].index[0]
-            genome_end = target_db_lookup[target_db_lookup['ID'].str.contains(pat = genome_id)].index[-1]
-            genome_start_idxs[genome_id] = genome_start
-            genome_end_idxs[genome_id] = genome_end
-            #logging.debug(genome_id, genome_start, genome_end)
+    # make array with the neighbours indices
+    l_all_indices_clu_neigh = []
+    for i in range(arr_prot_id_left.size):
+        left_ind = int(np.where(arr_target_db_lookup_real_ids == arr_prot_id_left[i])[0])
+        right_ind = int(np.where(arr_target_db_lookup_real_ids == arr_prot_id_right[i])[0])
+        left_border = left_ind-neighbors_number_1side
+        right_border = right_ind+neighbors_number_1side+1
+        #print('left_border right_border', left_border, right_border)
+        l_all_indices_clu_neigh.extend(list(range(left_border,right_border)))
+    logging.debug(f"l_all_indices_clu_neigh {l_all_indices_clu_neigh}")
+   
 
-        target_protID_cluster_idx = []
-        #logging.debug(*target_prot_cluster)
+    # add indices of proteins between left and right prots of the cluster and keep uniq
+    all_indices_clu_neigh = np.unique(np.array(l_all_indices_clu_neigh))
+    # obtain mmseqs ids corresponding to indices
+    arr_mmseqs_ind_clu_neigh = arr_target_db_lookup_mmseqs_ind[all_indices_clu_neigh]
 
-        protID_left = target_prot_cluster[0]
-        protID_right = target_prot_cluster[-1]
-        #import time
-        
-        #logging.debug(f"protID_left {protID_left} protID_right {protID_right}")
-        # THINK Is it fast enough?
-        #start_get = time.time()
-
-        # Unfortunately, ind_id can not be used , as close proteins might have 
-        # very distant ids in mmseqs database. So I just get pandas df index
-        # and retrieve the ind_id per each of such index
-        #protID_left_ind = target_db_lookup.loc[target_db_lookup['ID'] == protID_left, 'ind_id'].iloc[0]
-        #protID_right_ind = target_db_lookup.loc[target_db_lookup['ID'] == protID_right, 'ind_id'].iloc[0]
-
-        # As index gives a list, I just take 0th (hopefully the only) value of it
-        print('target_prot_cluster', target_prot_cluster)
-        print('protID_left', protID_left)
-        protID_left_ind = target_db_lookup.index[target_db_lookup['ID'] == protID_left][0]
-        protID_right_ind = target_db_lookup.index[target_db_lookup['ID'] == protID_right][0]
-        print('protID_left_ind', protID_left_ind, 'protID_right_ind', protID_right_ind)
-
-        logging.debug(f"protID_left_ind-neighbors_number_1side {protID_left_ind-neighbors_number_1side}")
-        logging.debug(f"protID_right_ind+neighbors_number_1side+1 {protID_right_ind+neighbors_number_1side+1}")
-
-        #end_get = time.time()
-        #print('start_get', end_get - start_get)
-        #logging.debug(f"protID_left_ind {protID_left_ind} protID_right_ind {protID_right_ind}")
-        # MAKE file.write faster? dont write every line?
-        for id in range(protID_left_ind-neighbors_number_1side, protID_right_ind+neighbors_number_1side+1):
-            if id >= genome_start and id <= genome_end:
-                #print('if')
-                #start_write = time.time()
-                mmseqs_id = target_db_lookup.iloc[id]['ind_id']
-                target_protID_cluster_file_idx.write(f'{str(mmseqs_id)}\n')
-                #end_write = time.time()
-                #print('start_write', end_write - start_write)
-                #print(id)
-            else:
-                if id < genome_start:
-                    id_left = genome_end - abs(genome_start - abs(id) + 1)
-                    mmseqs_id = target_db_lookup.iloc[id_left]['ind_id']
-                    target_protID_cluster_file_idx.write(f'{str(mmseqs_id)}\n')
-                    #print(id_left)
-                if id > genome_end:
-                    id_right = genome_start + abs(genome_end - abs(id) - 1)
-                    mmseqs_id = target_db_lookup.iloc[id_right]['ind_id']
-                    target_protID_cluster_file_idx.write(f'{str(mmseqs_id)}\n')  
-                    #print(id_right)
-    target_protID_cluster_file_idx.close()
+    np.savetxt('target_protID_cluster_file_idx', arr_mmseqs_ind_clu_neigh, fmt='%i')
+ 
+    #target_protID_cluster_file_idx.close()
     with open('target_protID_cluster_file_idx_sorted','w') as out:
         subprocess.call(['sort', '-u', '-n', 'target_protID_cluster_file_idx'],stdout=out)
     # BE careful! this db accessory files are not in order with db seqs
