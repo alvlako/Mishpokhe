@@ -935,7 +935,7 @@ def calculate_e_value(stat_lambda, stat_K, significant_cluster_df_enriched, mapp
     eval_filter = float(args.eval)
     use_eval_filter = args.evalfilteruse
     if use_eval_filter == '1':
-        significant_clusters_eval_filter_df = significant_cluster_df_enriched.loc[(significant_cluster_df_enriched['e-value'] <eval_filter) & (significant_cluster_df_enriched['e-value'] > 0)]
+        significant_clusters_eval_filter_df = significant_cluster_df_enriched.loc[(significant_cluster_df_enriched['e-value'] <eval_filter) & (significant_cluster_df_enriched['e-value'] >= 0)]
         cluster_path2 = files.res + '_' + str(iter_counter) + '_iter_sign_clusters_enrich_stat_filtered'
         significant_clusters_eval_filter_df.to_csv(cluster_path2, sep = '\t', index = False)
     else:
