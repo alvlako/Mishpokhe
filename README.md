@@ -34,6 +34,10 @@ The help can be called with
   * `-s SINGLETON`, `--singleton SINGLETON`
                         Set to 1 if you have singleton queries, default is 0
 		        Only set in quite special cases
+  *  `-u EVALFILTERUSE`, `--evalfilteruse EVALFILTERUSE`
+                        Set to 1 if you want to use mishpokhe clusters e-value filter, default is 1
+  * `e EVAL`, `--eval EVAL`,
+                        Specify the e-value threshold, default is 1
 
 
 ## Tips:
