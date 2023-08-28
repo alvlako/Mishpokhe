@@ -1354,7 +1354,7 @@ def cluster_clusters(significant_cluster_df_enriched):
                 loc_density = 0
                 for spatial_compare in range(array_presence_arrays.shape[0]):
                     vec1 = array_presence_arrays[spatial_compare]
-                    align_part = sum(np.logical_and(vec1,vec0))
+                    align_part = np.sum(np.logical_and(vec1,vec0))
                     len_vec1 = np.count_nonzero(vec1 == 1)
                     len_vec0 = np.count_nonzero(vec0 == 1)
                     dist = 1 - (align_part/np.sqrt(len_vec0*len_vec1))
