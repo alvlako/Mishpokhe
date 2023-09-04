@@ -1116,12 +1116,23 @@ def initialize_new_prot_score2(sign_clusters_df, old_query_upd_scores, L, l, map
     neighbors_clusters_matches_res = pd.read_csv(neighbors_clusters_matches_path, dtype={'str':'float'}, sep='\t', header = None)
     neighbors_clusters_matches_res.columns = ["query_id", "target_id","seq_ident", "score",
          "smth1", "smth2", "smth3", "smth4", "smth5", "smth6", "eval","score2"]
+    # I have to drop the rows where query hits itself, cause it is very unstable in mmseqs2
+    #neighbors_clusters_matches_res = neighbors_clusters_matches_res[neighbors_clusters_matches_res['query_id'] != neighbors_clusters_matches_res['target_id']]
+
     q_arr_neighbors_clusters_matches_res = neighbors_clusters_matches_res["query_id"].to_numpy()
 
     neighbors_target_matches_res = pd.read_csv(neighbors_target_matches_path, dtype={'str':'float'}, sep='\t', header = None)
     neighbors_target_matches_res.columns = ["query_id", "target_id","seq_ident", "score",
          "smth1", "smth2", "smth3", "smth4", "smth5", "smth6", "eval","score2"]
+    # I have to drop the rows where query hits itself, cause it is very unstable in mmseqs2
+    #neighbors_target_matches_res = neighbors_target_matches_res[neighbors_target_matches_res['query_id'] != neighbors_target_matches_res['target_id']]
     q_arr_neighbors_target_matches_res = neighbors_target_matches_res["query_id"].to_numpy()
+
+
+    # To keep only 1 best-matched query per each target, as in procedures for clusters
+    #neighbors_clusters_matches_res = neighbors_clusters_matches_res.loc[neighbors_clusters_matches_res.groupby('target_id')['eval'].idxmin()].reset_index(drop=True)
+    #neighbors_target_matches_res = neighbors_target_matches_res.loc[neighbors_target_matches_res.groupby('target_id')['eval'].idxmin()].reset_index(drop=True)
+
 
     # Here I make arrays of queries from search res for neighbours prots 
     # against clusters/target. The queries sorted to be unique, the counts for 
@@ -1142,12 +1153,20 @@ def initialize_new_prot_score2(sign_clusters_df, old_query_upd_scores, L, l, map
      arr_prot_to_add, return_indices=True)
     xy1, x_ind1, y_ind1 = np.intersect1d(target_search_uniq_q,
      arr_prot_to_add, return_indices=True)
+    
+    # That was just for checking
+    #mask1 = np.in1d(arr_prot_to_add, target_search_uniq_q, invert=True)
+    #mask2 = np.in1d(arr_prot_to_add, clusters_search_uniq_q, invert=True)
 
     arr_m_x = np.take(clusters_search_uniq_q_counts, x_ind)
     arr_M_x = np.take(target_search_uniq_q_counts, x_ind1)
 
-    arr_score_x = np.log(np.divide(np.divide((arr_m_x),l), np.divide((arr_M_x), L))) - bias
+    logging.debug(f"arr_M_x \n {arr_M_x}")
+    logging.debug(f"arr_m_x \n {arr_m_x}")
+    logging.debug(f"x_ind,x_ind1 \n {x_ind, x_ind1}")
+    logging.debug(f"l, L, len(arr_m_x), len(arr_M_x) \n {l, L, len(arr_m_x), len(arr_M_x)}")
 
+    arr_score_x = np.log(np.divide(np.divide((arr_m_x),l), np.divide((arr_M_x), L))) - bias
     # Here I add just to the scores dict the dict made out of new prots ids and their scores
     dict_additional_scores = dict(zip(arr_prot_to_add, arr_score_x))
     old_query_upd_scores.update(dict_additional_scores)
@@ -1283,7 +1302,8 @@ def cluster_clusters(significant_cluster_df_enriched):
     #path_to_test = '/Users/Sasha/Documents/GitHub/mishpokhe_test/anti_crispr_res_wOld_6_guo1iter_res_2_iter_sign_clusters_enrich_stat_filtered'
     # ast.literal_eval is used to read rows looking like [1,2,3] as python list
     clusters_stat = pd.read_csv(path_to_test, dtype=None, sep='\t',
-     converters={'query_prots':ast.literal_eval})
+     converters={'query_prots':ast.literal_eval,'target_prots':ast.literal_eval, 'strand':ast.literal_eval})
+    #clusters_stat = significant_cluster_df_enriched
     clusters_queries = clusters_stat['query_prots'].copy()
     queries_set = set()
     for row in clusters_queries:
@@ -1544,6 +1564,7 @@ def cluster_clusters(significant_cluster_df_enriched):
  
     not_clustered_to_initial_acrs = list()
     clustered_to_initial_acrs = list()
+
     for l in final_clusters_ids.keys(): 
         #print(l)
         associated = 0
@@ -1571,9 +1592,9 @@ def cluster_clusters(significant_cluster_df_enriched):
     positives_filtered = []
     # do not really understand why sorting needed in the next line. But otherwise it gets errors trying to assess
     # non-existing elements of old_query_scores in the next iter (probably something related to the order?)
-    significant_clusters_eval_filter_df_clu = significant_cluster_df_enriched.iloc[sorted(clustered_to_initial_acrs)]
-    #print(clusters_stat)
-    #significant_clusters_eval_filter_df_clu = clusters_stat.iloc[sorted(clustered_to_initial_acrs)]
+    significant_clusters_eval_filter_df_clu = clusters_stat.iloc[sorted(clustered_to_initial_acrs)]
+    #significant_clusters_eval_filter_df_clu = significant_cluster_df_enriched.iloc[sorted(clustered_to_initial_acrs)]
+
     if iter_counter == 2:
         for i in sorted(clustered_to_initial_acrs):
             print(clusters_dict[i])
