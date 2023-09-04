@@ -551,11 +551,6 @@ def update_scores_for_cluster_matches(cluster_matches, mapped_res):
     #logging.debug(f"x_number_of_queries: {x_number_of_queries}")
     # Do I need unique?
     for query_id in cluster_prots['query_id'].unique():
-        # that is to write all the INITIAL queries to this list which
-        # allow later filter in the clustering of clusters. The filter would keep those clusters
-        # which are clustered together with those having match to the initial query/another match to the initial query
-        if iter_counter == 1:
-                q_and_matches.append(query_id)
         logging.debug(f"query_id: {query_id}")
         # to avoid empty queries corresponding to prots with no match
         if query_id == '':
@@ -1754,6 +1749,9 @@ if __name__ == "__main__":
             s_0 = None
             d_strand_flip_penalty = None
             files.query_db = files.query_db
+            # that is to write all the INITIAL queries to this list which allow later filter in the clustering of clusters. The filter would keep those clusters  which are clustered together with those having match to the initial query/another match to the initial query
+            query_db_lookup = pd.read_csv(str(files.query_db)+str(".lookup"), dtype=None, sep='\t', header = None)
+            q_and_matches = query_db_lookup.iloc[:, 1].tolist()
         if iter_counter == 2:
             files.query_db = str(files.query_db) + str(iter_counter-1) + 'iter_db'
             files.res = str(files.res) + str(iter_counter-1) + 'iter_res'
