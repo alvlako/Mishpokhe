@@ -1125,8 +1125,8 @@ def initialize_new_prot_score2(sign_clusters_df, old_query_upd_scores, L, l, map
 
 
     # To keep only 1 best-matched query per each target, as in procedures for clusters
-    #neighbors_clusters_matches_res = neighbors_clusters_matches_res.loc[neighbors_clusters_matches_res.groupby('target_id')['eval'].idxmin()].reset_index(drop=True)
-    #neighbors_target_matches_res = neighbors_target_matches_res.loc[neighbors_target_matches_res.groupby('target_id')['eval'].idxmin()].reset_index(drop=True)
+    neighbors_clusters_matches_res = neighbors_clusters_matches_res.loc[neighbors_clusters_matches_res.groupby('target_id')['eval'].idxmin()].reset_index(drop=True)
+    neighbors_target_matches_res = neighbors_target_matches_res.loc[neighbors_target_matches_res.groupby('target_id')['eval'].idxmin()].reset_index(drop=True)
 
 
     # Here I make arrays of queries from search res for neighbours prots 
