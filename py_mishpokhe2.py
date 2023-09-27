@@ -50,7 +50,7 @@ def arg_parser():
     for argument in vars(args):
         arg_path = getattr(args, argument)
         if not os.path.exists((arg_path)):
-            if argument not in ['res', 'iter', 'singleton', 'evalfilteruse']:
+            if argument not in ['res', 'iter', 'singleton', 'evalfilteruse', 'eval']:
                 sys.exit(f"{arg_path} not found")
 
 class FilePath:
@@ -194,7 +194,6 @@ class ResultsMapping:
         # map by 1st (0) column with real ids from search res
         # print(target_db_h.loc[target_db_h.iloc[:, 0].astype(str) == 'MT006214.1_1'])
         tmp_res_map_to_header = target_db_h.loc[target_db_h.iloc[:, 0].astype(str).isin(real_id_list)]
-
 
         # NOTe - isin makes sorting, so the next lines to get to the original lines order
         # that is to link proper query ids to the other info
@@ -1567,8 +1566,41 @@ def cluster_clusters(significant_cluster_df_enriched):
     
     final_clusters_ids = R_L_density_clustering(dict_presence_lists)
     #print(x)
- 
- 
+
+    # -------------
+    # Another way of architectures filtering
+
+    print(clusters_stat)
+    clusters_bed = clusters_stat.loc[:, ['targets_string', 'coord1', 'coord2']]
+    clusters_bed['targets_string'] = clusters_bed['targets_string'].str.split(',').str[0]
+    clusters_bed['targets_string'] = clusters_bed['targets_string'].str.rsplit("_", 1).str[0]
+    print(clusters_bed)
+    clusters_bed_path = 'clusters_bed_path'
+    clusters_bed.to_csv('clusters_bed_path', sep = '\t', index=False, header=False)
+    clusters_bed_dist_path = 'clusters_bed_dist_path'
+    with open('clusters_bed_dist_path', "w") as outfile:
+        subprocess.run(['bedtools', 'cluster', '-i', 'clusters_bed_path', '-d', '30000'], stdout=outfile)
+    clusters_bed_dist = pd.read_csv('clusters_bed_dist_path', dtype=None, sep='\t')
+    clusters_bed_dist.columns = ['genome','coord1','coord2','bedtools_cluster']
+    close = list(clusters_bed_dist.index[clusters_bed_dist.duplicated(subset=['bedtools_cluster'], keep = False)])
+    print(close)
+    clustered_to_close = list()
+    for l in final_clusters_ids.keys(): 
+        associated = 0
+        if l in close:
+            associated = 1
+        else:
+            for i in final_clusters_ids[l]:
+                if i in close:
+                    associated = 1
+                    break
+        if associated == 1:
+            clustered_to_close.append(l)
+            clustered_to_close.extend(final_clusters_ids[l])
+
+    # -------------
+
+
     not_clustered_to_initial_acrs = list()
     clustered_to_initial_acrs = list()
 
@@ -1601,6 +1633,8 @@ def cluster_clusters(significant_cluster_df_enriched):
     # non-existing elements of old_query_scores in the next iter (probably something related to the order?)
     significant_clusters_eval_filter_df_clu = clusters_stat.iloc[sorted(clustered_to_initial_acrs)]
     #significant_clusters_eval_filter_df_clu = significant_cluster_df_enriched.iloc[sorted(clustered_to_initial_acrs)]
+    clu_arc_ind = open(str(files.res) + str(iter_counter) +'clu_arc_ind', 'w')
+    clu_arc_ind.write('-------'+'\n')
 
     if iter_counter == 2:
         for i in sorted(clustered_to_initial_acrs):
@@ -1611,6 +1645,10 @@ def cluster_clusters(significant_cluster_df_enriched):
         print([clusters_stat['target_prots'][c], clusters_stat['coord1'][c], clusters_stat['coord2'][c]])
         positives_filtered.append([clusters_stat['target_prots'][c], clusters_stat['coord1'][c], clusters_stat['coord2'][c]])
     print('filtered positives', len(positives_filtered))
+
+    # --------new clusterting filter
+
+    #significant_clusters_eval_filter_df_clu = clusters_stat.iloc[sorted(clustered_to_close)]
     return significant_clusters_eval_filter_df_clu
 
 
@@ -1692,7 +1730,7 @@ def main(old_query_upd_scores, d_strand_flip_penalty, s_0):
 
     # Is it okay to use e-val filtering here?
     sign_clusters_df = significant_clusters_eval_filter_df_clu
-    #sign_clusters_df = significant_cluster_df_enriched
+    ###sign_clusters_df = significant_cluster_df_enriched
 
     path_clu_filter = files.res + '_' + str(iter_counter) + '_iter_sign_clusters_enrich_stat_filtered_clu_filter'
     significant_clusters_eval_filter_df_clu.to_csv(path_clu_filter, sep = '\t', index = False)
