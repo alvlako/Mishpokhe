@@ -106,6 +106,7 @@ def run_search():
      files.target_db,
      files.res + '_prof_search',
      'tmp', '-a'])
+    #, '--min-seq-id', '0.5'
     #subprocess.call(['mmseqs', 'search', files.target_db,
     #files.query_db + '_clu' + '_rep' + '_profile',
     # files.res + '_prof_search',
@@ -373,6 +374,8 @@ def find_clusters(mapped_res, old_query_upd_scores, d_strand_flip_penalty, s_0):
             curr_query_id = mapped_results.loc[mapped_results['ID'] == target_db_h_id_list[i], 'query_ID'].iloc[0]
             # In the 1st iter old_query_upd_scores are filled with 1
             score_x_i = old_query_upd_scores[curr_query_id]
+            if iter_counter > 1 and score_x_i < 4:
+                score_x_i = s_0
         else:
             score_x_i = s_0
             # is it a good idea?
@@ -991,8 +994,7 @@ def extract_proteins_cluster_neighborhood(sign_clusters_df, mapped_res):
         #print('left_border right_border', left_border, right_border)
         l_all_indices_clu_neigh.extend(list(range(left_border,right_border)))
     logging.debug(f"l_all_indices_clu_neigh {l_all_indices_clu_neigh}")
-   
-
+    
     # add indices of proteins between left and right prots of the cluster and keep uniq
     all_indices_clu_neigh = np.unique(np.array(l_all_indices_clu_neigh))
     # obtain mmseqs ids corresponding to indices
@@ -1629,13 +1631,20 @@ def cluster_clusters(significant_cluster_df_enriched):
             not_clustered_to_initial_acrs.extend(final_clusters_ids[l])
     print(clustered_to_initial_acrs)
     positives_filtered = []
-    # do not really understand why sorting needed in the next line. But otherwise it gets errors trying to assess
-    # non-existing elements of old_query_scores in the next iter (probably something related to the order?)
+
+
+    close_and_associated = list(set(clustered_to_close) & set(clustered_to_initial_acrs))
+    # it checks here if list 'close_and_associated' is not empty
+    #if iter_counter > 1 and not close_and_associated == False:
+    #    significant_clusters_eval_filter_df_clu = clusters_stat.iloc[sorted(close_and_associated)]
+    #else:
+    #    significant_clusters_eval_filter_df_clu = clusters_stat.iloc[sorted(clustered_to_initial_acrs)]
     significant_clusters_eval_filter_df_clu = clusters_stat.iloc[sorted(clustered_to_initial_acrs)]
-    #significant_clusters_eval_filter_df_clu = significant_cluster_df_enriched.iloc[sorted(clustered_to_initial_acrs)]
+    
     clu_arc_ind = open(str(files.res) + str(iter_counter) +'clu_arc_ind', 'w')
     clu_arc_ind.write('-------'+'\n')
-
+    # do not really understand why sorting needed in the next line. But otherwise it gets errors trying to assess
+    # non-existing elements of old_query_scores in the next iter (probably something related to the order?)
     if iter_counter == 2:
         for i in sorted(clustered_to_initial_acrs):
             print(clusters_dict[i])
@@ -1647,8 +1656,6 @@ def cluster_clusters(significant_cluster_df_enriched):
     print('filtered positives', len(positives_filtered))
 
     # --------new clusterting filter
-
-    #significant_clusters_eval_filter_df_clu = clusters_stat.iloc[sorted(clustered_to_close)]
     return significant_clusters_eval_filter_df_clu
 
 
