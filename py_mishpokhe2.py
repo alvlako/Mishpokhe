@@ -218,7 +218,9 @@ class ResultsMapping:
         print('start sorting')
         print(' ')
 
-        human_ids = tmp_res_map_to_header['ID'].tolist()
+        # set is added to have only unique ids here in case there are duplicates in
+        # target db
+        human_ids = list(set(tmp_res_map_to_header['ID'].tolist()))
         human_ids.sort(key=natural_keys)
         #tmp_res_map_to_header['ID'] = human_ids.astype('category')
         tmp_res_map_to_header['ID_cat'] = pd.Categorical(tmp_res_map_to_header['ID'], categories=human_ids, ordered=True)
@@ -234,7 +236,7 @@ class ResultsMapping:
 
         # sorting target db lookup to iterate correctly in find_clusters()
         # DOUBLE check?
-        human_ids2 = target_db_lookup['ID'].tolist()
+        human_ids2 = list(set(target_db_lookup['ID'].tolist()))
         human_ids2.sort(key=natural_keys)
         target_db_lookup['ID_cat'] = pd.Categorical(target_db_lookup['ID'], categories=human_ids2, ordered=True)
         target_db_lookup.sort_values('ID_cat', inplace=True)
@@ -275,7 +277,8 @@ def find_clusters(mapped_res, old_query_upd_scores, d_strand_flip_penalty, s_0):
     target_db_h = mapped_res.target_db_h
 
     # For some reasons, _h file is not sorted as lookup by default, so I sort it accordingly
-    target_db_h['sort_cat'] = pd.Categorical(target_db_h['ID'], categories=target_db_lookup.iloc[:, 1].tolist(), ordered=True)
+    # here list(set()) is to remove duplicates of target genomes/proteins
+    target_db_h['sort_cat'] = pd.Categorical(target_db_h['ID'], categories=list(set(target_db_lookup.iloc[:, 1].tolist())), ordered=True)
     target_db_h.sort_values('sort_cat', inplace=True)
     target_db_h.reset_index(inplace=True)
 
@@ -1194,7 +1197,8 @@ def find_singletons(mapped_res):
     target_db_h = mapped_res.target_db_h
 
     # For some reasons, _h file is not sorted as lookup by default, so I sort it accordingly
-    target_db_h['sort_cat'] = pd.Categorical(target_db_h['ID'], categories=target_db_lookup.iloc[:, 1].tolist(), ordered=True)
+    # here list(set()) is to remove duplicates of genomes/proteins if any
+    target_db_h['sort_cat'] = pd.Categorical(target_db_h['ID'], categories=list(set(target_db_lookup.iloc[:, 1].tolist())), ordered=True)
     target_db_h.sort_values('sort_cat', inplace=True)
     target_db_h.reset_index(inplace=True)
 
@@ -1428,8 +1432,8 @@ def cluster_clusters(significant_cluster_df_enriched):
                 current_dist_mat_list = [distance_mat_dict[spatial][k] for k in current_comparisons]
                 min_dist = min(current_dist_mat_list)
                 min_dist_ind = current_dist_mat_list.index(min_dist)
-                closest_neighbor_high_dens = current_comparisons[min_dist_ind]
-                #closest_neighbor_high_dens = (list(distance_mat_dict[spatial].keys())[list(distance_mat_dict[spatial].values())[current_spatial_ind+1:].index(min_dist)])
+                #closest_neighbor_high_dens = current_comparisons[min_dist_ind]
+                ##closest_neighbor_high_dens = (list(distance_mat_dict[spatial].keys())[list(distance_mat_dict[spatial].values())[current_spatial_ind+1:].index(min_dist)])
                 if min_dist == 0:
                     pass
                     #q = 2
@@ -1437,8 +1441,8 @@ def cluster_clusters(significant_cluster_df_enriched):
                     #    current_comparisons = list_of_sorted_spatials[current_spatial_ind+q:len(list_of_sorted_spatials)]
                     #    min_dist = min({distance_mat_dict[spatial][k] for k in current_comparisons})
                     #    q = q + 1
-                closest_neighbor_high_dens = (list(distance_mat_dict[spatial].keys())[list(distance_mat_dict[spatial].values()).index(min_dist)])
-                closest_neighbor_high_dens = current_comparisons[min_dist_ind]
+                #closest_neighbor_high_dens = (list(distance_mat_dict[spatial].keys())[list(distance_mat_dict[spatial].values()).index(min_dist)])
+                #closest_neighbor_high_dens = current_comparisons[min_dist_ind]
                 #closest_neighbor_high_dens = (list(distance_mat_dict[spatial].keys())[list(distance_mat_dict[spatial].values())[current_spatial_ind+1:].index(min_dist)])
 
             # that's for the last, highest-dens point, as current_comparisons are empty
@@ -1449,7 +1453,7 @@ def cluster_clusters(significant_cluster_df_enriched):
             #print({distance_mat_dict[spatial][k] for k in current_comparisons})
             print(min_dist)
             min_distance_from_higher[spatial] = min_dist
-            closest_higher_dens_neigh[spatial] = closest_neighbor_high_dens
+            #closest_higher_dens_neigh[spatial] = closest_neighbor_high_dens
         print(min_distance_from_higher)
         #for i in closest_higher_dens_neigh.keys():
         #    print(clusters_dict[i], clusters_dict[closest_higher_dens_neigh[i]])
@@ -1491,6 +1495,10 @@ def cluster_clusters(significant_cluster_df_enriched):
                 if clusters_dict[p] not in cluster_centroids:
                     cluster_centroids.append(clusters_dict[p])
                     cluster_centroids_ids.append(p)
+        # That happens sometimes, maybe if threshold is not correct
+        if not cluster_centroids_ids:
+            cluster_centroids_ids = list(min_distance_from_higher.keys())
+            cluster_centroids = [clusters_dict[p] for p in min_distance_from_higher.keys()]
         print(cluster_centroids)
         print(len(cluster_centroids))
         print(cluster_centroids_ids)
