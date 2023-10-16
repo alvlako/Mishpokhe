@@ -243,6 +243,12 @@ class ResultsMapping:
         target_db_lookup.reset_index(inplace=True, drop=True)
         target_db_lookup = target_db_lookup.drop(['ID_cat'], axis=1)
 
+        # somehow target_db_h doesnt get always properly sorted in find_clusters, have to do it here
+        
+        target_db_h['ID_cat'] = pd.Categorical(target_db_h['ID'], categories=human_ids2, ordered=True)
+        target_db_h.sort_values('ID_cat', inplace=True)
+        target_db_h.reset_index(inplace=True, drop=True)
+        target_db_h = target_db_h.drop(['ID_cat'], axis=1)
 
         # get target proteins real ids
 
@@ -278,9 +284,9 @@ def find_clusters(mapped_res, old_query_upd_scores, d_strand_flip_penalty, s_0):
 
     # For some reasons, _h file is not sorted as lookup by default, so I sort it accordingly
     # here list(set()) is to remove duplicates of target genomes/proteins
-    target_db_h['sort_cat'] = pd.Categorical(target_db_h['ID'], categories=list(set(target_db_lookup.iloc[:, 1].tolist())), ordered=True)
-    target_db_h.sort_values('sort_cat', inplace=True)
-    target_db_h.reset_index(inplace=True)
+    #target_db_h['sort_cat'] = pd.Categorical(target_db_h['ID'], categories=list(set(target_db_lookup.iloc[:, 1].tolist())), ordered=True)
+    #target_db_h.sort_values('sort_cat', inplace=True)
+    #target_db_h.reset_index(inplace=True)
 
     
     # to fix the problem with the nan coming from reading the table
