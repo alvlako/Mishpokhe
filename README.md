@@ -39,6 +39,15 @@ The help can be called with
   * `e EVAL`, `--eval EVAL`,
                         Specify the e-value threshold, default is 1
 
+## How to read the output
+
+There are numerous files that Mishpokhe outputs (including MMseqs2-related), but the the most important ones are:
+
+* {res}..._stat, files starting with the name given by user in the argument -r, --res and ending with "stat". They store unfiltered clusters obtained in each iteration.
+* {res}..._stat_filtered, files starting with the name given by user in the argument -r, --res and ending with "stat_filtered". They store clusters filtered by e-value from each iteration. These files are only made in case if -u, --evalfilteruse option is not switched off.
+* * {res}..._stat_filtered_clu_filter, files starting with the name given by user in the argument -r, --res and ending with "stat_filtered_clu_filter". They store clusters filtered by architecture clustering to the initial queries from each iteration.
+  
+
 
 ## Tips:
 
