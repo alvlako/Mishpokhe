@@ -16,28 +16,29 @@ The help can be called with
 
   * `-h`, `--help`            show this help message and exit
   * `-q QUERYDB`, `--querydb QUERYDB`
-                        Provide path to query MMseqs2 database (protein,
+                        <br /> &emsp;&emsp;&emsp;Provide path to query MMseqs2 database (protein,
                         unordered)
   * `-t TARGETDB`, `--targetdb TARGETDB`
-                        Provide path to target MMseqs2 database (protein,
+                        <br /> &emsp;&emsp;&emsp;Provide path to target MMseqs2 database (protein,
                         ordered, provided in Prodigal .faa format)
-  * `-r RES`, `--res RES`     Specify the name to be given to the results of the
+  * `-r RES`, `--res RES`
+    			<br /> &emsp;&emsp;&emsp;Specify the name to be given to the results of the
                         search
   * `-tf TARGETFA`, `--targetfa TARGETFA`
-                        Provide path to target sequence (fasta (linearized!))
-			That is the initial fasta containing proteomes (ordered) to use as a target, provided in Prodigal .faa format
+                        <br /> &emsp;&emsp;&emsp;Provide path to target sequence (fasta (linearized!))
+			<br /> &emsp;&emsp;&emsp;That is the initial fasta containing proteomes (ordered) to use as a target, provided in Prodigal .faa format
   * `-qf QUERYFA`, `--queryfa QUERYFA`
-                        Provide path to query sequence (fasta)
-			That is the initial fasta containing proteins (unordered) to use as query
+                        <br /> &emsp;&emsp;&emsp;Provide path to query sequence (fasta)
+			<br /> &emsp;&emsp;&emsp;That is the initial fasta containing proteins (unordered) to use as query
   * `-i ITER`, `--iter ITER`  Give the number of iterations, default is 1
-			Recommended to set not more than 3
+			<br /> &emsp;&emsp;&emsp;Recommended to set not more than 3
   * `-s SINGLETON`, `--singleton SINGLETON`
-                        Set to 1 if you have singleton queries, default is 0
-		        Only set in quite special cases
+                        <br /> &emsp;&emsp;&emsp;Set to 1 if you have singleton queries, default is 0
+		        <br /> &emsp;&emsp;&emsp;Only set in quite special cases
   *  `-u EVALFILTERUSE`, `--evalfilteruse EVALFILTERUSE`
-                        Set to 1 if you want to use mishpokhe clusters e-value filter, default is 1
+                        <br /> &emsp;&emsp;&emsp;Set to 1 if you want to use mishpokhe clusters e-value filter, default is 1
   * `e EVAL`, `--eval EVAL`,
-                        Specify the e-value threshold, default is 1
+                        <br /> &emsp;&emsp;&emsp;Specify the e-value threshold, default is 1
 
 ## How to read the output
 
