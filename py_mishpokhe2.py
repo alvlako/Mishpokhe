@@ -327,6 +327,8 @@ def find_clusters(mapped_res, old_query_upd_scores, d_strand_flip_penalty, s_0):
     query_genes_ids = []
     target_genes_ids = []
     prots_strands = []
+    coords1 = []
+    coords2 = []
 
 
     matches_ids_list = mapped_results['ID'].tolist()
@@ -347,6 +349,8 @@ def find_clusters(mapped_res, old_query_upd_scores, d_strand_flip_penalty, s_0):
         #logging.debug(f"target_db_lookup.iloc[:, 1].values[i]: {target_db_lookup.iloc[:, 1].values[i]}")
         # CHECK if -1 (and other potential values) properly read
         strand = int(target_db_h_strand_list[i])
+        coord1 = int(target_db_h_coord1_list[i])
+        coord2 = int(target_db_h_coord2_list[i])
         #logging.debug(f"strand: {strand}")
 
         # to check whether proteins are from the same genome
@@ -448,6 +452,8 @@ def find_clusters(mapped_res, old_query_upd_scores, d_strand_flip_penalty, s_0):
                 query_genes_ids.append(curr_query_id)
                 target_genes_ids.append(target_db_h_id_list[i])
                 prots_strands.append(int(target_db_h_strand_list[i]))
+                coords1.append(coord1)
+                coords2.append(coord2)
 
         else:
             logging.debug(f"second")
@@ -468,11 +474,11 @@ def find_clusters(mapped_res, old_query_upd_scores, d_strand_flip_penalty, s_0):
                 logging.debug(f"second 1st append")
                 cluster_matches.append((i_0_cluster_start,
                 i_1_cluster_end, score_max_cluster,
-                query_genes_ids, target_genes_ids, prots_strands))
+                query_genes_ids, target_genes_ids, prots_strands, coords1, coords2))
                 score_max_cluster = 0
                 logging.debug([i_0_cluster_start,
                 i_1_cluster_end, score_max_cluster,
-                query_genes_ids, target_genes_ids, prots_strands])
+                query_genes_ids, target_genes_ids, prots_strands, coords1, coords2])
             # THINK if it is okay to be here or above
             # for some reasons if here it gives proper result
             i_0_cluster_start = int(target_db_h_coord1_list[i])
@@ -485,6 +491,10 @@ def find_clusters(mapped_res, old_query_upd_scores, d_strand_flip_penalty, s_0):
             target_genes_ids.append(target_db_h_id_list[i])
             prots_strands = []
             prots_strands.append(int(target_db_h_strand_list[i]))
+            coords1 = []
+            coords2 = []
+            coords1.append(coord1)
+            coords2.append(coord2)
             #query_genes_ids.append(mapped_results["query_ID"].values[i])
             #target_genes_ids.append(mapped_results["ID"].values[i])
         # CHECK if correct, not as in latex
@@ -503,10 +513,10 @@ def find_clusters(mapped_res, old_query_upd_scores, d_strand_flip_penalty, s_0):
         logging.debug(f"second 2nd append")
         cluster_matches.append((i_0_cluster_start,
          i_1_cluster_end, score_max_cluster, 
-         query_genes_ids, target_genes_ids, prots_strands))
+         query_genes_ids, target_genes_ids, prots_strands, coords1, coords2))
         logging.debug([i_0_cluster_start,
                 i_1_cluster_end, score_max_cluster,
-                query_genes_ids, target_genes_ids, prots_strands])
+                query_genes_ids, target_genes_ids, prots_strands, coords1, coords2])
     # add more to cluster matches table? prot id?
     # ADD return of the changed ResultsMapping object? (with added scores?)
     # FIX to be faster or remove
@@ -539,7 +549,7 @@ def update_scores_for_cluster_matches(cluster_matches, mapped_res):
     bias = 0
     sign_clusters_df = pd.DataFrame(significant_clusters)
     sign_clusters_df.columns = ["coord1", "coord2", "score",
-    "query_prots", "target_prots", "strand"]
+    "query_prots", "target_prots", "strand", "coordS1", "coordS2"]
     sign_clusters_df["initial_q_or_match"] = False
 
     logging.debug(f"sign_clusters_df: \n {sign_clusters_df}")
@@ -697,7 +707,7 @@ def calculate_karlin_stat(cluster_matches, mapped_res):
     bias = 0
     sign_clusters_df = pd.DataFrame(significant_clusters)
     sign_clusters_df.columns = ["coord1", "coord2", "score",
-    "query_prots", "target_prots", "strand"]
+    "query_prots", "target_prots", "strand", "coordS1", "coordS2"]
 
     cluster_prots = pd.DataFrame()
     cluster_prots['query_id'] = sign_clusters_df['query_prots'].explode()
@@ -881,7 +891,7 @@ def set_strand_flip_penalty(cluster_matches, mapped_res):
     significant_clusters = cluster_matches
     sign_clusters_df = pd.DataFrame(significant_clusters)
     sign_clusters_df.columns = ["coord1", "coord2", "score",
-    "query_prots", "target_prots", "strand"]
+    "query_prots", "target_prots", "strand", "coordS1", "coordS2"]
     logging.debug(f"sign_clusters_df \n {sign_clusters_df}")
     f = 0
     # this should count number of flips in each cluster
@@ -1320,7 +1330,7 @@ def cluster_clusters(significant_cluster_df_enriched):
     #path_to_test = '/Users/Sasha/Documents/GitHub/mishpokhe_test/anti_crispr_res_wOld_6_guo1iter_res_2_iter_sign_clusters_enrich_stat_filtered'
     # ast.literal_eval is used to read rows looking like [1,2,3] as python list
     clusters_stat = pd.read_csv(path_to_test, dtype=None, sep='\t',
-     converters={'query_prots':ast.literal_eval,'target_prots':ast.literal_eval, 'strand':ast.literal_eval})
+     converters={'query_prots':ast.literal_eval,'target_prots':ast.literal_eval, 'strand':ast.literal_eval, "coordS1":ast.literal_eval, "coordS2":ast.literal_eval})
     #clusters_stat = significant_cluster_df_enriched
     clusters_queries = clusters_stat['query_prots'].copy()
     queries_set = set()
