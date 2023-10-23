@@ -41,24 +41,51 @@ clusters_stat['target'], clusters_stat['rest'] = clusters_stat['targer_string'].
 clusters_stat['target_genome'], clusters_stat['rest2'] = clusters_stat['target'].str.rsplit('_', n=1).str
 
 short = clusters_stat[["target_genome", "target_prots", "coordS1", "coordS2", "query_prots"]]
-print(short)
-short_exp = short.explode(['target_prots', 'coordS1', 'coordS2', 'query_prots']).reset_index(drop=True)
+short["cluster_id"] = short["target_genome"]
+
+# to have cluster ids
 curr_genome = ''
-prev_genome = short_exp.loc[0, 'target_genome']
-
-# The following is just incorrect to use, because now I have proteins, not clusters
-#n = 2
-#for i in range(1, len(short_exp.iloc[:, 1])):
-#    curr_genome = short_exp.loc[i, 'target_genome']
+prev_genome = ''
+n = 1
+for i in range(0, len(short.iloc[:, 1])):
+    curr_genome = short.loc[i, 'target_genome']
     #print('curr_genome', curr_genome, 'prev_genome', prev_genome)
-#    if curr_genome == prev_genome:
-#        short_exp.loc[i, 'target_genome'] = short_exp.loc[i, 'target_genome'] + f'_clu_{n}'
-#        n = n + 1
-#    else:
-#        n = 2
-#    prev_genome = curr_genome
+    if curr_genome == prev_genome:
+       short.loc[i, 'cluster_id'] = short.loc[i, 'target_genome'] + f'_clu_{n}'
+    else:
+       n = 1
+       short.loc[i, 'cluster_id'] = short.loc[i, 'target_genome'] + f'_clu_{n}'
+    n = n + 1
+    prev_genome = curr_genome
 
+pd.set_option('display.max_columns', None)
+print(short)
+
+short_exp = short.explode(['target_prots', 'coordS1', 'coordS2', 'query_prots']).reset_index(drop=True)
+
+# to have shifted protein coords per cluster, not per genome
+clu_start = 0
+short_exp["coord1_shift"] = 0
+short_exp["coord2_shift"] = 0
 short_exp["coord_diff"] =  short_exp["coordS2"]  - short_exp["coordS1"] 
+curr_clu = ''
+prev_clu = ''
+for i in range(0, len(short_exp.iloc[:, 1])):
+    curr_clu = short_exp.loc[i, 'cluster_id']
+    #print('curr_genome', curr_genome, 'prev_genome', prev_genome)
+    if curr_clu == prev_clu:
+       short_exp.loc[i, "coord1_shift"] = short_exp.loc[i, "coordS1"] - clu_start
+       short_exp.loc[i, "coord2_shift"] = short_exp.loc[i, "coordS2"] - clu_start
+    else:
+       short_exp.loc[i, "coord2_shift"] = short_exp.loc[i, "coord_diff"] 
+       clu_start = short_exp.loc[i, "coordS1"]
+    prev_clu = curr_clu
+
+print(short_exp)
+
+
+short_exp["target_genome_intern_id"] = short_exp.groupby('target_genome', sort=False).ngroup() + 1
+
 
 print(short_exp)
 
@@ -80,11 +107,11 @@ df = [dict(Task="genome1", Start=20, Finish=100, Resource='Complete'),
 
 clusters_list = []
 for i in range(0, len(short_exp.iloc[:, 1])):
-    genome = short_exp.loc[i, 'target_genome']
+    genome = short_exp.loc[i, 'cluster_id']
     prot = short_exp.loc[i, 'target_prots']
     query_prot = short_exp.loc[i, 'query_prots']
-    coord1 = short_exp.loc[i, 'coordS1']
-    coord2 = short_exp.loc[i, 'coordS2']
+    coord1 = short_exp.loc[i, 'coord1_shift']
+    coord2 = short_exp.loc[i, 'coord2_shift']
     clusters_list.append({'Task': genome, 'Start': coord1, 'Finish': coord2, 'Resource': query_prot})
 
 #colors = {'Not Started': 'rgb(220, 0, 0)', 'Incomplete': (1, 0.9, 0.16), 'Complete': 'rgb(0, 255, 100)'}
@@ -108,22 +135,30 @@ def create_gantt_clusters():
     #fig.layout.xaxis.rangeselector = None
     fig.show()
 
-#create_gantt_clusters()
+create_gantt_clusters()
+print(x)
 
 
 import plotly.graph_objects as go
 fig = go.Figure()
 
-fig.add_trace(go.Scatter(x=[short_exp["coord_diff"].max()+300 for i in range(0,len(short_exp))], y=[i for i in range(0,len(short_exp))], mode="lines", opacity=0))
-for i in range(0, len(short_exp)):
+genomes_number = len(short_exp["target_genome_intern_id"].unique())
+
+fig.add_trace(go.Scatter(x=[short_exp["coordS2"].max()+300 for i in range(0, genomes_number)], y=[i for i in range(0,genomes_number)], mode="lines", opacity=0))
+for i in range(0, genomes_number):
     fig.add_hline(y=i)
 
-for x0, y0, x1, y1 in zip([2 for i in range(0,len(short_exp))], [i-0.3 for i in range(0,len(short_exp))], [2+i for i in short_exp["coord_diff"].tolist()], [i+0.3 for i in range(0,len(short_exp))]):
+#fig.show()
+#print(x)
+
+opt_rect_height = genomes_number / (short_exp["coordS2"].max()/short_exp["coord_diff"].min())
+opt_rect_height = 0.5
+for x0, y0, x1, y1 in zip(short_exp["coordS1"].tolist(), [i-opt_rect_height for i in short_exp["target_genome_intern_id"].tolist()], short_exp["coordS2"].tolist(), [i+opt_rect_height for i in short_exp["target_genome_intern_id"].tolist()]):
     #print(x0, y0, x1, y1 )
     fig.add_shape(type="rect",
         x0=x0, y0=y0, x1=x1, y1=y1,
-        fillcolor="LightSkyBlue",
-        opacity=0.5,
+        fillcolor="green",
+        opacity=0.7,
         layer="below",
         line_width=0
     )
