@@ -45,14 +45,20 @@ print(short)
 short_exp = short.explode(['target_prots', 'coordS1', 'coordS2', 'query_prots']).reset_index(drop=True)
 curr_genome = ''
 prev_genome = short_exp.loc[0, 'target_genome']
-for i in range(1, len(short_exp.iloc[:, 1])):
-    curr_genome = short_exp.loc[i, 'target_genome']
-    n = 2
-    print('curr_genome', curr_genome, 'prev_genome', prev_genome)
-    if curr_genome == prev_genome:
-        short_exp.loc[i, 'target_genome'] = short_exp.loc[i, 'target_genome'] + f'_clu_{n}'
-        n = n + 1
-    prev_genome = curr_genome
+
+# The following is just incorrect to use, because now I have proteins, not clusters
+#n = 2
+#for i in range(1, len(short_exp.iloc[:, 1])):
+#    curr_genome = short_exp.loc[i, 'target_genome']
+    #print('curr_genome', curr_genome, 'prev_genome', prev_genome)
+#    if curr_genome == prev_genome:
+#        short_exp.loc[i, 'target_genome'] = short_exp.loc[i, 'target_genome'] + f'_clu_{n}'
+#        n = n + 1
+#    else:
+#        n = 2
+#    prev_genome = curr_genome
+
+short_exp["coord_diff"] =  short_exp["coordS2"]  - short_exp["coordS1"] 
 
 print(short_exp)
 
@@ -95,8 +101,32 @@ for i in short_exp["query_prots"].unique():
 
 #print(clusters_list)
 
-fig = ff.create_gantt(clusters_list, colors = colors, index_col='Resource',   show_colorbar=True, group_tasks=True, title='Mishpokhe clusters')
-fig.update_layout(xaxis_type='linear')
-#fig.layout.title = None
-#fig.layout.xaxis.rangeselector = None
+def create_gantt_clusters():
+    fig = ff.create_gantt(clusters_list, colors = colors, index_col='Resource',   show_colorbar=True, group_tasks=True, title='Mishpokhe clusters')
+    fig.update_layout(xaxis_type='linear')
+    #fig.layout.title = None
+    #fig.layout.xaxis.rangeselector = None
+    fig.show()
+
+#create_gantt_clusters()
+
+
+import plotly.graph_objects as go
+fig = go.Figure()
+
+fig.add_trace(go.Scatter(x=[short_exp["coord_diff"].max()+300 for i in range(0,len(short_exp))], y=[i for i in range(0,len(short_exp))], mode="lines", opacity=0))
+for i in range(0, len(short_exp)):
+    fig.add_hline(y=i)
+
+for x0, y0, x1, y1 in zip([2 for i in range(0,len(short_exp))], [i-0.3 for i in range(0,len(short_exp))], [2+i for i in short_exp["coord_diff"].tolist()], [i+0.3 for i in range(0,len(short_exp))]):
+    #print(x0, y0, x1, y1 )
+    fig.add_shape(type="rect",
+        x0=x0, y0=y0, x1=x1, y1=y1,
+        fillcolor="LightSkyBlue",
+        opacity=0.5,
+        layer="below",
+        line_width=0
+    )
+fig.update_shapes(dict(xref='x', yref='y'))
 fig.show()
+
