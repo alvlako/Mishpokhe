@@ -554,7 +554,7 @@ def update_scores_for_cluster_matches(cluster_matches, mapped_res):
 
     logging.debug(f"sign_clusters_df: \n {sign_clusters_df}")
     sign_clusters_df['new_score_enrich'] = 0
-    sign_clusters_df['list_new_scoreS_enrich'] = []
+    sign_clusters_df['list_new_scoreS_enrich'] = ''
 
     # MAKE faster?
     sign_clusters_df['queries_string'] = [','.join(map(str, l)) for l in sign_clusters_df['query_prots']]
@@ -587,6 +587,9 @@ def update_scores_for_cluster_matches(cluster_matches, mapped_res):
         logging.debug(f"query_id: {query_id}")
         # to avoid empty queries corresponding to prots with no match
         if query_id == '':
+            sign_clusters_df.loc[sign_clusters_df['queries_string'].str.contains(str(query_id)),
+        'list_new_scoreS_enrich'] = sign_clusters_df.loc[sign_clusters_df['queries_string'].str.contains(str(query_id)),
+        'list_new_scoreS_enrich'].astype(str) + ',' + ''
             continue
         M_x = mapped_results['query_ID'][mapped_results['query_ID'] == query_id].shape[0]
         # There was a need to use this file (mapped_results_mish) here as the mapped results
@@ -627,7 +630,8 @@ def update_scores_for_cluster_matches(cluster_matches, mapped_res):
         'new_score_enrich'] = sign_clusters_df.loc[sign_clusters_df['queries_string'].str.contains(str(query_id)),
         'new_score_enrich'] + score_x
         sign_clusters_df.loc[sign_clusters_df['queries_string'].str.contains(str(query_id)),
-        'list_new_scoreS_enrich'].append(score_x)
+        'list_new_scoreS_enrich'] = sign_clusters_df.loc[sign_clusters_df['queries_string'].str.contains(str(query_id)),
+        'list_new_scoreS_enrich'].astype(str) + ',' + str(score_x)
 
         #print(sign_clusters_df['list_new_scoreS_enrich'])
         # FIX figure out how to set b and threshold for prot to be enriched in cluster
