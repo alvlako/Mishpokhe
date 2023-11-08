@@ -133,6 +133,7 @@ clu_number = len(short_exp['cluster_id_intern_id'].unique())+1
 #short_exp = short_exp.dropna()
 short_exp = short_exp.sort_values(['arc_clu_id', 'cluster_id']).reset_index(drop=True)
 
+short_exp['query_prots'] = short_exp['query_prots'].replace('', 'no match')
 #pd.set_option('display.max_rows', None)
 pd.set_option('display.max_columns', None)
 print(short_exp)
@@ -140,6 +141,7 @@ print(short_exp)
 
 prev_genome = ''
 curr_clu_index = 0
+short_exp['ind_after_sort'] = 0
 for i in range(0, len(short_exp.iloc[:, 1])):
     genome = short_exp.loc[i, 'cluster_id']
     prot = short_exp.loc[i, 'target_prots']
@@ -158,6 +160,7 @@ for i in range(0, len(short_exp.iloc[:, 1])):
         curr_clu_index = curr_clu_index + 1
     # that is to reverse the order
     y1 = clu_number - curr_clu_index - 1
+    short_exp.loc[i, "ind_after_sort"] = y1
     #y1 = clu_number - n
     try:
         text1 = round(float(short_exp.loc[i, 'list_new_scoreS_enrich_fixed']), 1)
@@ -165,8 +168,10 @@ for i in range(0, len(short_exp.iloc[:, 1])):
     except ValueError:
         text1 = ''
     annots_list.append({'x': x1, 'y': y1, 'text': text1, 'showarrow': False, 'font': {'color': 'black'}})
-    
 
+#print(pd.unique(short_exp['query_prots']))
+#print(len(pd.unique(short_exp['query_prots'])))
+#print(x)
 #colors = {'Not Started': 'rgb(220, 0, 0)', 'Incomplete': (1, 0.9, 0.16), 'Complete': 'rgb(0, 255, 100)'}
 #colors=colors,
 
@@ -176,14 +181,20 @@ short_exp["query_colors"] = ''
 for i in short_exp["query_prots"].unique():
     #colors[i] = f'rgba{px.colors.hex_to_rgb(px.colors.qualitative.Dark24[c]) + (1,)}'
     colors[i] = px.colors.qualitative.Dark24[c]
-    print(colors[i])
+    #print(colors[i])
     c = c + 1
     if c > 23:
         c = 0
 
+print(colors)
+n_colors = len(pd.unique(short_exp['query_prots']))
+
+
 for i in range(0, len(short_exp.iloc[:, 1])):
     short_exp.loc[i, "query_colors"] = colors[short_exp.loc[i, "query_prots"]]
 
+
+colors = px.colors.sample_colorscale("Portland", [n/(n_colors -1) for n in range(n_colors)])
 #short_exp['opacity'] = (1 - (1/pd.to_numeric(short_exp['list_new_scoreS_enrich_fixed']))).replace(-np.Inf, 0)
 #short_exp['opacity'][short_exp['opacity'] < 0] = 0
 #print(short_exp['opacity'])
@@ -204,6 +215,7 @@ def create_gantt_clusters():
     config = {'scrollZoom': True}
     #fig.update_layout(xaxis=dict(rangeslider=dict(visible=True),type="linear"))
     #pio.show(my_fig)
+    fig.update_layout(xaxis=dict(showgrid=False), yaxis=dict(showgrid=False))
     fig.show(config=config)
 
 create_gantt_clusters()
@@ -224,17 +236,21 @@ for i in range(0, clusters_number):
 
 opt_rect_height = clusters_number / (short_exp["coordS2"].max()/short_exp["coord_diff"].min())
 opt_rect_height = 0.2
-for x0, y0, x1, y1, op, col, nam in zip(short_exp["coord1_shift"].tolist(), [i-opt_rect_height for i in short_exp["cluster_id_intern_id"]], short_exp["coord2_shift"].tolist(), [i+opt_rect_height for i in short_exp["cluster_id_intern_id"]], short_exp['opacity'], short_exp['query_colors'], short_exp['query_prots'] ):
+#for x0, y0, x1, y1, col, nam in zip(short_exp["coord1_shift"].tolist(), [i-opt_rect_height for i in short_exp["cluster_id_intern_id"]], short_exp["coord2_shift"].tolist(), [i+opt_rect_height for i in short_exp["cluster_id_intern_id"]], short_exp['query_colors'], short_exp['query_prots'] ):
+for x0, y0, x1, y1, col, nam in zip(short_exp["coord1_shift"].tolist(), [i-opt_rect_height for i in short_exp['ind_after_sort']], short_exp["coord2_shift"].tolist(), [i+opt_rect_height for i in short_exp['ind_after_sort']], short_exp['query_colors'], short_exp['query_prots']):
     #print(x0, y0, x1, y1 )
     fig.add_shape(type="rect",
         x0=x0, y0=y0, x1=x1, y1=y1,
         fillcolor=col,
-        opacity=op,
+        #opacity=op,
         layer="below",
         line_width=0,
         name = nam,
         showlegend=True
     )
 fig.update_shapes(dict(xref='x', yref='y'))
+fig.update_layout(xaxis=dict(showgrid=False),
+              yaxis=dict(showgrid=False)
+)
 fig.show()
 
