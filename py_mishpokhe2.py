@@ -1068,6 +1068,9 @@ def make_new_query():
     subprocess.call(cmd,shell=True)
     #with open(out_file, "w") as query_file:
     #    subprocess.Popen(['cat', query_fasta, 'target_clusters_neighbourhood'], stdout = query_file)
+    #query_db_path_out = query_db_path + str(iter_counter) + 'iter_db'
+    #if iter_counter == 0:
+    #    query_db_path_out = query_db_path
     subprocess.call(['mmseqs', 'createdb', query_db_path + str(iter_counter) + 'iter.fasta', query_db_path + str(iter_counter) + 'iter_db'])
 
 
@@ -1235,15 +1238,16 @@ def find_singletons(mapped_res):
     for i in range(0, len(target_db_lookup.iloc[:, 1])-1):
         if target_db_h["ID"].values[i] in matches_ids_list:
             curr_query_id = mapped_results.loc[mapped_results['ID'] == target_db_h["ID"].values[i], 'query_ID'].iloc[0]
-            strand = int(target_db_h["strand"].values[i])
+            strand = [int(target_db_h["strand"].values[i])]
             # making list just to fit to the format
             # expected by extract_proteins_neighbourhood
             target_hit = [target_db_h["ID"].values[i]]
             i_0_cluster_start = int(target_db_h["coord1"].values[i])
             i_1_cluster_end = int(target_db_h["coord2"].values[i])
+            # here I add twice the left and the right coord (as lists) to make it compatible with the other parts where I have a list for all coordinates of prots
             cluster_matches.append((i_0_cluster_start,
          i_1_cluster_end, score_max_cluster, 
-         curr_query_id, target_hit, strand))
+         curr_query_id, target_hit, strand, [i_0_cluster_start], [i_1_cluster_end]))
  
     logging.debug(f"cluster_matches \n {cluster_matches}")
     return cluster_matches
@@ -1283,15 +1287,18 @@ def initialize_singleton_score(sign_clusters_df, mapped_res):
     #crass_query_db0iter_db
     mapped_results = mapped_res.res_map_to_header
     old_query_upd_scores = dict()
-
+    
+    # without 'to list' it doesnt check if value in in column
+    mapped_res_ID_list = mapped_results['ID'].tolist()
+    mapped_res_query_ID_list = mapped_results['query_ID'].tolist()
     for new_prot_id in new_query_db_lookup.loc[:,1]:
-        if new_prot_id in mapped_results['ID']:
+        #print('new_prot_id', new_prot_id)
+        if new_prot_id in mapped_res_ID_list or new_prot_id in mapped_res_query_ID_list:
             old_query_upd_scores[new_prot_id] = 1
         else:
             old_query_upd_scores[new_prot_id] = 0
-
         logging.debug(f"old_query_upd_scores \n {old_query_upd_scores}")
-        return(old_query_upd_scores)
+    return(old_query_upd_scores)
 
 
 def preprocess_singleton_main():
@@ -1308,18 +1315,28 @@ def preprocess_singleton_main():
     
     sign_clusters_df = cluster_matches_df.copy()
     sign_clusters_df.columns = ["coord1", "coord2", "score",
-     "query", "target_prots", "strand"]
+     "query", "target_prots", "strand", "coordS1", "coordS2"]
     
     logging.debug(f"sign_clusters_df \n {sign_clusters_df}")
 
     # For singletons, I do not extract proteins from sides, in the function 
     # if_snigleton = '1' the number of prots from 1 side set to 0. So I only extract matches 
+    #extract_proteins_cluster_neighborhood(sign_clusters_df, mapped_res)
+    #make_new_query()
+
+    #
+    
+    significant_cluster_df_enriched, s_0, old_query_upd_scores, L, l = update_scores_for_cluster_matches(cluster_matches, mapped_res)
+    d_strand_flip_penalty = set_strand_flip_penalty(cluster_matches, mapped_res)
+    sign_clusters_df = significant_cluster_df_enriched
     extract_proteins_cluster_neighborhood(sign_clusters_df, mapped_res)
     make_new_query()
+    search_new_query()
+    old_query_upd_scores = initialize_new_prot_score2(sign_clusters_df, old_query_upd_scores, L, l, mapped_res)
 
-    files.query_db = str(files.query_db) + str(iter_counter) + 'iter_db'
-    old_query_upd_scores = initialize_singleton_score(sign_clusters_df, mapped_res)
-    pass
+
+    #old_query_upd_scores = initialize_singleton_score(sign_clusters_df, mapped_res)
+
 
 
 #def cluster_clusters(significant_cluster_df_enriched):
@@ -1554,6 +1571,7 @@ def cluster_clusters(significant_cluster_df_enriched):
         #print(final_clusters_reals)
         print('here are your clusters')
         raw_clu_of_clu = open(str(files.res) + str(iter_counter) +'_clu_of_clu_all', 'w')
+        
         for k in final_clusters_reals1.keys():
             raw_clu_of_clu.write(f'centroid is {str(k)} \n')
             for n in final_clusters_reals1[k]:
@@ -1572,17 +1590,18 @@ def cluster_clusters(significant_cluster_df_enriched):
         final_clusters_reals = final_clusters_reals1 
 
         dict_presence_lists_incl_clu = copy.deepcopy(dict_presence_lists)
-        l_c = {}
+        clu_ids_for_id_file = dict()
+
         for k in final_clusters_ids.keys():
-            dict_presence_lists_incl_clu[k] = np.append(dict_presence_lists_incl_clu[k],k)
-            l_c[k] = k
+        #    dict_presence_lists_incl_clu[k] = np.append(dict_presence_lists_incl_clu[k]
+            clu_ids_for_id_file[k] = k
             for v in final_clusters_ids[k]:
-                dict_presence_lists_incl_clu[v] = np.append(dict_presence_lists_incl_clu[v],k)
-                l_c[v] = k
+        #        dict_presence_lists_incl_clu[v] = np.append(dict_presence_lists_incl_clu[v],k)
+                clu_ids_for_id_file[v] = k
 
 
-        print('l_c   ')
-        #print(l_c) 
+        print('clu_ids_for_id_file   ')
+        print(clu_ids_for_id_file) 
         
         #print(dict_presence_lists_incl_clu)
         # BE CAREFUL! the last values are cluster centroids
@@ -1591,9 +1610,11 @@ def cluster_clusters(significant_cluster_df_enriched):
         print(final_clusters_ids)
         #print(final_clusters_reals)
         print(len(final_clusters_ids.keys()))
-        return final_clusters_ids
+        print('iterate_over1', len(iterate_over1))
+        print('dens_sort_points', dens_sort_points)
+        return final_clusters_ids, clu_ids_for_id_file
     
-    final_clusters_ids = R_L_density_clustering(dict_presence_lists)
+    final_clusters_ids, clu_ids_for_id_file = R_L_density_clustering(dict_presence_lists)
     #print(x)
 
 
@@ -1634,10 +1655,18 @@ def cluster_clusters(significant_cluster_df_enriched):
     #    significant_clusters_eval_filter_df_clu = clusters_stat.iloc[sorted(close_and_associated)]
     #else:
     #    significant_clusters_eval_filter_df_clu = clusters_stat.iloc[sorted(clustered_to_initial_acrs)]
-    significant_clusters_eval_filter_df_clu = clusters_stat.iloc[sorted(clustered_to_initial_acrs)]
+    ids_column_list = list()
+    for i in sorted(list(clu_ids_for_id_file.keys())):
+            ids_column_list.append(clu_ids_for_id_file[i])
+
+    clusters_stat["arc_clu_id"] = ids_column_list
     
-    clu_arc_ind = open(str(files.res) + str(iter_counter) +'clu_arc_ind', 'w')
-    clu_arc_ind.write('-------'+'\n')
+    significant_clusters_eval_filter_df_clu = clusters_stat.iloc[sorted(clustered_to_initial_acrs)]
+
+    # make a cluster ids column
+    
+    #clu_arc_ind = open(str(files.res) + str(iter_counter) +'clu_arc_ind', 'w')
+    #clu_arc_ind.write('-------'+'\n')
     # do not really understand why sorting needed in the next line. But otherwise it gets errors trying to assess
     # non-existing elements of old_query_scores in the next iter (probably something related to the order?)
     if iter_counter == 2:
@@ -1763,6 +1792,22 @@ if __name__ == "__main__":
     print(files.target_db)
     print(files.res)
 
+    # get queries ids to fill the scores dict with 1
+    sep = r"'\t'"
+    awk_print = "'{print $2}'"
+    cmd = f'awk -F {sep} {awk_print} {files.query_db}.lookup'
+    #print(cmd)
+    q_and_matches = list()
+    # WARNING: popen is deprecated, think about it
+    queries = os.popen(cmd).read().splitlines()
+    old_query_upd_scores = dict()
+    for q in queries:
+        #print(q)
+        old_query_upd_scores[q] = 1
+        #print(old_query_upd_scores)
+    s_0 = None
+    d_strand_flip_penalty = None
+
     # FIX to be the right order of functions (should be after run_search())
 
     # UNCOMMENT, real mapping!
@@ -1773,8 +1818,13 @@ if __name__ == "__main__":
     if if_singleton == 1:
         print('doing singletons')
         iter_counter = 0
+        # that is to not mix 0 and 1 iter res
+        saved_files_res = files.res
+        files.res = str(files.res) + '0iter'
         preprocess_singleton_main()
     
+    files.query_db = str(files.query_db) + str(iter_counter) + 'iter_db'
+    files.res = saved_files_res
     # Make changeable
     enrichment_threshold = 0
 
@@ -1783,23 +1833,6 @@ if __name__ == "__main__":
         print('iter_counter:',iter_counter)
         logging.debug(f"iter_counter, files.query_db: {iter_counter, files.query_db}")
         if iter_counter == 1:
-            # get queries ids to fill the scores dict with 1
-            sep = r"'\t'"
-            awk_print = "'{print $2}'"
-            cmd = f'awk -F {sep} {awk_print} {files.query_db}.lookup'
-            #print(cmd)
-            q_and_matches = list()
-            # WARNING: popen is deprecated, think about it
-            queries = os.popen(cmd).read().splitlines()
-            # this if is to avoid emptying this dict when it is not empty because of 0 iter
-            if if_singleton != 1:
-                old_query_upd_scores = dict()
-            for q in queries:
-                #print(q)
-                old_query_upd_scores[q] = 1
-                #print(old_query_upd_scores)
-            s_0 = None
-            d_strand_flip_penalty = None
             files.query_db = files.query_db
             # that is to write all the INITIAL queries to this list which allow later filter in the clustering of clusters. The filter would keep those clusters  which are clustered together with those having match to the initial query/another match to the initial query
             query_db_lookup = pd.read_csv(str(files.query_db)+str(".lookup"), dtype=None, sep='\t', header = None)
