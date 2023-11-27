@@ -194,7 +194,8 @@ class ResultsMapping:
         logging.debug(f'real ids list: {real_id_list}')
         # map by 1st (0) column with real ids from search res
         # print(target_db_h.loc[target_db_h.iloc[:, 0].astype(str) == 'MT006214.1_1'])
-        tmp_res_map_to_header = target_db_h.loc[target_db_h.iloc[:, 0].astype(str).isin(real_id_list)]
+        # dropping duplicates for these weird cases when prodigal proteins have duplicates with different comments
+        tmp_res_map_to_header = target_db_h.loc[target_db_h.iloc[:, 0].astype(str).isin(real_id_list)].drop_duplicates(subset=['ID'])
 
         # NOTe - isin makes sorting, so the next lines to get to the original lines order
         # that is to link proper query ids to the other info
@@ -229,7 +230,6 @@ class ResultsMapping:
         tmp_res_map_to_header.sort_values('ID_cat', inplace=True)
         tmp_res_map_to_header.reset_index(inplace=True, drop=True)
         res_map_to_header = tmp_res_map_to_header.copy()
-
         #res_map_to_header = tmp_res_map_to_header.sort_values(by=['ID'])
 
         ##res_map_to_header['ind'] = ind_list.values
@@ -254,7 +254,7 @@ class ResultsMapping:
 
         # CLEAN
         ind_list = real_id_list
-
+        res_map_to_header.to_csv('res_map_to_header', sep = '\t')
         #print(res_map_to_header)
         return self(search_result_file, target_db_lookup, target_db_h, res_map_to_header, ind_list)
         #pass
@@ -332,6 +332,7 @@ def find_clusters(mapped_res, old_query_upd_scores, d_strand_flip_penalty, s_0):
 
 
     matches_ids_list = mapped_results['ID'].tolist()
+    logging.debug(f"matches_ids_list: {matches_ids_list}")
 
     # Part made to speed finding clusters up
     target_db_h_id_list = target_db_h["ID"].values.tolist()
@@ -384,10 +385,11 @@ def find_clusters(mapped_res, old_query_upd_scores, d_strand_flip_penalty, s_0):
         #score_x_i = float(results.iloc[i,10])
         # CHECK if correct
         if target_prot_id_i in matches_ids_list:
-            curr_query_id = mapped_results.loc[mapped_results['ID'] == target_db_h_id_list[i], 'query_ID'].iloc[0]
+            curr_query_id = mapped_results.loc[mapped_results['ID'] == target_prot_id_i, 'query_ID'].iloc[0]
+            print(f"target_prot_id_i: {target_prot_id_i}, curr_query_id: {curr_query_id}")
             # In the 1st iter old_query_upd_scores are filled with 1
             score_x_i = old_query_upd_scores[curr_query_id]
-            if iter_counter > 1 and score_x_i < 4:
+            if iter_counter > 1 and score_x_i < enrichment_threshold:
                 score_x_i = s_0
         else:
             score_x_i = s_0
@@ -1823,10 +1825,10 @@ if __name__ == "__main__":
         files.res = str(files.res) + '0iter'
         preprocess_singleton_main()
     
-    files.query_db = str(files.query_db) + str(iter_counter) + 'iter_db'
-    files.res = saved_files_res
+        files.query_db = str(files.query_db) + str(iter_counter) + 'iter_db'
+        files.res = saved_files_res
     # Make changeable
-    enrichment_threshold = 0
+    enrichment_threshold = 1
 
     iter_counter = 1
     while iterations > 0:
