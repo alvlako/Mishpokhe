@@ -105,7 +105,7 @@ def run_search():
     files.query_db + '_clu' + '_rep' + '_profile',
      files.target_db,
      files.res + '_prof_search',
-     'tmp', '-a'])
+     'tmp', '-a', '--mask', '0', '--comp-bias-corr', '0', '--max-seqs', '10000'])
     #, '--min-seq-id', '0.5'
     #subprocess.call(['mmseqs', 'search', files.target_db,
     #files.query_db + '_clu' + '_rep' + '_profile',
@@ -1098,7 +1098,7 @@ def search_new_query():
     neighbourhood_path + str(iter_counter) + 'iter_db',
      new_query_db_path,
      neighbourhood_path + str(iter_counter) + '_ag_clusters_res',
-     'tmp', '-a'])
+     'tmp', '-a','--mask', '0', '--comp-bias-corr', '0', '--max-seqs', '10000'])
     subprocess.call(['mmseqs', 'convertalis', neighbourhood_path + str(iter_counter) + 'iter_db',
      new_query_db_path,
      neighbourhood_path + str(iter_counter) + '_ag_clusters_res',
@@ -1108,7 +1108,7 @@ def search_new_query():
     neighbourhood_path + str(iter_counter) + 'iter_db',
      files.target_db,
      neighbourhood_path + str(iter_counter) + '_ag_target_res',
-     'tmp', '-a'])
+     'tmp', '-a','--mask', '0', '--comp-bias-corr', '0', '--max-seqs', '10000'])
     subprocess.call(['mmseqs', 'convertalis', neighbourhood_path + str(iter_counter) + 'iter_db',
      files.target_db, neighbourhood_path + str(iter_counter) + '_ag_target_res',
       neighbourhood_path + str(iter_counter) + '_ag_target_res' +'.m8'])
@@ -1271,7 +1271,7 @@ def run_singleton_search():
     files.query_db + '_clu' + '_rep' + '_profile',
      files.target_db,
      files.res + '_prof_search',
-     'tmp', '-a'])
+     'tmp', '-a', '--mask', '0', '--comp-bias-corr', '0', '--max-seqs', '10000'])
     subprocess.call(['mmseqs', 'convertalis', files.query_db + '_clu' + '_rep' + '_profile',
      files.target_db, files.res + '_singleton_prof_search',
       files.res + '_singleton_prof_search' +'.m8'])
@@ -1828,7 +1828,7 @@ if __name__ == "__main__":
         files.query_db = str(files.query_db) + str(iter_counter) + 'iter_db'
         files.res = saved_files_res
     # Make changeable
-    enrichment_threshold = 1
+    enrichment_threshold = 4
 
     iter_counter = 1
     while iterations > 0:
