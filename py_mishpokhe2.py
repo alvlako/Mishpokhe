@@ -770,12 +770,12 @@ def calculate_karlin_stat(cluster_matches, mapped_res):
 
     # ASK Johannes, REMOVE later, that's just to fix problem with log when m_x = 0
     # ASK Johannes if it is ok to use binning, no I think, it is NOT ok
-    unique_scores = mult_param*np.unique(enrich_scores)
-    unique_scores = np.sort(unique_scores)
-    logging.debug(f"multiplied, sorted: \n {unique_scores}")
+    #unique_scores = mult_param*np.unique(enrich_scores)
+    sorted_scores = np.sort(enrich_scores)
+    logging.debug(f"multiplied, sorted: \n {sorted_scores}")
 
-    unique_scores = np.round(unique_scores, decimals=0)
-    unique_scores, score_counts = np.unique(unique_scores, return_counts=True)
+    sorted_scores = np.round(sorted_scores, decimals=0)
+    unique_scores, score_counts = np.unique(sorted_scores, return_counts=True)
     unique_scores = unique_scores.astype(int)
     logging.debug(f"unique_scores: \n {unique_scores}")
     logging.debug(f"uniq enrich scores: \n {np.unique(enrich_scores)}")
@@ -1054,14 +1054,18 @@ def make_new_query():
     if iter_counter == 0:
         query_fasta = files.query_db + '0iter.fasta'
     if iter_counter > 1:
-        query_fasta = str(files.query_db)[:(str(files.query_db).find(str(iter_counter-1)))] + str(iter_counter-1) + 'iter.fasta'
+        # The enhancement below is disabled as it causes problem if there are number in the file name
+        #query_fasta = str(files.query_db)[:(str(files.query_db).find(str(iter_counter-1)))] + str(iter_counter-1) + 'iter.fasta'
+        query_fasta = str(files.query_db) + str(iter_counter-1) + 'iter.fasta'
         print(query_fasta)
+    print('CHECK', str(files.query_db))
     # to have names like query_prot_db2iter_db, not like query_prot_db2iter_db1iter_db
     query_db_path = str(files.query_db)
     print('iter_counter', iter_counter)
     logging.debug(f"iter_counter {iter_counter}")
-    if iter_counter > 1:
-        query_db_path = str(files.query_db)[:(str(files.query_db).find(str(iter_counter-1)))]
+    # this idea from the above comment disabled as it causes problem if there are number in the file name
+    #if iter_counter > 1:
+    #    query_db_path = str(files.query_db)[:(str(files.query_db).find(str(iter_counter-1)))]
     logging.debug(f"query_db_path {query_db_path}")
     out_file = query_db_path + str(iter_counter) + 'iter.fasta'
     logging.debug(f"out_file {out_file}")
@@ -1089,8 +1093,9 @@ def search_new_query():
     subprocess.call(['mmseqs', 'createdb', neighbourhood_path, neighbourhood_path + str(iter_counter) + 'iter_db'])
     # THINK should I cluster and make profiles before the search?
     new_query_db_path = str(files.query_db) + str(iter_counter) + 'iter_db'
-    if iter_counter > 1:
-        new_query_db_path = str(files.query_db)[:(str(files.query_db).find(str(iter_counter-1)))] + str(iter_counter) + 'iter_db'
+    # The enhancement below is disabled for now as might cause problem if the filepath has other numbers in the name
+    #if iter_counter > 1:
+    #    new_query_db_path = str(files.query_db)[:(str(files.query_db).find(str(iter_counter-1)))] + str(iter_counter) + 'iter_db'
     logging.debug(f'query_db_path {new_query_db_path}')
     # The search of neighbors prots against all prots in clusters (incl neighbors)
     # That is a new query db, as itercounter sets the iter number for querydb going to next iter
@@ -1098,7 +1103,8 @@ def search_new_query():
     neighbourhood_path + str(iter_counter) + 'iter_db',
      new_query_db_path,
      neighbourhood_path + str(iter_counter) + '_ag_clusters_res',
-     'tmp', '-a','--mask', '0', '--comp-bias-corr', '0', '--max-seqs', '10000'])
+     'tmp', '-a','--mask', '0', '--comp-bias-corr', '0', '--max-seqs', '10000', '-e', 'inf'])
+     #, '-s', '7.5'])
     subprocess.call(['mmseqs', 'convertalis', neighbourhood_path + str(iter_counter) + 'iter_db',
      new_query_db_path,
      neighbourhood_path + str(iter_counter) + '_ag_clusters_res',
@@ -1108,7 +1114,8 @@ def search_new_query():
     neighbourhood_path + str(iter_counter) + 'iter_db',
      files.target_db,
      neighbourhood_path + str(iter_counter) + '_ag_target_res',
-     'tmp', '-a','--mask', '0', '--comp-bias-corr', '0', '--max-seqs', '10000'])
+     'tmp', '-a','--mask', '0', '--comp-bias-corr', '0', '--max-seqs', '10000', '-e', 'inf'])
+    # , '-s', '7.5'])
     subprocess.call(['mmseqs', 'convertalis', neighbourhood_path + str(iter_counter) + 'iter_db',
      files.target_db, neighbourhood_path + str(iter_counter) + '_ag_target_res',
       neighbourhood_path + str(iter_counter) + '_ag_target_res' +'.m8'])
@@ -1117,8 +1124,9 @@ def search_new_query():
 def initialize_new_prot_score2(sign_clusters_df, old_query_upd_scores, L, l, mapped_res):
     print('initializing new proteins scores')
     new_query_db_path = str(files.query_db) + str(iter_counter) + 'iter_db'
-    if iter_counter > 1:
-        new_query_db_path = str(files.query_db)[:(str(files.query_db).find(str(iter_counter-1)))] + str(iter_counter) + 'iter_db'
+    # The enhancement below is disabled for now as might cause problem if the filepath has other numbers in the name
+    #if iter_counter > 1:
+    #    new_query_db_path = str(files.query_db)[:(str(files.query_db).find(str(iter_counter-1)))] + str(iter_counter) + 'iter_db'
     logging.debug(new_query_db_path)
     new_query_db_lookup = pd.read_csv(str(new_query_db_path) +'.lookup', dtype=None, sep='\t', header = None)
     mapped_results = mapped_res.res_map_to_header
@@ -1195,6 +1203,14 @@ def initialize_new_prot_score2(sign_clusters_df, old_query_upd_scores, L, l, map
 
     arr_m_x = np.take(clusters_search_uniq_q_counts, x_ind)
     arr_M_x = np.take(target_search_uniq_q_counts, x_ind1)
+
+    print('clusters_search_uniq_q_counts', len(clusters_search_uniq_q_counts), 'x_ind', len(x_ind),'arr_m_x', len(arr_m_x))
+    print('target_search_uniq_q_counts', len(target_search_uniq_q_counts), 'x_ind1', len(x_ind1), 'arr_M_x', len(arr_M_x))
+    print('clusters_search_uniq_q', len(clusters_search_uniq_q),'target_search_uniq_q',len(target_search_uniq_q))
+    print('arr_prot_to_add', len(arr_prot_to_add))
+    print('difference', np.setdiff1d(arr_prot_to_add, clusters_search_uniq_q))
+    print('difference2', np.setdiff1d(arr_prot_to_add, target_search_uniq_q))
+
 
     logging.debug(f"arr_M_x \n {arr_M_x}")
     logging.debug(f"arr_m_x \n {arr_m_x}")
@@ -1843,7 +1859,9 @@ if __name__ == "__main__":
             files.query_db = str(files.query_db) + str(iter_counter-1) + 'iter_db'
             files.res = str(files.res) + str(iter_counter-1) + 'iter_res'
         if iter_counter > 2:
-            query_db_path = str(files.query_db)[:str(files.query_db).find(str(iter_counter-2))]
+            # The enhancement below is disabled for now as might cause problem if the filepath has other numbers in the name
+            #query_db_path = str(files.query_db)[:str(files.query_db).find(str(iter_counter-2))]
+            query_db_path = str(files.query_db)
             files.query_db = query_db_path + str(iter_counter-1) + 'iter_db'
             res_path = str(files.res)[:str(files.res).find(str(iter_counter-2))]
             files.res = res_path + str(iter_counter-1) + 'iter_res'
