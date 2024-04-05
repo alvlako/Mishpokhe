@@ -643,17 +643,25 @@ def update_scores_for_cluster_matches(cluster_matches, mapped_res):
     # list of scores is not competely correct
     matches_ids_list = mapped_results['ID'].tolist()
 
-    # Counting all target cluster prots having query matches
-    m_x_sum = len(cluster_prots['query_id'])
+    # Counting all target cluster prots having query matches. The first line had problems as it counted all the proteins in the clusters, also the one that had no matches to the query
+    #m_x_sum = len(cluster_prots['query_id'])
+    non_match_counter = len(cluster_prots[cluster_prots['query_id'] == ''])  
+    m_x_sum = l - non_match_counter
+    logging.debug(f"m_x_sum is: {m_x_sum} , non_match_counter is {non_match_counter}")
     # Counting all target proteins with matches to some queries
     M_x_sum = len(mapped_results['ID'])
+    #s_0 = np.log(np.divide(np.divide((l-m_x_sum),l), np.divide((L-M_x_sum),L))) - bias
+    #logging.debug(f's_0 {s_0}, m_x_sum {m_x_sum}, M_x_sum {M_x_sum}, L {L}, l {l} ')
+    #print(f's_0 {s_0}, m_x_sum {m_x_sum}, M_x_sum {M_x_sum}, L {L}, l {l} ')
+    #print(x)
 
     for target_id in cluster_prots['target_id']:
         logging.debug(f"the cycle is running")
         if target_id not in matches_ids_list:
             logging.debug(f"not in list")
             logging.debug(f"no match: {target_id}")
-            s_0 = np.divide(np.divide((l-m_x_sum),l), np.divide((L-M_x_sum),L)) - bias
+            s_0 = np.log(np.divide(np.divide((l-m_x_sum),l), np.divide((L-M_x_sum),L)) - bias)
+            #s_0 = np.divide(np.divide((l-m_x_sum),l), np.divide((L-M_x_sum),L)) - bias
             logging.debug(f"updates s_0 for: {target_id} is= {s_0}")
             #logging.debug(f"sign_clusters_df[pd.DataFrame(sign_clusters_df['target_prots'].tolist()).isin(target_id.split()).any(1).values]")
             #tmp_df = sign_clusters_df[pd.DataFrame(sign_clusters_df['target_prots'].tolist()).isin(target_id.split()).any(1).values]['new_score_enrich'] + s_0
@@ -678,7 +686,7 @@ def update_scores_for_cluster_matches(cluster_matches, mapped_res):
 
 
 # CHANGE to not duplicate so much the func above
-def calculate_karlin_stat(cluster_matches, mapped_res):
+def calculate_karlin_stat(cluster_matches, mapped_res, s_0):
     print('using c code for Karlin-Altschul statistics')
 
     curr_file_path = os.path.realpath(__file__)
@@ -725,7 +733,9 @@ def calculate_karlin_stat(cluster_matches, mapped_res):
     # CHECK if it is right that in case of all res probs I should iterate through target
     # NOT through query as in example above
     n_target = len(mapped_results['ID'].unique())
-    for target_id in mapped_results['ID'].unique():
+    target_ids = np.array(mapped_results['ID'])
+    target_ids_uniq, target_ids_counts = np.unique(target_ids, return_counts=True)
+    for target_id in target_ids_uniq:
         logging.debug(f"target_id: {target_id}")
         M_x = mapped_results['ID'][mapped_results['ID'] == target_id].shape[0]
         m_x = cluster_prots[cluster_prots['target_id'] == target_id]['target_id'].count()
@@ -771,11 +781,13 @@ def calculate_karlin_stat(cluster_matches, mapped_res):
     # ASK Johannes, REMOVE later, that's just to fix problem with log when m_x = 0
     # ASK Johannes if it is ok to use binning, no I think, it is NOT ok
     #unique_scores = mult_param*np.unique(enrich_scores)
+
     sorted_scores = np.sort(enrich_scores)
     logging.debug(f"multiplied, sorted: \n {sorted_scores}")
 
     sorted_scores = np.round(sorted_scores, decimals=0)
     unique_scores, score_counts = np.unique(sorted_scores, return_counts=True)
+
     unique_scores = unique_scores.astype(int)
     logging.debug(f"unique_scores: \n {unique_scores}")
     logging.debug(f"uniq enrich scores: \n {np.unique(enrich_scores)}")
@@ -786,8 +798,19 @@ def calculate_karlin_stat(cluster_matches, mapped_res):
 
     logging.debug(f"score_counts {score_counts}")
     logging.debug(f"len {len(enrich_scores)}")
+
+    # Add scores for the protein with no match, counts = all proteins in genomes - unique target prots that got matches - that is already included in the loop above
+    #unique_scores = np.append(unique_scores, s_0)
+    #score_counts = np.append(score_counts, L - len(enrich_scores))
+    #logging.debug(f's_0 is {s_0}')
+    #logging.debug(f'after s_0 adding,  unique_scores {unique_scores}')
+    #logging.debug(f'score_counts is {score_counts}')
     
-    score_prob = score_counts / len(enrich_scores)
+
+    #score_prob = score_counts / len(enrich_scores)
+    # In fact, here should be all the proteins from all the genomes (incl those without matches)
+    score_counts = score_counts + (target_ids_counts - 1)
+    score_prob = score_counts / L
     logging.debug(f"score_prob {score_prob}")
 
     # figure out why round works weird so -3.5 > 4, -2.5 > 2
@@ -1762,7 +1785,7 @@ def main(old_query_upd_scores, d_strand_flip_penalty, s_0):
     
     # UNCOMMENT
     significant_cluster_df_enriched, s_0, old_query_upd_scores, L, l = update_scores_for_cluster_matches(cluster_matches, mapped_res)
-    stat_lambda, stat_K = calculate_karlin_stat(cluster_matches, mapped_res)
+    stat_lambda, stat_K = calculate_karlin_stat(cluster_matches, mapped_res, s_0)
     sign_clusters_df = significant_cluster_df_enriched
     significant_cluster_df_enriched, significant_clusters_eval_filter_df = calculate_e_value(stat_lambda, stat_K, significant_cluster_df_enriched, mapped_res)
 
