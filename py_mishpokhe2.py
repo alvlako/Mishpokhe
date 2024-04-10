@@ -654,18 +654,17 @@ def update_scores_for_cluster_matches(cluster_matches, mapped_res):
     #logging.debug(f's_0 {s_0}, m_x_sum {m_x_sum}, M_x_sum {M_x_sum}, L {L}, l {l} ')
     #print(f's_0 {s_0}, m_x_sum {m_x_sum}, M_x_sum {M_x_sum}, L {L}, l {l} ')
     #print(x)
-
+    s_0 = np.log(np.divide(np.divide((l-m_x_sum),l), np.divide((L-M_x_sum),L)) - bias)
     for target_id in cluster_prots['target_id']:
         logging.debug(f"the cycle is running")
         if target_id not in matches_ids_list:
             logging.debug(f"not in list")
             logging.debug(f"no match: {target_id}")
-            s_0 = np.log(np.divide(np.divide((l-m_x_sum),l), np.divide((L-M_x_sum),L)) - bias)
             #s_0 = np.divide(np.divide((l-m_x_sum),l), np.divide((L-M_x_sum),L)) - bias
             logging.debug(f"updates s_0 for: {target_id} is= {s_0}")
             #logging.debug(f"sign_clusters_df[pd.DataFrame(sign_clusters_df['target_prots'].tolist()).isin(target_id.split()).any(1).values]")
             #tmp_df = sign_clusters_df[pd.DataFrame(sign_clusters_df['target_prots'].tolist()).isin(target_id.split()).any(1).values]['new_score_enrich'] + s_0
-            array_of_bool = pd.DataFrame(sign_clusters_df['target_prots'].tolist()).isin(target_id.split()).any(1).values
+            array_of_bool = pd.DataFrame(sign_clusters_df['target_prots'].tolist()).isin(target_id.split()).any(axis=1).values
             index_of_row = int(np.where(array_of_bool == True)[0])
             sign_clusters_df.loc[sign_clusters_df.index[index_of_row],'new_score_enrich'] = sign_clusters_df.loc[sign_clusters_df.index[index_of_row],'new_score_enrich'] + s_0
             # FIX to make the cell string 
@@ -800,16 +799,15 @@ def calculate_karlin_stat(cluster_matches, mapped_res, s_0):
     logging.debug(f"len {len(enrich_scores)}")
 
     # Add scores for the protein with no match, counts = all proteins in genomes - unique target prots that got matches - that is already included in the loop above
-    #unique_scores = np.append(unique_scores, s_0)
-    #score_counts = np.append(score_counts, L - len(enrich_scores))
-    #logging.debug(f's_0 is {s_0}')
-    #logging.debug(f'after s_0 adding,  unique_scores {unique_scores}')
-    #logging.debug(f'score_counts is {score_counts}')
-    
+    unique_scores = np.append(unique_scores, s_0)
+    score_counts = np.append(score_counts, L - len(enrich_scores))
+    logging.debug(f's_0 is {s_0}')
+    logging.debug(f'after s_0 adding,  unique_scores {unique_scores}')
+    logging.debug(f'score_counts is {score_counts}')
 
     #score_prob = score_counts / len(enrich_scores)
     # In fact, here should be all the proteins from all the genomes (incl those without matches)
-    score_counts = score_counts + (target_ids_counts - 1)
+    #score_counts = score_counts + (target_ids_counts - 1)
     score_prob = score_counts / L
     logging.debug(f"score_prob {score_prob}")
 
