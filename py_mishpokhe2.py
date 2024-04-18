@@ -89,7 +89,6 @@ def make_profiles():
      files.query_db + '_clu' + '_rep' + '_h'])
     subprocess.call(['mmseqs', 'result2profile', files.query_db + '_clu' + '_rep',
      files.query_db, files.query_db + '_clu', files.query_db + '_clu' + '_rep' + '_profile' ])
-    pass
 
 
 # add options?
@@ -340,6 +339,9 @@ def find_clusters(mapped_res, old_query_upd_scores, d_strand_flip_penalty, s_0):
     target_db_h_coord1_list = target_db_h["coord1"].values.tolist()
     target_db_h_coord2_list = target_db_h["coord2"].values.tolist()
 
+    if iter_counter > 1:
+        logging.debug(f"s_0 in find_cluster is {s_0}")
+
     # CHECK it now ignores the last line, is it a constant feature to
     # have empty line at the ened of the results file???
     # FIX genes ids retrieval
@@ -389,8 +391,8 @@ def find_clusters(mapped_res, old_query_upd_scores, d_strand_flip_penalty, s_0):
             print(f"target_prot_id_i: {target_prot_id_i}, curr_query_id: {curr_query_id}")
             # In the 1st iter old_query_upd_scores are filled with 1
             score_x_i = old_query_upd_scores[curr_query_id]
-            if iter_counter > 1 and score_x_i < enrichment_threshold:
-                score_x_i = s_0
+            #if iter_counter > 1 and score_x_i < enrichment_threshold:
+            #    score_x_i = s_0
         else:
             score_x_i = s_0
             # is it a good idea?
@@ -398,6 +400,10 @@ def find_clusters(mapped_res, old_query_upd_scores, d_strand_flip_penalty, s_0):
         # FIX temporary solution to make score_x_i to overweight other scores to get significant clusters
         #score_x_i = -np.log(score_x_i)
         # CHECK in evalue section how to initialize this score
+
+        if iter_counter == 2 and target_prot_id_i == 'NC_004087.1_40':
+            logging.debug(f"problem NC_004087.1_40, score is {score_x_i}")
+            logging.debug(f" query is {curr_query_id}, score orig is {old_query_upd_scores[curr_query_id]}")
         
 
         # gap changed to use gene number, not the coordinate diff
@@ -530,7 +536,7 @@ def find_clusters(mapped_res, old_query_upd_scores, d_strand_flip_penalty, s_0):
 
 # it re-defines the scores which I have got in the first iteration 
 # ADD significant clusters determination?
-def update_scores_for_cluster_matches(cluster_matches, mapped_res):
+def update_scores_for_cluster_matches(cluster_matches, mapped_res, bias):
 
     # CHANGE for really significant clusters, not as it is?
     significant_clusters = cluster_matches 
@@ -548,7 +554,7 @@ def update_scores_for_cluster_matches(cluster_matches, mapped_res):
 
     logging.debug(f"L: {L}")
     
-    bias = 0
+
     sign_clusters_df = pd.DataFrame(significant_clusters)
     sign_clusters_df.columns = ["coord1", "coord2", "score",
     "query_prots", "target_prots", "strand", "coordS1", "coordS2"]
@@ -568,9 +574,6 @@ def update_scores_for_cluster_matches(cluster_matches, mapped_res):
     cluster_prots['target_id'] = sign_clusters_df['target_prots'].explode()
 
     l = len(cluster_prots)
-
-    # CHANGE later, THINK
-    bias = 0
 
     #logging.debug(f"K, L, l: {K, L, l}")
     
@@ -685,7 +688,7 @@ def update_scores_for_cluster_matches(cluster_matches, mapped_res):
 
 
 # CHANGE to not duplicate so much the func above
-def calculate_karlin_stat(cluster_matches, mapped_res, s_0):
+def calculate_karlin_stat(cluster_matches, mapped_res, s_0, bias):
     print('using c code for Karlin-Altschul statistics')
 
     curr_file_path = os.path.realpath(__file__)
@@ -716,7 +719,6 @@ def calculate_karlin_stat(cluster_matches, mapped_res, s_0):
     target_db_lookup = mapped_res.target_db_lookup
     L = len(target_db_lookup.index)
     
-    bias = 0
     sign_clusters_df = pd.DataFrame(significant_clusters)
     sign_clusters_df.columns = ["coord1", "coord2", "score",
     "query_prots", "target_prots", "strand", "coordS1", "coordS2"]
@@ -1142,7 +1144,7 @@ def search_new_query():
       neighbourhood_path + str(iter_counter) + '_ag_target_res' +'.m8'])
 
 
-def initialize_new_prot_score2(sign_clusters_df, old_query_upd_scores, L, l, mapped_res):
+def initialize_new_prot_score2(sign_clusters_df, old_query_upd_scores, L, l, mapped_res, bias):
     print('initializing new proteins scores')
     new_query_db_path = str(files.query_db) + str(iter_counter) + 'iter_db'
     # The enhancement below is disabled for now as might cause problem if the filepath has other numbers in the name
@@ -1153,8 +1155,6 @@ def initialize_new_prot_score2(sign_clusters_df, old_query_upd_scores, L, l, map
     mapped_results = mapped_res.res_map_to_header
     cluster_prots = pd.DataFrame()
     cluster_prots['target_id'] = sign_clusters_df['target_prots'].explode()
-
-    bias = 0
 
     aplha_pseudocount = pow(10,np.log10(1/L)-1)
     # Is it correct to use for pseudocounts?
@@ -1782,8 +1782,8 @@ def main(old_query_upd_scores, d_strand_flip_penalty, s_0):
     #print(significant_cluster_df_enriched)
     
     # UNCOMMENT
-    significant_cluster_df_enriched, s_0, old_query_upd_scores, L, l = update_scores_for_cluster_matches(cluster_matches, mapped_res)
-    stat_lambda, stat_K = calculate_karlin_stat(cluster_matches, mapped_res, s_0)
+    significant_cluster_df_enriched, s_0, old_query_upd_scores, L, l = update_scores_for_cluster_matches(cluster_matches, mapped_res, bias)
+    stat_lambda, stat_K = calculate_karlin_stat(cluster_matches, mapped_res, s_0, bias)
     sign_clusters_df = significant_cluster_df_enriched
     significant_cluster_df_enriched, significant_clusters_eval_filter_df = calculate_e_value(stat_lambda, stat_K, significant_cluster_df_enriched, mapped_res)
 
@@ -1808,7 +1808,7 @@ def main(old_query_upd_scores, d_strand_flip_penalty, s_0):
     extract_proteins_cluster_neighborhood(sign_clusters_df, mapped_res)
     make_new_query()
     search_new_query()
-    old_query_upd_scores = initialize_new_prot_score2(sign_clusters_df, old_query_upd_scores, L, l, mapped_res)
+    old_query_upd_scores = initialize_new_prot_score2(sign_clusters_df, old_query_upd_scores, L, l, mapped_res, bias)
 
 
     #generate_mmseqs_ffindex(sign_clusters_df)
@@ -1865,7 +1865,7 @@ if __name__ == "__main__":
         files.query_db = str(files.query_db) + str(iter_counter) + 'iter_db'
         files.res = saved_files_res
     # Make changeable
-    enrichment_threshold = 4
+    bias = 4
 
     iter_counter = 1
     while iterations > 0:
