@@ -272,7 +272,7 @@ class ResultsMapping:
 # FIX genes ids retrieval
 # FIX to not get clusters from different genomes
 # CHECK all the scores
-def find_clusters(mapped_res, old_query_upd_scores, d_strand_flip_penalty, s_0):
+def find_clusters(mapped_res, old_query_upd_scores, d_strand_flip_penalty, s_0, score_x_i):
 
     print('finding clusters')
     mapped_results = mapped_res.res_map_to_header
@@ -312,7 +312,7 @@ def find_clusters(mapped_res, old_query_upd_scores, d_strand_flip_penalty, s_0):
 
     if s_0 is None:
         #s_0 = -0.01
-        s_0 = -1
+        s_0 = -1 - bias
 
     # CHECK if correct (esp if cluster does not start from the 1st gene)
     i_0_cluster_start = int(target_db_h["coord1"].values[0])
@@ -391,8 +391,8 @@ def find_clusters(mapped_res, old_query_upd_scores, d_strand_flip_penalty, s_0):
             print(f"target_prot_id_i: {target_prot_id_i}, curr_query_id: {curr_query_id}")
             # In the 1st iter old_query_upd_scores are filled with 1
             score_x_i = old_query_upd_scores[curr_query_id]
-            #if iter_counter > 1 and score_x_i < enrichment_threshold:
-            #    score_x_i = s_0
+            #if iter_counter > 1:
+            #   score_x_i = score_x_i - enrichment_bias
         else:
             score_x_i = s_0
             # is it a good idea?
@@ -676,10 +676,10 @@ def update_scores_for_cluster_matches(cluster_matches, mapped_res, bias):
             #logging.debug(f"sign_clusters_df['list_new_scoreS_enrich'].tolist(): {sign_clusters_df['list_new_scoreS_enrich'].tolist()}")
         else:
             logging.debug(f"is in list")
-            s_0 = -1
+            s_0 = -1 - bias
     if len(cluster_prots['target_id']) == 0:
         logging.debug(f"0 target in clusters")
-        s_0 = -1
+        s_0 = -1 - bias
     logging.debug(f"s_0: {s_0}")
             
     logging.debug(f"sign_clusters_df: \n {sign_clusters_df}")
@@ -1753,7 +1753,7 @@ def main(old_query_upd_scores, d_strand_flip_penalty, s_0):
         f.close()
         cluster_matches=eval(lst)
     else:
-        cluster_matches = find_clusters(mapped_res, old_query_upd_scores, d_strand_flip_penalty, s_0)
+        cluster_matches = find_clusters(mapped_res, old_query_upd_scores, d_strand_flip_penalty, s_0, enrichment_bias)
         f=open(cluster_matches_fname,"w")
         f.write(str(cluster_matches))
         f.close()
@@ -1866,6 +1866,7 @@ if __name__ == "__main__":
         files.res = saved_files_res
     # Make changeable
     bias = 4
+    enrichment_bias = 4
 
     iter_counter = 1
     while iterations > 0:
