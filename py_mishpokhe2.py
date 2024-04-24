@@ -815,6 +815,8 @@ def calculate_karlin_stat(cluster_matches, mapped_res, s_0, bias):
 
     # figure out why round works weird so -3.5 > 4, -2.5 > 2
     scores_table = np.column_stack((np.round(unique_scores, decimals=0), score_prob))
+    # sort so that values would go in correct order for inserting the missing ones
+    scores_table = scores_table[scores_table[:, 0].argsort()]
     logging.debug(f"scores_table \n {scores_table}")
     # MAKE faster!
     # the loop to insert missed integers (should be one by one) to scores and 0 to correspond. probs
