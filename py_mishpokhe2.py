@@ -82,7 +82,7 @@ class FilePath:
 def make_profiles():
     print('making query mmseqs profiles')
     subprocess.call(['mmseqs', 'cluster', files.query_db, files.query_db + '_clu',
-     'tmp', '-c', '0.7', '-e', '0.001'])
+     'tmp', '-c', '0.8', '-e', '0.001'])
     subprocess.call(['mmseqs', 'createsubdb', files.query_db + '_clu', files.query_db,
      files.query_db + '_clu' + '_rep'])
     subprocess.call(['mmseqs', 'createsubdb', files.query_db + '_clu', files.query_db + '_h',
@@ -100,11 +100,12 @@ def run_search():
     # ASK Johannes if it is ok to use this without sensitivity iters (manual)
     # Ask Johannes if it is correct to search TARGET against Query
     # FIX, --max-accept 1 does not work for now
+    # now the coverage and the e-value threshold is just as for the clustering
     subprocess.call(['mmseqs', 'search', 
     files.query_db + '_clu' + '_rep' + '_profile',
      files.target_db,
      files.res + '_prof_search',
-     'tmp', '-a', '--mask', '0', '--comp-bias-corr', '0', '--max-seqs', '10000'])
+     'tmp', '-a', '--mask', '0', '--comp-bias-corr', '0', '--max-seqs', '10000', '-c', '0.8', '-e', '0.001'])
     #, '--min-seq-id', '0.5'
     #subprocess.call(['mmseqs', 'search', files.target_db,
     #files.query_db + '_clu' + '_rep' + '_profile',
@@ -1128,7 +1129,8 @@ def search_new_query():
     neighbourhood_path + str(iter_counter) + 'iter_db',
      new_query_db_path,
      neighbourhood_path + str(iter_counter) + '_ag_clusters_res',
-     'tmp', '-a','--mask', '0', '--comp-bias-corr', '0', '--max-seqs', '10000', '-e', 'inf'])
+     'tmp', '-a','--mask', '0', '--comp-bias-corr', '0', '--max-seqs', '10000', '-c', '0.8', '-e', '0.001'])
+     #'-e', 'inf'])
      #, '-s', '7.5'])
     subprocess.call(['mmseqs', 'convertalis', neighbourhood_path + str(iter_counter) + 'iter_db',
      new_query_db_path,
@@ -1139,7 +1141,8 @@ def search_new_query():
     neighbourhood_path + str(iter_counter) + 'iter_db',
      files.target_db,
      neighbourhood_path + str(iter_counter) + '_ag_target_res',
-     'tmp', '-a','--mask', '0', '--comp-bias-corr', '0', '--max-seqs', '10000', '-e', 'inf'])
+     'tmp', '-a','--mask', '0', '--comp-bias-corr', '0', '--max-seqs', '10000', '-c', '0.8', '-e', '0.001'])
+     # '-e', 'inf'])
     # , '-s', '7.5'])
     subprocess.call(['mmseqs', 'convertalis', neighbourhood_path + str(iter_counter) + 'iter_db',
      files.target_db, neighbourhood_path + str(iter_counter) + '_ag_target_res',
@@ -1310,7 +1313,7 @@ def run_singleton_search():
     files.query_db + '_clu' + '_rep' + '_profile',
      files.target_db,
      files.res + '_prof_search',
-     'tmp', '-a', '--mask', '0', '--comp-bias-corr', '0', '--max-seqs', '10000'])
+     'tmp', '-a', '--mask', '0', '--comp-bias-corr', '0', '--max-seqs', '10000', '-c', '0.8', '-e', '0.001'])
     subprocess.call(['mmseqs', 'convertalis', files.query_db + '_clu' + '_rep' + '_profile',
      files.target_db, files.res + '_singleton_prof_search',
       files.res + '_singleton_prof_search' +'.m8'])
