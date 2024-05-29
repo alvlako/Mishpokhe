@@ -1094,9 +1094,64 @@ def extract_proteins_cluster_neighborhood(sign_clusters_df, mapped_res):
      args.targetdb, str(files.res) + '_' + str(iter_counter)+'_matches_only_db'])
     subprocess.call(['mmseqs', 'createsubdb', 'target_protID_cluster_file_idx_matches_only_sorted', 
      str(args.targetdb)+'_h', str(files.res) + '_' + str(iter_counter)+'_matches_only_db_h'])
-    print(x)
 
     #target_clusters_neighbourhood.close()
+
+
+def update_profiles():
+    # that is used if more than 1 iteration was run
+    # here i will update the old msas with their matches and construct new msas with the proteins from the neighbourhood and make them to the one profile
+
+    # Let's start with updating the old profiles
+    subprocess.call(['mmseqs', 'search', 
+    files.query_db + '_clu' + '_rep' + '_profile',
+     str(files.res) + '_' + str(iter_counter)+'_matches_only_db',
+     str(files.res) + '_' + str(iter_counter) + '_matches_only_db' + '_upd_res',
+     'tmp', '-a', '--mask', '0', '--comp-bias-corr', '0', '--max-seqs', '10000', '-c', '0.8', '-e', '0.001'])
+    
+    subprocess.call(['mmseqs', 'result2msa', 
+    files.query_db + '_clu' + '_rep' + '_profile',
+     str(files.res) + '_' + str(iter_counter)+'_matches_only_db',
+     str(files.res) + '_' + str(iter_counter) + '_matches_only_db' + '_upd_res',
+     str(files.res) + '_' + str(iter_counter) + '_matches_only_db' + '_upd_res_msa',
+     '--msa-format-mode', '4'])
+    
+    # now let's construct the msa for the new proteins from the neighbourhood to add them to the query (concatenate with the msa of the old proteins + matches from above)
+    # IS it okay that I search not with the profiles??
+    subprocess.call(['mmseqs', 'search', 
+    str(files.res) + '_' + str(iter_counter) +'_neigh_only_db',
+     str(files.res) + '_' + str(iter_counter) +'_neigh_only_db',
+     str(files.res) + '_' + str(iter_counter) +'_neigh_only_db' + '_upd_res',
+     'tmp', '-a', '--mask', '0', '--comp-bias-corr', '0', '--max-seqs', '10000', '-c', '0.8', '-e', '0.001'])
+    
+    subprocess.call(['mmseqs', 'result2msa', 
+    str(files.res) + '_' + str(iter_counter) +'_neigh_only_db',
+     str(files.res) + '_' + str(iter_counter) +'_neigh_only_db',
+     str(files.res) + '_' + str(iter_counter) +'_neigh_only_db' + '_upd_res',
+     str(files.res) + '_' + str(iter_counter) +'_neigh_only_db' + '_upd_res_msa',
+     '--msa-format-mode', '4'])
+
+    # Now let's concatenate the updated msas and the new ones
+    #cmd = 'cat ' + str(query_fasta) + ' ' + str(neighbourhood_path) + ' > ' + str(out_file)
+    #subprocess.call(cmd,shell=True)
+    #subprocess.call(['cat',
+    # str(files.res) + '_' + str(iter_counter) + '_matches_only_db' + '_upd_res_msa',
+    # str(files.res) + '_' + str(iter_counter) +'_neigh_only_db' + '_upd_res_msa',
+    # '>', ])
+    with open(str(files.res) + '_' + str(iter_counter) +'_neigh_matches' + '_upd_res_concat_msa','w') as out:
+        subprocess.call(['cat',
+     str(files.res) + '_' + str(iter_counter) + '_matches_only_db' + '_upd_res_msa',
+     str(files.res) + '_' + str(iter_counter) +'_neigh_only_db' + '_upd_res_msa'],stdout=out)
+
+    subprocess.call(['mmseqs', 'convertmsa', 
+     str(files.res) + '_' + str(iter_counter) +'_neigh_matches' + '_upd_res_concat_msa',
+     str(files.res) + '_' + str(iter_counter) +'_neigh_matches' + '_upd_res_concat_msa_db'])
+    
+    print(x)
+
+    #mmseqs msa2profile glyc_res_msa_db glyc_res_msa_db_profile
+
+    pass
 
 
 # function to initialize score for new protein profiles from neighbourhood
@@ -1844,6 +1899,7 @@ def main(old_query_upd_scores, d_strand_flip_penalty, s_0):
     significant_clusters_eval_filter_df_clu.to_csv(path_clu_filter, sep = '\t', index = False)
 
     extract_proteins_cluster_neighborhood(sign_clusters_df, mapped_res)
+    update_profiles()
     make_new_query()
     search_new_query()
     old_query_upd_scores = initialize_new_prot_score2(sign_clusters_df, old_query_upd_scores, L, l, mapped_res, bias)
