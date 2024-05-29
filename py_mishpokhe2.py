@@ -1006,7 +1006,8 @@ def calculate_e_value(stat_lambda, stat_K, significant_cluster_df_enriched, mapp
 
 
 def extract_proteins_cluster_neighborhood(sign_clusters_df, mapped_res):
-
+    # that extracts not only the neighbourhood but also what is inside the cluster
+    # here i refer to neighbourhood often also including the non-matches from inside the clusters
     print('updating query profile started (extracting prots)')
     logging.debug(f"significant (?) clusters table \n {sign_clusters_df}")
     target_fasta = args.targetfa
@@ -1034,6 +1035,10 @@ def extract_proteins_cluster_neighborhood(sign_clusters_df, mapped_res):
     arr_target_db_lookup_real_ids = target_db_lookup['ID'].to_numpy()
     arr_target_db_lookup_mmseqs_ind = target_db_lookup['ind_id'].to_numpy()
 
+    # i need to separate matches and the rest of the cluster + neighbourhood
+    matches_ids = mapped_res.res_map_to_header['ID'].to_numpy()
+    arr_matches_in_clu = np.intersect1d(arr_entire_cluster_id,matches_ids)
+
     # make array with the neighbours indices
     l_all_indices_clu_neigh = []
     for i in range(arr_prot_id_left.size):
@@ -1044,17 +1049,33 @@ def extract_proteins_cluster_neighborhood(sign_clusters_df, mapped_res):
         #print('left_border right_border', left_border, right_border)
         l_all_indices_clu_neigh.extend(list(range(left_border,right_border)))
     logging.debug(f"l_all_indices_clu_neigh {l_all_indices_clu_neigh}")
+    # let's get the same indices but now for the matches in cluster only
+    indices_matches_in_clu = np.unique(np.where(np.isin(arr_target_db_lookup_real_ids, arr_matches_in_clu)))
     
     # add indices of proteins between left and right prots of the cluster and keep uniq
     all_indices_clu_neigh = np.unique(np.array(l_all_indices_clu_neigh))
     # obtain mmseqs ids corresponding to indices
     arr_mmseqs_ind_clu_neigh = arr_target_db_lookup_mmseqs_ind[all_indices_clu_neigh]
+    # these are indices for the matches in the cluster only
+    arr_mmseqs_ind_matches_in_clu = arr_target_db_lookup_mmseqs_ind[indices_matches_in_clu]
 
+    # now I have to finally remove matches indices from the rest
+    arr_mmseqs_ind_clu_neigh_only = np.setdiff1d(arr_mmseqs_ind_clu_neigh,arr_mmseqs_ind_matches_in_clu)
+
+    # I still want to have the file with all clusters + neighbourhood proteins as I need them later
     np.savetxt('target_protID_cluster_file_idx', arr_mmseqs_ind_clu_neigh, fmt='%i')
+    # Even though i call it neigh_only, these are not only neighbours but also the non-matches inside of the clusters.
+    np.savetxt('target_protID_cluster_file_idx_neigh_only', arr_mmseqs_ind_clu_neigh_only, fmt='%i')
+    np.savetxt('target_protID_cluster_file_idx_matches_only', arr_mmseqs_ind_matches_in_clu, fmt='%i')
  
     #target_protID_cluster_file_idx.close()
-    with open('target_protID_cluster_file_idx_sorted','w') as out:
-        subprocess.call(['sort', '-u', '-n', 'target_protID_cluster_file_idx'],stdout=out)
+    with open('target_protID_cluster_file_idx_sorted','w') as out0:
+        subprocess.call(['sort', '-u', '-n', 'target_protID_cluster_file_idx'],stdout=out0)
+    with open('target_protID_cluster_file_idx_neigh_only_sorted','w') as out:
+        subprocess.call(['sort', '-u', '-n', 'target_protID_cluster_file_idx_neigh_only'],stdout=out)
+    with open('target_protID_cluster_file_idx_matches_only_sorted','w') as out1:
+        subprocess.call(['sort', '-u', '-n', 'target_protID_cluster_file_idx_matches_only'],stdout=out1)
+
     # BE careful! this db accessory files are not in order with db seqs
     subprocess.call(['mmseqs', 'createsubdb', 'target_protID_cluster_file_idx_sorted', 
      args.targetdb, str(neighbourhood_path)+'_db'])
@@ -1062,6 +1083,18 @@ def extract_proteins_cluster_neighborhood(sign_clusters_df, mapped_res):
      str(args.targetdb)+'_h', str(neighbourhood_path)+'_db_h'])
     subprocess.call(['mmseqs', 'convert2fasta', str(neighbourhood_path)+'_db', 
      neighbourhood_path])
+    
+    # I do not convert to fasta for these (clu matches/non-matches) as I dont need it later
+    subprocess.call(['mmseqs', 'createsubdb', 'target_protID_cluster_file_idx_neigh_only_sorted', 
+     args.targetdb, str(files.res) + '_' + str(iter_counter) +'_neigh_only_db'])
+    subprocess.call(['mmseqs', 'createsubdb', 'target_protID_cluster_file_idx_neigh_only_sorted', 
+     str(args.targetdb)+'_h', str(files.res) + '_' + str(iter_counter) +'_neigh_only_db_h'])
+    
+    subprocess.call(['mmseqs', 'createsubdb', 'target_protID_cluster_file_idx_matches_only_sorted', 
+     args.targetdb, str(files.res) + '_' + str(iter_counter)+'_matches_only_db'])
+    subprocess.call(['mmseqs', 'createsubdb', 'target_protID_cluster_file_idx_matches_only_sorted', 
+     str(args.targetdb)+'_h', str(files.res) + '_' + str(iter_counter)+'_matches_only_db_h'])
+    print(x)
 
     #target_clusters_neighbourhood.close()
 
