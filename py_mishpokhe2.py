@@ -1146,8 +1146,6 @@ def update_profiles():
     subprocess.call(['mmseqs', 'convertmsa', 
      str(files.res) + '_' + str(iter_counter) +'_neigh_matches' + '_upd_res_concat_msa',
      str(files.res) + '_' + str(iter_counter) +'_neigh_matches' + '_upd_res_concat_msa_db'])
-    
-    print(x)
 
     #mmseqs msa2profile glyc_res_msa_db glyc_res_msa_db_profile
 
@@ -1332,12 +1330,31 @@ def initialize_new_prot_score2(sign_clusters_df, old_query_upd_scores, L, l, map
     logging.debug(f"l, L, len(arr_m_x), len(arr_M_x) \n {l, L, len(arr_m_x), len(arr_M_x)}")
 
     arr_score_x = np.log(np.divide(np.divide((arr_m_x),l), np.divide((arr_M_x), L))) - bias
+    # I have to filter here the proteins by enrichment to use it later
+    arr_prot_to_add_enrich = arr_prot_to_add[np.where(arr_score_x > bias)]
+    arr_score_x_enrich = arr_score_x[np.where(arr_score_x > bias)]
     # Here I add just to the scores dict the dict made out of new prots ids and their scores
-    dict_additional_scores = dict(zip(arr_prot_to_add, arr_score_x))
+    #dict_additional_scores = dict(zip(arr_prot_to_add, arr_score_x))
+    dict_additional_scores = dict(zip(arr_prot_to_add_enrich, arr_score_x_enrich))
     old_query_upd_scores.update(dict_additional_scores)
     logging.debug(f"old_query_upd_scores updated with neighbours \n {old_query_upd_scores}")
     return(old_query_upd_scores)
 
+
+def keep_enriched(old_query_upd_scores):
+    # the function is used to filter the proteins by their enrichment
+    # that should generate mmseqs indices that would be kept to make msas and profiles out of them in update_profiles
+    print('old_query_upd_scores', old_query_upd_scores)
+    subprocess.call(['mmseqs', 'createsubdb', 'target_protID_cluster_file_idx_neigh_only_sorted', 
+     args.targetdb, str(files.res) + '_' + str(iter_counter) +'_neigh_only_db'])
+    subprocess.call(['mmseqs', 'createsubdb', 'target_protID_cluster_file_idx_neigh_only_sorted', 
+     str(args.targetdb)+'_h', str(files.res) + '_' + str(iter_counter) +'_neigh_only_db_h'])
+    
+    subprocess.call(['mmseqs', 'createsubdb', 'target_protID_cluster_file_idx_matches_only_sorted', 
+     args.targetdb, str(files.res) + '_' + str(iter_counter)+'_matches_only_db'])
+    subprocess.call(['mmseqs', 'createsubdb', 'target_protID_cluster_file_idx_matches_only_sorted', 
+     str(args.targetdb)+'_h', str(files.res) + '_' + str(iter_counter)+'_matches_only_db_h'])
+    pass
 
 
 
@@ -1899,6 +1916,7 @@ def main(old_query_upd_scores, d_strand_flip_penalty, s_0):
     significant_clusters_eval_filter_df_clu.to_csv(path_clu_filter, sep = '\t', index = False)
 
     extract_proteins_cluster_neighborhood(sign_clusters_df, mapped_res)
+    keep_enriched(old_query_upd_scores, bias)
     update_profiles()
     make_new_query()
     search_new_query()
@@ -1959,7 +1977,7 @@ if __name__ == "__main__":
         files.query_db = str(files.query_db) + str(iter_counter) + 'iter_db'
         files.res = saved_files_res
     # Make changeable
-    bias = 4
+    bias = -2
     enrichment_bias = 4
 
     iter_counter = 1
