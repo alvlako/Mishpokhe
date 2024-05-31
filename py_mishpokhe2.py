@@ -1051,7 +1051,6 @@ def extract_proteins_cluster_neighborhood(sign_clusters_df, mapped_res):
     logging.debug(f"l_all_indices_clu_neigh {l_all_indices_clu_neigh}")
     # let's get the same indices but now for the matches in cluster only
     indices_matches_in_clu = np.unique(np.where(np.isin(arr_target_db_lookup_real_ids, arr_matches_in_clu)))
-    
     # add indices of proteins between left and right prots of the cluster and keep uniq
     all_indices_clu_neigh = np.unique(np.array(l_all_indices_clu_neigh))
     # obtain mmseqs ids corresponding to indices
@@ -1063,18 +1062,12 @@ def extract_proteins_cluster_neighborhood(sign_clusters_df, mapped_res):
     arr_mmseqs_ind_clu_neigh_only = np.setdiff1d(arr_mmseqs_ind_clu_neigh,arr_mmseqs_ind_matches_in_clu)
 
     # I still want to have the file with all clusters + neighbourhood proteins as I need them later
+    # However, I do not proceed here the same way with the matches/non-matches only files, i do it in keep_enriched as I need to filter them before in initialize_new_prot_score2. I will just pass the np arrays
     np.savetxt('target_protID_cluster_file_idx', arr_mmseqs_ind_clu_neigh, fmt='%i')
-    # Even though i call it neigh_only, these are not only neighbours but also the non-matches inside of the clusters.
-    np.savetxt('target_protID_cluster_file_idx_neigh_only', arr_mmseqs_ind_clu_neigh_only, fmt='%i')
-    np.savetxt('target_protID_cluster_file_idx_matches_only', arr_mmseqs_ind_matches_in_clu, fmt='%i')
  
     #target_protID_cluster_file_idx.close()
     with open('target_protID_cluster_file_idx_sorted','w') as out0:
         subprocess.call(['sort', '-u', '-n', 'target_protID_cluster_file_idx'],stdout=out0)
-    with open('target_protID_cluster_file_idx_neigh_only_sorted','w') as out:
-        subprocess.call(['sort', '-u', '-n', 'target_protID_cluster_file_idx_neigh_only'],stdout=out)
-    with open('target_protID_cluster_file_idx_matches_only_sorted','w') as out1:
-        subprocess.call(['sort', '-u', '-n', 'target_protID_cluster_file_idx_matches_only'],stdout=out1)
 
     # BE careful! this db accessory files are not in order with db seqs
     subprocess.call(['mmseqs', 'createsubdb', 'target_protID_cluster_file_idx_sorted', 
@@ -1083,19 +1076,9 @@ def extract_proteins_cluster_neighborhood(sign_clusters_df, mapped_res):
      str(args.targetdb)+'_h', str(neighbourhood_path)+'_db_h'])
     subprocess.call(['mmseqs', 'convert2fasta', str(neighbourhood_path)+'_db', 
      neighbourhood_path])
-    
-    # I do not convert to fasta for these (clu matches/non-matches) as I dont need it later
-    subprocess.call(['mmseqs', 'createsubdb', 'target_protID_cluster_file_idx_neigh_only_sorted', 
-     args.targetdb, str(files.res) + '_' + str(iter_counter) +'_neigh_only_db'])
-    subprocess.call(['mmseqs', 'createsubdb', 'target_protID_cluster_file_idx_neigh_only_sorted', 
-     str(args.targetdb)+'_h', str(files.res) + '_' + str(iter_counter) +'_neigh_only_db_h'])
-    
-    subprocess.call(['mmseqs', 'createsubdb', 'target_protID_cluster_file_idx_matches_only_sorted', 
-     args.targetdb, str(files.res) + '_' + str(iter_counter)+'_matches_only_db'])
-    subprocess.call(['mmseqs', 'createsubdb', 'target_protID_cluster_file_idx_matches_only_sorted', 
-     str(args.targetdb)+'_h', str(files.res) + '_' + str(iter_counter)+'_matches_only_db_h'])
 
     #target_clusters_neighbourhood.close()
+    return arr_mmseqs_ind_matches_in_clu, arr_mmseqs_ind_clu_neigh_only
 
 
 def update_profiles():
@@ -1331,6 +1314,7 @@ def initialize_new_prot_score2(sign_clusters_df, old_query_upd_scores, L, l, map
 
     arr_score_x = np.log(np.divide(np.divide((arr_m_x),l), np.divide((arr_M_x), L))) - bias
     # I have to filter here the proteins by enrichment to use it later
+    bias = -2
     arr_prot_to_add_enrich = arr_prot_to_add[np.where(arr_score_x > bias)]
     arr_score_x_enrich = arr_score_x[np.where(arr_score_x > bias)]
     # Here I add just to the scores dict the dict made out of new prots ids and their scores
@@ -1341,10 +1325,34 @@ def initialize_new_prot_score2(sign_clusters_df, old_query_upd_scores, L, l, map
     return(old_query_upd_scores)
 
 
-def keep_enriched(old_query_upd_scores):
+def keep_enriched(old_query_upd_scores, bias, mapped_res, arr_mmseqs_ind_matches_in_clu, arr_mmseqs_ind_clu_neigh_only):
     # the function is used to filter the proteins by their enrichment
     # that should generate mmseqs indices that would be kept to make msas and profiles out of them in update_profiles
-    print('old_query_upd_scores', old_query_upd_scores)
+    real_ids_enirched = list(old_query_upd_scores.keys())
+
+    target_db_lookup = mapped_res.target_db_lookup
+    # now i will get mmseqs indices from lookup that correspond to the matches and new proteins that are in old_query_upd_scores and were filtered by enrichment in the previous step
+    # be careful, old queries are not here as we extract from the target lookup
+    enriched_indices_df = target_db_lookup['ind_id'][target_db_lookup[target_db_lookup['ID'].isin(real_ids_enirched)].index]
+    enriched_indices_arr = enriched_indices_df.to_numpy()
+    #print('enriched_indices_df', enriched_indices_df)
+
+    # here I finally make use of the np arrays with matches from clusters only and non-matches from inside of the cluster and the neighbourhood from extract_prot_cluster_neighbourhood
+    # I first have to take only enriched out of them
+    arr_mmseqs_ind_clu_neigh_only_enrich = np.intersect1d(arr_mmseqs_ind_clu_neigh_only, enriched_indices_arr)
+    
+    arr_mmseqs_ind_matches_in_clu_enrich = np.intersect1d(arr_mmseqs_ind_matches_in_clu, enriched_indices_arr)
+
+    # Even though i call it neigh_only, these are not only neighbours but also the non-matches inside of the clusters.
+    np.savetxt('target_protID_cluster_file_idx_neigh_only', arr_mmseqs_ind_clu_neigh_only_enrich, fmt='%i')
+    np.savetxt('target_protID_cluster_file_idx_matches_only', arr_mmseqs_ind_matches_in_clu_enrich, fmt='%i')
+
+    with open('target_protID_cluster_file_idx_neigh_only_sorted','w') as out:
+        subprocess.call(['sort', '-u', '-n', 'target_protID_cluster_file_idx_neigh_only'],stdout=out)
+    with open('target_protID_cluster_file_idx_matches_only_sorted','w') as out1:
+        subprocess.call(['sort', '-u', '-n', 'target_protID_cluster_file_idx_matches_only'],stdout=out1)
+
+    # I do not convert to fasta for these (clu matches/non-matches) as I dont need it later
     subprocess.call(['mmseqs', 'createsubdb', 'target_protID_cluster_file_idx_neigh_only_sorted', 
      args.targetdb, str(files.res) + '_' + str(iter_counter) +'_neigh_only_db'])
     subprocess.call(['mmseqs', 'createsubdb', 'target_protID_cluster_file_idx_neigh_only_sorted', 
@@ -1354,7 +1362,6 @@ def keep_enriched(old_query_upd_scores):
      args.targetdb, str(files.res) + '_' + str(iter_counter)+'_matches_only_db'])
     subprocess.call(['mmseqs', 'createsubdb', 'target_protID_cluster_file_idx_matches_only_sorted', 
      str(args.targetdb)+'_h', str(files.res) + '_' + str(iter_counter)+'_matches_only_db_h'])
-    pass
 
 
 
@@ -1915,8 +1922,8 @@ def main(old_query_upd_scores, d_strand_flip_penalty, s_0):
     path_clu_filter = files.res + '_' + str(iter_counter) + '_iter_sign_clusters_enrich_stat_filtered_clu_filter'
     significant_clusters_eval_filter_df_clu.to_csv(path_clu_filter, sep = '\t', index = False)
 
-    extract_proteins_cluster_neighborhood(sign_clusters_df, mapped_res)
-    keep_enriched(old_query_upd_scores, bias)
+    arr_mmseqs_ind_matches_in_clu, arr_mmseqs_ind_clu_neigh_only = extract_proteins_cluster_neighborhood(sign_clusters_df, mapped_res)
+    keep_enriched(old_query_upd_scores, bias, mapped_res, arr_mmseqs_ind_matches_in_clu, arr_mmseqs_ind_clu_neigh_only)
     update_profiles()
     make_new_query()
     search_new_query()
@@ -1977,7 +1984,7 @@ if __name__ == "__main__":
         files.query_db = str(files.query_db) + str(iter_counter) + 'iter_db'
         files.res = saved_files_res
     # Make changeable
-    bias = -2
+    bias = 4
     enrichment_bias = 4
 
     iter_counter = 1
