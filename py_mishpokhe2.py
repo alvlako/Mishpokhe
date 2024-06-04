@@ -616,18 +616,6 @@ def update_scores_for_cluster_matches(cluster_matches, mapped_res, bias):
 
 
         old_query_upd_scores[query_id] = score_x
-        # giving the same enrichment scores to target cluster matches to the current query
-        for target_id in cluster_prots['target_id'][cluster_prots['query_id'] == query_id]:
-            old_query_upd_scores[target_id] = score_x
-            if iter_counter == 1:
-                q_and_matches.append(target_id)
-                sign_clusters_df.loc[sign_clusters_df['targets_string'].str.contains(str(target_id)),
-                    'initial_q_or_match'] = True
-            else:
-                if query_id in q_and_matches:
-                    sign_clusters_df.loc[sign_clusters_df['targets_string'].str.contains(str(target_id)),
-                    'initial_q_or_match'] = True
-                    q_and_matches.append(target_id)
 
         # MAKE faster?
         # adding score of the query prot to get summarized score for the cluster
@@ -675,12 +663,13 @@ def update_scores_for_cluster_matches(cluster_matches, mapped_res, bias):
             #sign_clusters_df.loc[sign_clusters_df.index[index_of_row],'list_new_scoreS_enrich'] = sign_clusters_df.loc[sign_clusters_df.index[index_of_row],'list_new_scoreS_enrich'] + ',' + str(s_0)
             #logging.debug(f"sign_clusters_df: \n {sign_clusters_df}")
             #logging.debug(f"sign_clusters_df['list_new_scoreS_enrich'].tolist(): {sign_clusters_df['list_new_scoreS_enrich'].tolist()}")
-        else:
-            logging.debug(f"is in list")
-            s_0 = -1 - bias
-    if len(cluster_prots['target_id']) == 0:
-        logging.debug(f"0 target in clusters")
-        s_0 = -1 - bias
+        # I have NO IDEA what these lines here are supposed to be for
+        #else:
+        #    logging.debug(f"is in list")
+        #    s_0 = -1 - bias
+    #if len(cluster_prots['target_id']) == 0:
+    #    logging.debug(f"0 target in clusters")
+    #    s_0 = -1 - bias
     logging.debug(f"s_0: {s_0}")
             
     logging.debug(f"sign_clusters_df: \n {sign_clusters_df}")
