@@ -1079,32 +1079,10 @@ def extract_proteins_cluster_neighborhood(sign_clusters_df, mapped_res):
     subprocess.call(['mmseqs', 'convert2fasta', str(neighbourhood_path)+'_db', 
      neighbourhood_path])
 
-    #target_clusters_neighbourhood.close()
-    return arr_mmseqs_ind_matches_in_clu, arr_mmseqs_ind_clu_neigh_only, arr_clu_neigh_prots, arr_matches_in_clu
-
-
-def reassign_non_enriched(old_query_upd_scores, bias, mapped_res, arr_mmseqs_ind_clu_neigh_only, arr_mmseqs_ind_matches_in_clu, arr_clu_neigh_prots, arr_matches_in_clu):
-    # the function is used to filter the proteins by their enrichment
-    # the proteins that are under the threshold of enrichment/bias should be assigned s_0 as the score (as for the gaps)
-    # now i have to only apply it to the matches to the initial query as all the new proteins are added with the enrichment score = 0.1
-    real_ids_enirched = list(old_query_upd_scores.keys())
-
-    target_db_lookup = mapped_res.target_db_lookup
-    # now i will get mmseqs indices from lookup that correspond to the matches and new proteins that are in old_query_upd_scores and were filtered by enrichment in the previous step
-    # be careful, old queries are not here as we extract from the target lookup
-    enriched_indices_df = target_db_lookup['ind_id'][target_db_lookup[target_db_lookup['ID'].isin(real_ids_enirched)].index]
-    enriched_indices_arr = enriched_indices_df.to_numpy()
-    #print('enriched_indices_df', enriched_indices_df)
-
-    # here I finally make use of the np arrays with matches from clusters only and non-matches from inside of the cluster and the neighbourhood from extract_prot_cluster_neighbourhood
-    # I first have to take only enriched out of them
-    arr_mmseqs_ind_clu_neigh_only_enrich = np.intersect1d(arr_mmseqs_ind_clu_neigh_only, enriched_indices_arr)
-    
-    arr_mmseqs_ind_matches_in_clu_enrich = np.intersect1d(arr_mmseqs_ind_matches_in_clu, enriched_indices_arr)
-
+    # Here there are files with the mmseqs ids for only matches (to update profiles later) and only neighbourhood (to make new profiles)
     # Even though i call it neigh_only, these are not only neighbours but also the non-matches inside of the clusters.
-    np.savetxt('target_protID_cluster_file_idx_neigh_only', arr_mmseqs_ind_clu_neigh_only_enrich, fmt='%i')
-    np.savetxt('target_protID_cluster_file_idx_matches_only', arr_mmseqs_ind_matches_in_clu_enrich, fmt='%i')
+    np.savetxt('target_protID_cluster_file_idx_neigh_only', arr_mmseqs_ind_clu_neigh_only, fmt='%i')
+    np.savetxt('target_protID_cluster_file_idx_matches_only', arr_mmseqs_ind_matches_in_clu, fmt='%i')
 
     with open('target_protID_cluster_file_idx_neigh_only_sorted','w') as out:
         subprocess.call(['sort', '-u', '-n', 'target_protID_cluster_file_idx_neigh_only'],stdout=out)
@@ -1121,6 +1099,18 @@ def reassign_non_enriched(old_query_upd_scores, bias, mapped_res, arr_mmseqs_ind
      args.targetdb, str(files.res) + '_' + str(iter_counter)+'_matches_only_db'])
     subprocess.call(['mmseqs', 'createsubdb', 'target_protID_cluster_file_idx_matches_only_sorted', 
      str(args.targetdb)+'_h', str(files.res) + '_' + str(iter_counter)+'_matches_only_db_h'])
+
+    #target_clusters_neighbourhood.close()
+    return arr_mmseqs_ind_matches_in_clu, arr_mmseqs_ind_clu_neigh_only, arr_clu_neigh_prots, arr_matches_in_clu
+
+
+def reassign_non_enriched(old_query_upd_scores, bias, s_0):
+    # the function is used to filter the query profiles (representatives of the clusters) by their enrichment
+    # the proteins (profile representatives) that are under the threshold of enrichment/bias should be assigned s_0 as the score (as for the gaps)
+    print('old_query_upd_scores', old_query_upd_scores)
+    old_query_upd_scores = {k: s_0 if v < bias else v for (k, v) in old_query_upd_scores.items() }
+    print('bias ', bias, ' s_0 ', s_0)
+    print('old_query_upd_scores', old_query_upd_scores)
 
 
 
@@ -1796,7 +1786,7 @@ def main(old_query_upd_scores, d_strand_flip_penalty, s_0):
     significant_clusters_eval_filter_df_clu.to_csv(path_clu_filter, sep = '\t', index = False)
 
     arr_mmseqs_ind_matches_in_clu, arr_mmseqs_ind_clu_neigh_only, arr_clu_neigh_prots, arr_matches_in_clu = extract_proteins_cluster_neighborhood(sign_clusters_df, mapped_res)
-    reassign_non_enriched(old_query_upd_scores, bias, mapped_res, arr_mmseqs_ind_clu_neigh_only, arr_mmseqs_ind_matches_in_clu, arr_clu_neigh_prots, arr_matches_in_clu)
+    reassign_non_enriched(old_query_upd_scores, bias, s_0)
     update_profiles()
     make_new_query()
     old_query_upd_scores = initialize_new_prot_score2(old_query_upd_scores, arr_clu_neigh_prots, arr_matches_in_clu)
