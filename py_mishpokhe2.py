@@ -1129,20 +1129,20 @@ def update_profiles():
      str(files.res) + '_' + str(iter_counter) + '_matches_only_db' + '_upd_res',
      str(files.res) + '_' + str(iter_counter) + '_matches_only_db' + '_upd_res_msa',
      '--msa-format-mode', '4'])
-    
+
+
+def add_new_profiles():    
     # now let's construct the msa for the new proteins from the neighbourhood to add them to the query (concatenate with the msa of the old proteins + matches from above)
-    # IS it okay that I search not with the profiles??
-    subprocess.call(['mmseqs', 'search', 
+    subprocess.call(['mmseqs', 'cluster', 
     str(files.res) + '_' + str(iter_counter) +'_neigh_only_db',
-     str(files.res) + '_' + str(iter_counter) +'_neigh_only_db',
-     str(files.res) + '_' + str(iter_counter) +'_neigh_only_db' + '_upd_res',
-     'tmp', '-a', '--mask', '0', '--comp-bias-corr', '0', '--max-seqs', '10000', '-c', '0.8', '-e', '0.001'])
+     str(files.res) + '_' + str(iter_counter) +'_neigh_only_db' + '_clu',
+     'tmp'])
     
     subprocess.call(['mmseqs', 'result2msa', 
     str(files.res) + '_' + str(iter_counter) +'_neigh_only_db',
      str(files.res) + '_' + str(iter_counter) +'_neigh_only_db',
-     str(files.res) + '_' + str(iter_counter) +'_neigh_only_db' + '_upd_res',
-     str(files.res) + '_' + str(iter_counter) +'_neigh_only_db' + '_upd_res_msa',
+     str(files.res) + '_' + str(iter_counter) +'_neigh_only_db' + '_clu',
+     str(files.res) + '_' + str(iter_counter) +'_neigh_only_db' + '_clu_msa',
      '--msa-format-mode', '4'])
 
     # Now let's concatenate the updated msas and the new ones
@@ -1786,6 +1786,7 @@ def main(old_query_upd_scores, d_strand_flip_penalty, s_0):
     arr_mmseqs_ind_matches_in_clu, arr_mmseqs_ind_clu_neigh_only, arr_clu_neigh_prots, arr_matches_in_clu = extract_proteins_cluster_neighborhood(sign_clusters_df, mapped_res)
     reassign_non_enriched(old_query_upd_scores, bias, s_0)
     update_profiles()
+    add_new_profiles()
     make_new_query()
     old_query_upd_scores = initialize_new_prot_score2(old_query_upd_scores, arr_clu_neigh_prots, arr_matches_in_clu)
 
