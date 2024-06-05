@@ -617,6 +617,15 @@ def update_scores_for_cluster_matches(cluster_matches, mapped_res, bias):
 
         old_query_upd_scores[query_id] = score_x
 
+        for target_id in cluster_prots['target_id'][cluster_prots['query_id'] == query_id]:
+            if iter_counter == 1:
+                sign_clusters_df.loc[sign_clusters_df['targets_string'].str.contains(str(target_id)),
+                    'initial_q_or_match'] = True
+            else:
+                if query_id in q_and_matches:
+                    sign_clusters_df.loc[sign_clusters_df['targets_string'].str.contains(str(target_id)),
+                    'initial_q_or_match'] = True
+
         # MAKE faster?
         # adding score of the query prot to get summarized score for the cluster
         # CHECK if correct
@@ -646,7 +655,7 @@ def update_scores_for_cluster_matches(cluster_matches, mapped_res, bias):
     #logging.debug(f's_0 {s_0}, m_x_sum {m_x_sum}, M_x_sum {M_x_sum}, L {L}, l {l} ')
     #print(f's_0 {s_0}, m_x_sum {m_x_sum}, M_x_sum {M_x_sum}, L {L}, l {l} ')
     #print(x)
-    s_0 = np.log(np.divide(np.divide((l-m_x_sum),l), np.divide((L-M_x_sum),L)) - bias)
+    s_0 = np.log(np.divide(np.divide((l-m_x_sum),l), np.divide((L-M_x_sum),L))) - bias
     for target_id in cluster_prots['target_id']:
         logging.debug(f"the cycle is running")
         if target_id not in matches_ids_list:
