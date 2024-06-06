@@ -663,6 +663,7 @@ def update_scores_for_cluster_matches(cluster_matches, mapped_res, bias):
     M_x_sum = len(mapped_results['ID'])
     #s_0 = np.log(np.divide(np.divide((l-m_x_sum),l), np.divide((L-M_x_sum),L))) - bias
     #print(x)
+    # added pseudocount for the rare case when there are no gaps in cluster
     s_0 = np.log(np.divide(np.divide((l-m_x_sum),l), np.divide((L-M_x_sum),L))+aplha_pseudocount) - bias
     logging.debug(f's_0 {s_0}, m_x_sum {m_x_sum}, M_x_sum {M_x_sum}, L {L}, l {l} ')
     print(f's_0 {s_0}, m_x_sum {m_x_sum}, M_x_sum {M_x_sum}, L {L}, l {l} ')
@@ -1127,17 +1128,19 @@ def update_profiles():
     # here i will update the old msas with their matches and construct new msas with the proteins from the neighbourhood and make them to the one profile
 
     # Let's start with updating the old profiles
-    subprocess.call(['mmseqs', 'search', 
+    #subprocess.call(['mmseqs', 'search', 
     #files.query_db + '_clu' + '_rep' + '_profile',
-    files.query_db + '_clu_msa_db_profile',
-     str(files.res) + '_' + str(iter_counter)+'_matches_only_db',
-     str(files.res) + '_' + str(iter_counter) + '_matches_only_db' + '_upd_res',
-     'tmp', '-a', '--mask', '0', '--comp-bias-corr', '0', '--max-seqs', '10000', '-c', '0.8', '-e', '0.001'])
+    #files.query_db + '_clu_msa_db_profile',
+     #str(files.res) + '_' + str(iter_counter)+'_matches_only_db',
+     #str(files.res) + '_' + str(iter_counter) + '_matches_only_db' + '_upd_res',
+     #'tmp', '-a', '--mask', '0', '--comp-bias-corr', '0', '--max-seqs', '10000', '-c', '0.8', '-e', '0.001'])
+    subprocess.call(['mmseqs', 'filterdb', str(files.res) + '_prof_search',
+     str(files.res) + '_' + str(iter_counter) + '_matches_only_db' + '_upd_res','--filter-file', 'target_protID_cluster_file_idx_neigh_only_sorted', '--positive-filter', 'false'])
     
     subprocess.call(['mmseqs', 'result2msa', 
     #files.query_db + '_clu' + '_rep' + '_profile',
     files.query_db + '_clu_msa_db_profile',
-     str(files.res) + '_' + str(iter_counter)+'_matches_only_db',
+     files.target_db,
      str(files.res) + '_' + str(iter_counter) + '_matches_only_db' + '_upd_res',
      str(files.res) + '_' + str(iter_counter) + '_matches_only_db' + '_upd_res_msa',
      '--msa-format-mode', '4'])
@@ -1147,6 +1150,7 @@ def update_profiles():
      str(files.res) + '_' + str(iter_counter) + '_matches_only_db' + '_upd_res_msa_db'])
     
     subprocess.call(['mmseqs', 'msa2profile', str(files.res) + '_' + str(iter_counter) + '_matches_only_db' + '_upd_res_msa_db', str(files.res) + '_' + str(iter_counter) + '_matches_only_db' + '_upd_res_msa_db_profile'])
+
 
 
 def add_new_profiles():    
