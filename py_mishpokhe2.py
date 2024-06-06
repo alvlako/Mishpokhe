@@ -662,10 +662,10 @@ def update_scores_for_cluster_matches(cluster_matches, mapped_res, bias):
     # Counting all target proteins with matches to some queries
     M_x_sum = len(mapped_results['ID'])
     #s_0 = np.log(np.divide(np.divide((l-m_x_sum),l), np.divide((L-M_x_sum),L))) - bias
-    #logging.debug(f's_0 {s_0}, m_x_sum {m_x_sum}, M_x_sum {M_x_sum}, L {L}, l {l} ')
-    #print(f's_0 {s_0}, m_x_sum {m_x_sum}, M_x_sum {M_x_sum}, L {L}, l {l} ')
     #print(x)
-    s_0 = np.log(np.divide(np.divide((l-m_x_sum),l), np.divide((L-M_x_sum),L))) - bias
+    s_0 = np.log(np.divide(np.divide((l-m_x_sum),l), np.divide((L-M_x_sum),L))+aplha_pseudocount) - bias
+    logging.debug(f's_0 {s_0}, m_x_sum {m_x_sum}, M_x_sum {M_x_sum}, L {L}, l {l} ')
+    print(f's_0 {s_0}, m_x_sum {m_x_sum}, M_x_sum {M_x_sum}, L {L}, l {l} ')
     for target_id in cluster_prots['target_id']:
         logging.debug(f"the cycle is running")
         if target_id not in matches_ids_list:
