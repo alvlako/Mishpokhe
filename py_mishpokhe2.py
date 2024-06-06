@@ -81,14 +81,21 @@ class FilePath:
 # deleting previous tmp and db files
 def make_profiles():
     print('making query mmseqs profiles')
-    subprocess.call(['mmseqs', 'cluster', files.query_db, files.query_db + '_clu',
-     'tmp', '-c', '0.8', '-e', '0.001'])
-    subprocess.call(['mmseqs', 'createsubdb', files.query_db + '_clu', files.query_db,
-     files.query_db + '_clu' + '_rep'])
-    subprocess.call(['mmseqs', 'createsubdb', files.query_db + '_clu', files.query_db + '_h',
-     files.query_db + '_clu' + '_rep' + '_h'])
-    subprocess.call(['mmseqs', 'result2profile', files.query_db + '_clu' + '_rep',
-     files.query_db, files.query_db + '_clu', files.query_db + '_clu' + '_rep' + '_profile' ])
+    # making query profile db from scratch is only for the first iteration
+    subprocess.call(['mmseqs', 'cluster', files.query_db, files.query_db + '_clu', 'tmp', '-c', '0.8', '-e', '0.001'])
+    
+    subprocess.call(['mmseqs', 'result2msa', 
+    files.query_db,
+     files.query_db,
+     files.query_db + '_clu',
+     files.query_db + '_clu_msa',
+     '--msa-format-mode', '4'])
+
+    subprocess.call(['mmseqs', 'convertmsa', 
+     files.query_db + '_clu_msa',
+     files.query_db + '_clu_msa_db'])
+    
+    subprocess.call(['mmseqs', 'msa2profile', files.query_db + '_clu_msa_db', files.query_db + '_clu_msa_db_profile'])
 
 
 # add options?
@@ -102,7 +109,8 @@ def run_search():
     # FIX, --max-accept 1 does not work for now
     # now the coverage and the e-value threshold is just as for the clustering
     subprocess.call(['mmseqs', 'search', 
-    files.query_db + '_clu' + '_rep' + '_profile',
+    #files.query_db + '_clu' + '_rep' + '_profile',
+    files.query_db + '_clu_msa_db_profile',
      files.target_db,
      files.res + '_prof_search',
      'tmp', '-a', '--mask', '0', '--comp-bias-corr', '0', '--max-seqs', '10000', '-c', '0.8', '-e', '0.001'])
@@ -113,7 +121,9 @@ def run_search():
     # 'tmp', '-a'])
     #, '--max-accept', '1'])
     # convert to convenient format
-    subprocess.call(['mmseqs', 'convertalis', files.query_db + '_clu' + '_rep' + '_profile',
+    subprocess.call(['mmseqs', 'convertalis',
+    # files.query_db + '_clu' + '_rep' + '_profile',
+    files.query_db + '_clu_msa_db_profile',
      files.target_db, files.res + '_prof_search',
       files.res + '_prof_search' +'.m8'])
     #subprocess.call(['mmseqs', 'convertalis', 
@@ -1118,25 +1128,33 @@ def update_profiles():
 
     # Let's start with updating the old profiles
     subprocess.call(['mmseqs', 'search', 
-    files.query_db + '_clu' + '_rep' + '_profile',
+    #files.query_db + '_clu' + '_rep' + '_profile',
+    files.query_db + '_clu_msa_db_profile',
      str(files.res) + '_' + str(iter_counter)+'_matches_only_db',
      str(files.res) + '_' + str(iter_counter) + '_matches_only_db' + '_upd_res',
      'tmp', '-a', '--mask', '0', '--comp-bias-corr', '0', '--max-seqs', '10000', '-c', '0.8', '-e', '0.001'])
     
     subprocess.call(['mmseqs', 'result2msa', 
-    files.query_db + '_clu' + '_rep' + '_profile',
+    #files.query_db + '_clu' + '_rep' + '_profile',
+    files.query_db + '_clu_msa_db_profile',
      str(files.res) + '_' + str(iter_counter)+'_matches_only_db',
      str(files.res) + '_' + str(iter_counter) + '_matches_only_db' + '_upd_res',
      str(files.res) + '_' + str(iter_counter) + '_matches_only_db' + '_upd_res_msa',
      '--msa-format-mode', '4'])
 
+    subprocess.call(['mmseqs', 'convertmsa', 
+     str(files.res) + '_' + str(iter_counter) + '_matches_only_db' + '_upd_res_msa',
+     str(files.res) + '_' + str(iter_counter) + '_matches_only_db' + '_upd_res_msa_db'])
+    
+    subprocess.call(['mmseqs', 'msa2profile', str(files.res) + '_' + str(iter_counter) + '_matches_only_db' + '_upd_res_msa_db', str(files.res) + '_' + str(iter_counter) + '_matches_only_db' + '_upd_res_msa_db_profile'])
+
 
 def add_new_profiles():    
-    # now let's construct the msa for the new proteins from the neighbourhood to add them to the query (concatenate with the msa of the old proteins + matches from above)
+    # now let's construct the msa for the new proteins from the neighbourhood to add them to the query (concatenate with the msa of the old proteins + matches from above in function make_new_query)
     subprocess.call(['mmseqs', 'cluster', 
     str(files.res) + '_' + str(iter_counter) +'_neigh_only_db',
      str(files.res) + '_' + str(iter_counter) +'_neigh_only_db' + '_clu',
-     'tmp'])
+     'tmp', '-c', '0.8', '-e', '0.001'])
     
     subprocess.call(['mmseqs', 'result2msa', 
     str(files.res) + '_' + str(iter_counter) +'_neigh_only_db',
@@ -1145,63 +1163,27 @@ def add_new_profiles():
      str(files.res) + '_' + str(iter_counter) +'_neigh_only_db' + '_clu_msa',
      '--msa-format-mode', '4'])
 
-    # Now let's concatenate the updated msas and the new ones
-    #cmd = 'cat ' + str(query_fasta) + ' ' + str(neighbourhood_path) + ' > ' + str(out_file)
-    #subprocess.call(cmd,shell=True)
-    #subprocess.call(['cat',
-    # str(files.res) + '_' + str(iter_counter) + '_matches_only_db' + '_upd_res_msa',
-    # str(files.res) + '_' + str(iter_counter) +'_neigh_only_db' + '_upd_res_msa',
-    # '>', ])
-    with open(str(files.res) + '_' + str(iter_counter) +'_neigh_matches' + '_upd_res_concat_msa','w') as out:
-        subprocess.call(['cat',
-     str(files.res) + '_' + str(iter_counter) + '_matches_only_db' + '_upd_res_msa',
-     str(files.res) + '_' + str(iter_counter) +'_neigh_only_db' + '_upd_res_msa'],stdout=out)
-
     subprocess.call(['mmseqs', 'convertmsa', 
-     str(files.res) + '_' + str(iter_counter) +'_neigh_matches' + '_upd_res_concat_msa',
-     str(files.res) + '_' + str(iter_counter) +'_neigh_matches' + '_upd_res_concat_msa_db'])
+     str(files.res) + '_' + str(iter_counter) +'_neigh_only_db' + '_clu_msa',
+     str(files.res) + '_' + str(iter_counter) +'_neigh_only_db' + '_clu_msa_db'])
+    
+    subprocess.call(['mmseqs', 'msa2profile', str(files.res) + '_' + str(iter_counter) +'_neigh_only_db' + '_clu_msa_db', str(files.res) + '_' + str(iter_counter) +'_neigh_only_db' + '_clu_msa_db_profile'])
 
-    #mmseqs msa2profile glyc_res_msa_db glyc_res_msa_db_profile
 
-
-# function to initialize score for new protein profiles from neighbourhood
-# should potentially be called in update_query_profiles_add_proteins function?
-# ASK if I need to search again and do everything like for the matches to get the enrich scores?
-# ASK if I can just do it in the next iter with all the other profiles
-# ASK if now I calculate the enrichment scores correctly
-# ASK Johannes what order should it be done, if I initialize scores for proteins or profiles
 def make_new_query():
-    print('making new query set')
-    #print('it is iteration ', iter_counter, ' do -1')
-    if iter_counter == 1:
-        query_fasta = args.queryfa
-    if iter_counter == 0:
-        query_fasta = files.query_db + '0iter.fasta'
-    if iter_counter > 1:
-        # The enhancement below is disabled as it causes problem if there are number in the file name
-        #query_fasta = str(files.query_db)[:(str(files.query_db).find(str(iter_counter-1)))] + str(iter_counter-1) + 'iter.fasta'
-        query_fasta = str(files.query_db) + str(iter_counter-1) + 'iter.fasta'
-        print(query_fasta)
-    print('CHECK', str(files.query_db))
-    # to have names like query_prot_db2iter_db, not like query_prot_db2iter_db1iter_db
+    # the function makes the new query database by concatenating (old updated profiles + new proteins) msas from update_profiles() and add_new_profiles()
+    print('making new query db')
     query_db_path = str(files.query_db)
-    print('iter_counter', iter_counter)
     logging.debug(f"iter_counter {iter_counter}")
     # this idea from the above comment disabled as it causes problem if there are number in the file name
     #if iter_counter > 1:
     #    query_db_path = str(files.query_db)[:(str(files.query_db).find(str(iter_counter-1)))]
     logging.debug(f"query_db_path {query_db_path}")
-    out_file = query_db_path + str(iter_counter) + 'iter.fasta'
-    logging.debug(f"out_file {out_file}")
-    neighbourhood_path = files.res + '_' + str(iter_counter) + '_iter_target_clusters_neighbourhood'
-    cmd = 'cat ' + str(query_fasta) + ' ' + str(neighbourhood_path) + ' > ' + str(out_file)
-    subprocess.call(cmd,shell=True)
-    #with open(out_file, "w") as query_file:
-    #    subprocess.Popen(['cat', query_fasta, 'target_clusters_neighbourhood'], stdout = query_file)
-    #query_db_path_out = query_db_path + str(iter_counter) + 'iter_db'
-    #if iter_counter == 0:
-    #    query_db_path_out = query_db_path
-    subprocess.call(['mmseqs', 'createdb', query_db_path + str(iter_counter) + 'iter.fasta', query_db_path + str(iter_counter) + 'iter_db'])
+
+    subprocess.call(['mmseqs', 'concatdbs', str(files.res) + '_' + str(iter_counter) + '_matches_only_db' + '_upd_res_msa_db_profile', str(files.res) + '_' + str(iter_counter) +'_neigh_only_db' + '_clu_msa_db_profile', query_db_path + str(iter_counter) + 'iter_db_clu_msa_db_profile'])
+
+    subprocess.call(['mmseqs', 'concatdbs', str(files.res) + '_' + str(iter_counter) + '_matches_only_db' + '_upd_res_msa_db_profile_h', str(files.res) + '_' + str(iter_counter) +'_neigh_only_db' + '_clu_msa_db_profile_h', query_db_path + str(iter_counter) + 'iter_db_clu_msa_db_profile_h'])
+
 
 
 def initialize_new_prot_score2(old_query_upd_scores, arr_clu_neigh_prots, arr_matches_in_clu):
@@ -1348,7 +1330,6 @@ def preprocess_singleton_main():
     sign_clusters_df = significant_cluster_df_enriched
     extract_proteins_cluster_neighborhood(sign_clusters_df, mapped_res)
     make_new_query()
-    search_new_query()
     old_query_upd_scores = initialize_new_prot_score2(sign_clusters_df, old_query_upd_scores, L, l, mapped_res)
 
 
@@ -1702,10 +1683,15 @@ def cluster_clusters(significant_cluster_df_enriched):
 
 def main(old_query_upd_scores, d_strand_flip_penalty, s_0):
 
-    # TMP ifs, remove later!!!
     #if iter_counter > 1:
-    make_profiles()
-
+    if if_singleton == 1:
+        if iter_counter == 0:
+            make_profiles()
+    else:
+        if iter_counter == 1:
+            make_profiles()
+            
+    
     # CHECK if it works with multihitdb (just from command line it worked)
     # CHECK why there are more results with multihitdb (target is converted to profiles??)
     #if iter_counter > 1:
