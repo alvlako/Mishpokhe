@@ -1135,7 +1135,7 @@ def update_profiles():
      #str(files.res) + '_' + str(iter_counter) + '_matches_only_db' + '_upd_res',
      #'tmp', '-a', '--mask', '0', '--comp-bias-corr', '0', '--max-seqs', '10000', '-c', '0.8', '-e', '0.001'])
     subprocess.call(['mmseqs', 'filterdb', str(files.res) + '_prof_search',
-     str(files.res) + '_' + str(iter_counter) + '_matches_only_db' + '_upd_res','--filter-file', 'target_protID_cluster_file_idx_neigh_only_sorted', '--positive-filter', 'false'])
+     str(files.res) + '_' + str(iter_counter) + '_matches_only_db' + '_upd_res','--filter-file', 'target_protID_cluster_file_idx_matches_only_sorted'])
     
     subprocess.call(['mmseqs', 'result2msa', 
     #files.query_db + '_clu' + '_rep' + '_profile',
@@ -1188,6 +1188,20 @@ def make_new_query():
 
     subprocess.call(['mmseqs', 'concatdbs', str(files.res) + '_' + str(iter_counter) + '_matches_only_db' + '_upd_res_msa_db_profile_h', str(files.res) + '_' + str(iter_counter) +'_neigh_only_db' + '_clu_msa_db_profile_h', query_db_path + str(iter_counter) + 'iter_db_clu_msa_db_profile_h'])
 
+
+def set_match_threshold(cluster_matches, mapped_res):
+    # the function calculates the simple heuristic to set profile-specific match score threshold. That is needed to only have positionally ortholodous families
+    # match score is the mmseqs2 similarity bit score
+    significant_clusters = cluster_matches 
+    mapped_results = mapped_res.res_map_to_header
+    results = mapped_res.search_result_file
+    print('significant_clusters', significant_clusters)
+    print('mapped_results', mapped_results)
+    print('results', results)
+    # here to calculate the threshold only for matches that were part of the cluster the filtered results file (only with cluster matches, without single matches) is used
+    filtered_search_res_clu_matches = str(files.res) + '_' + str(iter_counter) + '_matches_only_db' + '_upd_res'
+    print('filtered_search_res_clu_matches', filtered_search_res_clu_matches)
+    print(x)
 
 
 def initialize_new_prot_score2(old_query_upd_scores, arr_clu_neigh_prots, arr_matches_in_clu):
@@ -1750,6 +1764,7 @@ def main(old_query_upd_scores, d_strand_flip_penalty, s_0):
     #print(significant_cluster_df_enriched)
     
     # UNCOMMENT
+
     significant_cluster_df_enriched, s_0, old_query_upd_scores, L, l = update_scores_for_cluster_matches(cluster_matches, mapped_res, bias)
     stat_lambda, stat_K = calculate_karlin_stat(cluster_matches, mapped_res, s_0, bias)
     sign_clusters_df = significant_cluster_df_enriched
@@ -1778,6 +1793,7 @@ def main(old_query_upd_scores, d_strand_flip_penalty, s_0):
     update_profiles()
     add_new_profiles()
     make_new_query()
+    match_threshold = set_match_threshold(cluster_matches, mapped_res)
     old_query_upd_scores = initialize_new_prot_score2(old_query_upd_scores, arr_clu_neigh_prots, arr_matches_in_clu)
 
 
@@ -1837,6 +1853,7 @@ if __name__ == "__main__":
     # Make changeable
     bias = 4
     enrichment_bias = 4
+    match_threshold = 0
 
     iter_counter = 1
     while iterations > 0:
