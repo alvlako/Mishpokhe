@@ -197,6 +197,7 @@ class ResultsMapping:
         search_result_file["eval"] = pd.to_numeric(search_result_file["eval"])
         logging.debug(f'search_result_file with cols: {search_result_file}')
         #print(search_result_file.groupby('target_id')["eval"].transform('min'))
+        # that is to only get best-matching query
         search_result_file = search_result_file.loc[search_result_file.groupby('target_id')['eval'].idxmin()].reset_index(drop=True)
 
         # REMOVE unique? it's unique from the prev step
@@ -402,6 +403,8 @@ def find_clusters(mapped_res, old_query_upd_scores, d_strand_flip_penalty, s_0, 
             print(f"target_prot_id_i: {target_prot_id_i}, curr_query_id: {curr_query_id}")
             # In the 1st iter old_query_upd_scores are filled with 1
             score_x_i = old_query_upd_scores[curr_query_id]
+            print(mapped_results)
+            print(x)
             #if iter_counter > 1:
             #   score_x_i = score_x_i - enrichment_bias
         else:
@@ -1189,19 +1192,30 @@ def make_new_query():
     subprocess.call(['mmseqs', 'concatdbs', str(files.res) + '_' + str(iter_counter) + '_matches_only_db' + '_upd_res_msa_db_profile_h', str(files.res) + '_' + str(iter_counter) +'_neigh_only_db' + '_clu_msa_db_profile_h', query_db_path + str(iter_counter) + 'iter_db_clu_msa_db_profile_h'])
 
 
-def set_match_threshold(cluster_matches, mapped_res):
+def set_match_threshold(match_score_gap, query_specific_thresholds):
     # the function calculates the simple heuristic to set profile-specific match score threshold. That is needed to only have positionally ortholodous families
     # match score is the mmseqs2 similarity bit score
-    significant_clusters = cluster_matches 
-    mapped_results = mapped_res.res_map_to_header
-    results = mapped_res.search_result_file
-    print('significant_clusters', significant_clusters)
-    print('mapped_results', mapped_results)
-    print('results', results)
     # here to calculate the threshold only for matches that were part of the cluster the filtered results file (only with cluster matches, without single matches) is used
-    filtered_search_res_clu_matches = str(files.res) + '_' + str(iter_counter) + '_matches_only_db' + '_upd_res'
-    print('filtered_search_res_clu_matches', filtered_search_res_clu_matches)
-    print(x)
+    filtered_search_res_clu_matches_path = str(files.res) + '_' + str(iter_counter) + '_matches_only_db' + '_upd_res'
+
+    subprocess.call(['mmseqs', 'convertalis',
+    # files.query_db + '_clu' + '_rep' + '_profile',
+    files.query_db + '_clu_msa_db_profile',
+     files.target_db, filtered_search_res_clu_matches_path,
+      filtered_search_res_clu_matches_path +'.m8'])
+
+    filtered_search_res_only_clu_matches_df = pd.read_csv(str(filtered_search_res_clu_matches_path)+'.m8', dtype={'str':'float'}, sep='\t', header = None)
+    filtered_search_res_only_clu_matches_df.columns = ['query_id', '2','3', '4', '5', '6', '7', '8', '9', '10', '11', 'bit_score']
+    print('filtered_search_res_clu_matches', filtered_search_res_only_clu_matches_df)
+    
+    min_scores_per_query_df = filtered_search_res_only_clu_matches_df.loc[filtered_search_res_only_clu_matches_df.groupby('query_id').bit_score.idxmin()][['query_id','bit_score']]
+    min_scores_per_query_df['bit_score'] = min_scores_per_query_df['bit_score'] - match_score_gap
+    print('min_scores_per_query_df', min_scores_per_query_df)
+    print('query_specific_thresholds', query_specific_thresholds)
+    dict_match_thresholds_upd = pd.Series(min_scores_per_query_df.bit_score.values,index=min_scores_per_query_df.query_id).to_dict()
+    query_specific_thresholds.update(dict_match_thresholds_upd)
+    print('query_specific_thresholds', query_specific_thresholds)
+
 
 
 def initialize_new_prot_score2(old_query_upd_scores, arr_clu_neigh_prots, arr_matches_in_clu):
@@ -1793,7 +1807,7 @@ def main(old_query_upd_scores, d_strand_flip_penalty, s_0):
     update_profiles()
     add_new_profiles()
     make_new_query()
-    match_threshold = set_match_threshold(cluster_matches, mapped_res)
+    set_match_threshold(match_score_gap, query_specific_thresholds)
     old_query_upd_scores = initialize_new_prot_score2(old_query_upd_scores, arr_clu_neigh_prots, arr_matches_in_clu)
 
 
@@ -1826,9 +1840,11 @@ if __name__ == "__main__":
     # WARNING: popen is deprecated, think about it
     queries = os.popen(cmd).read().splitlines()
     old_query_upd_scores = dict()
+    query_specific_thresholds = dict()
     for q in queries:
         #print(q)
         old_query_upd_scores[q] = 1
+        query_specific_thresholds[q] = 0
         #print(old_query_upd_scores)
     s_0 = None
     d_strand_flip_penalty = None
@@ -1854,6 +1870,7 @@ if __name__ == "__main__":
     bias = 4
     enrichment_bias = 4
     match_threshold = 0
+    match_score_gap = 10
 
     iter_counter = 1
     while iterations > 0:
