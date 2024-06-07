@@ -165,7 +165,7 @@ class ResultsMapping:
 
 
      @classmethod
-     def map_target_to_coord(self):
+     def map_target_to_coord(self, query_specific_thresholds):
         print('mapping results')
         #search_result_file = pd.read_csv(str(files.res + '_prof_search'), dtype={'int':'float'}, sep='\t')
         #search_result_file = pd.read_csv('/Users/Sasha/Documents/GitHub/mishpokhe_test/py2_multihit_res', dtype={'int':'float'}, sep='\t')
@@ -214,6 +214,8 @@ class ResultsMapping:
         tmp_res_map_to_header.sort_values('sort_cat', inplace=True)
         tmp_res_map_to_header.reset_index(inplace=True)
         tmp_res_map_to_header['query_ID'] = search_result_file.iloc[:, 0]
+        # now i need bit score for query specific match thresholds
+        tmp_res_map_to_header['bit_score'] = search_result_file.iloc[:, 11]
 
         # sort it back again to iterate via by order in the next step
         # these ids are strings, need to be numeric for correct sorting
@@ -244,7 +246,15 @@ class ResultsMapping:
         #res_map_to_header = tmp_res_map_to_header.sort_values(by=['ID'])
 
         ##res_map_to_header['ind'] = ind_list.values
-
+        
+        # here i have to filter by match score query-specific thresholds
+        print('res_map_to_header', res_map_to_header)
+        print('query_specific_thresholds', query_specific_thresholds)
+        res_map_to_header['match_thresholds'] = res_map_to_header['query_ID'].map(query_specific_thresholds)
+        print('res_map_to_header2', res_map_to_header)
+        res_map_to_header = res_map_to_header.drop(res_map_to_header[res_map_to_header['bit_score'] < res_map_to_header['match_thresholds']].index)
+        print('res_map_to_header3', res_map_to_header)
+        
         # sorting target db lookup to iterate correctly in find_clusters()
         # DOUBLE check?
         human_ids2 = list(set(target_db_lookup['ID'].tolist()))
@@ -288,7 +298,6 @@ def find_clusters(mapped_res, old_query_upd_scores, d_strand_flip_penalty, s_0, 
 
     print('finding clusters')
     mapped_results = mapped_res.res_map_to_header
-    results = mapped_res.search_result_file
     index_list = mapped_res.ind_list
     target_db_lookup = mapped_res.target_db_lookup
     target_db_h = mapped_res.target_db_h
@@ -299,15 +308,6 @@ def find_clusters(mapped_res, old_query_upd_scores, d_strand_flip_penalty, s_0, 
     #target_db_h.sort_values('sort_cat', inplace=True)
     #target_db_h.reset_index(inplace=True)
 
-    
-    # to fix the problem with the nan coming from reading the table
-    results = results[results.iloc[:, 0].notna()]
-    #logging.debug(f'results: {results}')
-    #logging.debug(f'mapped results: {mapped_results}')
-    #logging.debug(f'index list: {index_list}')
-
-    #Algorithm 1 - iterate through target prot
-    #logging.debug(f'results.iloc[:, 0].size: {results.iloc[:, 0].size}')
 
     cluster_matches = list()
     # CHECK if score max cluster set up correct
@@ -403,8 +403,6 @@ def find_clusters(mapped_res, old_query_upd_scores, d_strand_flip_penalty, s_0, 
             print(f"target_prot_id_i: {target_prot_id_i}, curr_query_id: {curr_query_id}")
             # In the 1st iter old_query_upd_scores are filled with 1
             score_x_i = old_query_upd_scores[curr_query_id]
-            print(mapped_results)
-            print(x)
             #if iter_counter > 1:
             #   score_x_i = score_x_i - enrichment_bias
         else:
@@ -556,7 +554,6 @@ def update_scores_for_cluster_matches(cluster_matches, mapped_res, bias):
     significant_clusters = cluster_matches 
     # ADD query id to mapped results
     mapped_results = mapped_res.res_map_to_header
-    results = mapped_res.search_result_file
 
     target_db_lookup = mapped_res.target_db_lookup
     target_db_h = mapped_res.target_db_h
@@ -1218,7 +1215,7 @@ def set_match_threshold(match_score_gap, query_specific_thresholds):
 
 
 
-def initialize_new_prot_score2(old_query_upd_scores, arr_clu_neigh_prots, arr_matches_in_clu):
+def initialize_new_prot_score2(old_query_upd_scores, arr_clu_neigh_prots, arr_matches_in_clu, query_specific_thresholds):
     print('initializing new proteins scores')
     # here i get real indices for all the new proteins, from the neighbourhood and inside of the clusters (non-matches)
     arr_prot_to_add = np.setdiff1d(arr_clu_neigh_prots, arr_matches_in_clu)
@@ -1236,6 +1233,12 @@ def initialize_new_prot_score2(old_query_upd_scores, arr_clu_neigh_prots, arr_ma
     #dict_additional_scores = dict(zip(arr_prot_to_add, arr_score_x))
     dict_additional_scores = dict(zip(arr_prot_to_add, arr_score_x))
     old_query_upd_scores.update(dict_additional_scores)
+    # also add new threshold (set at first to 0) to the dictionary with query-specific match score thresholds
+    thresholds_to_init = np.empty(len(arr_prot_to_add))
+    thresholds_to_init.fill(0)
+    dict_additional_thresholds = dict(zip(arr_prot_to_add, thresholds_to_init))
+    query_specific_thresholds.update(dict_additional_thresholds)
+
     logging.debug(f"old_query_upd_scores updated with neighbours \n {old_query_upd_scores}")
     return(old_query_upd_scores)
 
@@ -1244,7 +1247,6 @@ def initialize_new_prot_score2(old_query_upd_scores, arr_clu_neigh_prots, arr_ma
 # you have some proportion of single queries not forming clusters
 def find_singletons(mapped_res):
     mapped_results = mapped_res.res_map_to_header
-    results = mapped_res.search_result_file
     index_list = mapped_res.ind_list
     target_db_lookup = mapped_res.target_db_lookup
     target_db_h = mapped_res.target_db_h
@@ -1256,8 +1258,6 @@ def find_singletons(mapped_res):
     target_db_h.reset_index(inplace=True)
 
     # to fix the problem with the nan coming from reading the table
-    results = results[results.iloc[:, 0].notna()]
-    logging.debug(f"results \n {results}")
     logging.debug(f"mapped_results \n {mapped_results}")
     logging.debug(f"index_list \n {index_list}")
 
@@ -1736,7 +1736,7 @@ def main(old_query_upd_scores, d_strand_flip_penalty, s_0):
 
     # MAKE coord and strand integers
 
-    mapped_res = ResultsMapping.map_target_to_coord()
+    mapped_res = ResultsMapping.map_target_to_coord(query_specific_thresholds)
     mapped_res.res_map_to_header.to_csv('mapped_results_mish', sep = '\t')
 
     # Is it ok to assign to None?
@@ -1808,7 +1808,7 @@ def main(old_query_upd_scores, d_strand_flip_penalty, s_0):
     add_new_profiles()
     make_new_query()
     set_match_threshold(match_score_gap, query_specific_thresholds)
-    old_query_upd_scores = initialize_new_prot_score2(old_query_upd_scores, arr_clu_neigh_prots, arr_matches_in_clu)
+    old_query_upd_scores = initialize_new_prot_score2(old_query_upd_scores, arr_clu_neigh_prots, arr_matches_in_clu, query_specific_thresholds)
 
 
     #generate_mmseqs_ffindex(sign_clusters_df)
