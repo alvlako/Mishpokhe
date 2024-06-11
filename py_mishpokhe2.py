@@ -42,6 +42,8 @@ def arg_parser():
      help="Set to 1 if you want to use mishpokhe clusters e-value filter, default is 1",  default=1)
     parser.add_argument("-e", "--eval",
      help="Specify the e-value threshold, default is 1",  default=1)
+    parser.add_argument("-f", "--frac_occ_min",
+     help="Specify the threshold for the fraction of the cluster matches in which each sequence cluster occurs, default is 0",  default=0)
     # make separate func?
     # CHECK is it ok to make global?
     global args
@@ -50,7 +52,7 @@ def arg_parser():
     for argument in vars(args):
         arg_path = getattr(args, argument)
         if not os.path.exists((arg_path)):
-            if argument not in ['res', 'iter', 'singleton', 'evalfilteruse', 'eval']:
+            if argument not in ['res', 'iter', 'singleton', 'evalfilteruse', 'eval', 'frac_occ_min']:
                 sys.exit(f"{arg_path} not found")
 
 class FilePath:
@@ -254,7 +256,7 @@ class ResultsMapping:
         print('res_map_to_header2', res_map_to_header)
         res_map_to_header = res_map_to_header.drop(res_map_to_header[res_map_to_header['bit_score'] < res_map_to_header['match_thresholds']].index)
         print('res_map_to_header3', res_map_to_header)
-        
+
         # sorting target db lookup to iterate correctly in find_clusters()
         # DOUBLE check?
         human_ids2 = list(set(target_db_lookup['ID'].tolist()))
@@ -1050,13 +1052,37 @@ def extract_proteins_cluster_neighborhood(sign_clusters_df, mapped_res):
 
     # make array with the neighbours indices
     l_all_indices_clu_neigh = []
+    clu_indices_for_frac_occ_min = []
+    init_clu_ind = 0
+    target_lookup_len = len(arr_target_db_lookup_real_ids)
+    print('target_lookup_len', target_lookup_len)
     for i in range(arr_prot_id_left.size):
         left_ind = int(np.where(arr_target_db_lookup_real_ids == arr_prot_id_left[i])[0])
         right_ind = int(np.where(arr_target_db_lookup_real_ids == arr_prot_id_right[i])[0])
         left_border = left_ind-neighbors_number_1side
         right_border = right_ind+neighbors_number_1side+1
+        # that is for the edge cases, protein id must be prodigal_derived to get the genome id
+        genome_id = '_'.join(arr_prot_id_left[i].split('_')[:-1])
+        last_ind_for_this_genome = target_db_lookup[target_db_lookup['ID'].str.contains(genome_id)].index[-1]
+        first_ind_for_this_genome = target_db_lookup[target_db_lookup['ID'].str.contains(genome_id)].index[0]
+        #print('arr_prot_id_left[i]', arr_prot_id_left[i], 'arr_prot_id_right[i]', arr_prot_id_right[i], 'last_ind_for_this_genome', last_ind_for_this_genome, 'first_ind_for_this_genome', first_ind_for_this_genome)
         #print('left_border right_border', left_border, right_border)
-        l_all_indices_clu_neigh.extend(list(range(left_border,right_border)))
+        if left_border < first_ind_for_this_genome:
+            l_all_indices_clu_neigh.extend(list(range(first_ind_for_this_genome,right_border)))
+            l_all_indices_clu_neigh.extend(list(range((last_ind_for_this_genome-(first_ind_for_this_genome - left_border)+1),last_ind_for_this_genome+1)))
+        elif right_border > last_ind_for_this_genome:
+            l_all_indices_clu_neigh.extend(list(range(left_border,last_ind_for_this_genome)))
+            l_all_indices_clu_neigh.extend(list(range(first_ind_for_this_genome,first_ind_for_this_genome+(right_border-target_lookup_len)+1)))
+            #print('arr_prot_id_right', arr_prot_id_right[i], 'genome_id', genome_id, 'first_ind_for_this_genome', first_ind_for_this_genome)
+            #print('l_all_indices_clu_neigh', l_all_indices_clu_neigh)
+        # here is the normal expected in most cases situation, not the edge case
+        else:
+            l_all_indices_clu_neigh.extend(list(range(left_border,right_border)))
+        clu_indices_for_frac_occ_min.extend([init_clu_ind]*len(range(left_border,right_border)))
+        init_clu_ind = init_clu_ind + 1
+        print('l_all_indices_clu_neigh', l_all_indices_clu_neigh)
+        print('clu_indices_for_frac_occ_min', clu_indices_for_frac_occ_min)
+    print(x)
     logging.debug(f"l_all_indices_clu_neigh {l_all_indices_clu_neigh}")
     # let's get the same indices but now for the matches in cluster only
     indices_matches_in_clu = np.unique(np.where(np.isin(arr_target_db_lookup_real_ids, arr_matches_in_clu)))
@@ -1064,6 +1090,12 @@ def extract_proteins_cluster_neighborhood(sign_clusters_df, mapped_res):
     all_indices_clu_neigh = np.unique(np.array(l_all_indices_clu_neigh))
     # also for another function i would get the protein ids for these
     arr_clu_neigh_prots = arr_target_db_lookup_real_ids[all_indices_clu_neigh]
+    # here I need a non-unique subset of the real proteins to correspond to clu_indices_for_frac_occ_min array, as I need for the clu indices a dataframe with the corresponding real ids to merge later with the seq clu results in add_new_profiles to see how many spatial clusters were for each sequences cluster
+    arr_clu_neigh_prots_non_uniq = arr_target_db_lookup_real_ids[l_all_indices_clu_neigh]
+    print('l_all_indices_clu_neigh', l_all_indices_clu_neigh)
+    clu_indices_for_frac_occ_min_df = pd.DataFrame({'real_prot_id': arr_clu_neigh_prots_non_uniq, 'internal_clu_ind': clu_indices_for_frac_occ_min})
+    print('clu_indices_for_frac_occ_min_df', clu_indices_for_frac_occ_min_df)
+    print(x)
     # obtain mmseqs ids corresponding to indices
     arr_mmseqs_ind_clu_neigh = arr_target_db_lookup_mmseqs_ind[all_indices_clu_neigh]
     # these are indices for the matches in the cluster only
@@ -1173,6 +1205,17 @@ def add_new_profiles():
     
     subprocess.call(['mmseqs', 'msa2profile', str(files.res) + '_' + str(iter_counter) +'_neigh_only_db' + '_clu_msa_db', str(files.res) + '_' + str(iter_counter) +'_neigh_only_db' + '_clu_msa_db_profile'])
 
+    # that's to reject sequence clusters when the fraction of cluster matches in which they occur is smaller than frac_occ_min
+    subprocess.call(['mmseqs', 'createtsv', 
+    str(files.res) + '_' + str(iter_counter) +'_neigh_only_db',
+     str(files.res) + '_' + str(iter_counter) +'_neigh_only_db',
+     str(files.res) + '_' + str(iter_counter) +'_neigh_only_db' + '_clu',
+     str(files.res) + '_' + str(iter_counter) +'_neigh_only_db' + '_clu.tsv'])
+
+    frac_occ_min = float(args.frac_occ_min)
+    print(frac_occ_min)
+    print(x)
+
 
 def make_new_query():
     # the function makes the new query database by concatenating (old updated profiles + new proteins) msas from update_profiles() and add_new_profiles()
@@ -1187,7 +1230,6 @@ def make_new_query():
     subprocess.call(['mmseqs', 'concatdbs', str(files.res) + '_' + str(iter_counter) + '_matches_only_db' + '_upd_res_msa_db_profile', str(files.res) + '_' + str(iter_counter) +'_neigh_only_db' + '_clu_msa_db_profile', query_db_path + str(iter_counter) + 'iter_db_clu_msa_db_profile'])
 
     subprocess.call(['mmseqs', 'concatdbs', str(files.res) + '_' + str(iter_counter) + '_matches_only_db' + '_upd_res_msa_db_profile_h', str(files.res) + '_' + str(iter_counter) +'_neigh_only_db' + '_clu_msa_db_profile_h', query_db_path + str(iter_counter) + 'iter_db_clu_msa_db_profile_h'])
-
 
 def set_match_threshold(match_score_gap, query_specific_thresholds):
     # the function calculates the simple heuristic to set profile-specific match score threshold. That is needed to only have positionally ortholodous families
