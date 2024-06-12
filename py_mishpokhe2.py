@@ -1082,7 +1082,6 @@ def extract_proteins_cluster_neighborhood(sign_clusters_df, mapped_res):
         init_clu_ind = init_clu_ind + 1
         print('l_all_indices_clu_neigh', l_all_indices_clu_neigh)
         print('clu_indices_for_frac_occ_min', clu_indices_for_frac_occ_min)
-    print(x)
     logging.debug(f"l_all_indices_clu_neigh {l_all_indices_clu_neigh}")
     # let's get the same indices but now for the matches in cluster only
     indices_matches_in_clu = np.unique(np.where(np.isin(arr_target_db_lookup_real_ids, arr_matches_in_clu)))
@@ -1092,10 +1091,9 @@ def extract_proteins_cluster_neighborhood(sign_clusters_df, mapped_res):
     arr_clu_neigh_prots = arr_target_db_lookup_real_ids[all_indices_clu_neigh]
     # here I need a non-unique subset of the real proteins to correspond to clu_indices_for_frac_occ_min array, as I need for the clu indices a dataframe with the corresponding real ids to merge later with the seq clu results in add_new_profiles to see how many spatial clusters were for each sequences cluster
     arr_clu_neigh_prots_non_uniq = arr_target_db_lookup_real_ids[l_all_indices_clu_neigh]
-    print('l_all_indices_clu_neigh', l_all_indices_clu_neigh)
+    #print('l_all_indices_clu_neigh', l_all_indices_clu_neigh)
     clu_indices_for_frac_occ_min_df = pd.DataFrame({'real_prot_id': arr_clu_neigh_prots_non_uniq, 'internal_clu_ind': clu_indices_for_frac_occ_min})
-    print('clu_indices_for_frac_occ_min_df', clu_indices_for_frac_occ_min_df)
-    print(x)
+    #print('clu_indices_for_frac_occ_min_df', clu_indices_for_frac_occ_min_df)
     # obtain mmseqs ids corresponding to indices
     arr_mmseqs_ind_clu_neigh = arr_target_db_lookup_mmseqs_ind[all_indices_clu_neigh]
     # these are indices for the matches in the cluster only
@@ -1142,7 +1140,7 @@ def extract_proteins_cluster_neighborhood(sign_clusters_df, mapped_res):
      str(args.targetdb)+'_h', str(files.res) + '_' + str(iter_counter)+'_matches_only_db_h'])
 
     #target_clusters_neighbourhood.close()
-    return arr_mmseqs_ind_matches_in_clu, arr_mmseqs_ind_clu_neigh_only, arr_clu_neigh_prots, arr_matches_in_clu
+    return arr_mmseqs_ind_matches_in_clu, arr_mmseqs_ind_clu_neigh_only, arr_clu_neigh_prots, arr_matches_in_clu, clu_indices_for_frac_occ_min_df
 
 
 def reassign_non_enriched(old_query_upd_scores, bias, s_0):
@@ -1185,25 +1183,12 @@ def update_profiles():
 
 
 
-def add_new_profiles():    
+def add_new_profiles(clu_indices_for_frac_occ_min_df):    
     # now let's construct the msa for the new proteins from the neighbourhood to add them to the query (concatenate with the msa of the old proteins + matches from above in function make_new_query)
     subprocess.call(['mmseqs', 'cluster', 
     str(files.res) + '_' + str(iter_counter) +'_neigh_only_db',
      str(files.res) + '_' + str(iter_counter) +'_neigh_only_db' + '_clu',
      'tmp', '-c', '0.8', '-e', '0.001'])
-    
-    subprocess.call(['mmseqs', 'result2msa', 
-    str(files.res) + '_' + str(iter_counter) +'_neigh_only_db',
-     str(files.res) + '_' + str(iter_counter) +'_neigh_only_db',
-     str(files.res) + '_' + str(iter_counter) +'_neigh_only_db' + '_clu',
-     str(files.res) + '_' + str(iter_counter) +'_neigh_only_db' + '_clu_msa',
-     '--msa-format-mode', '4'])
-
-    subprocess.call(['mmseqs', 'convertmsa', 
-     str(files.res) + '_' + str(iter_counter) +'_neigh_only_db' + '_clu_msa',
-     str(files.res) + '_' + str(iter_counter) +'_neigh_only_db' + '_clu_msa_db'])
-    
-    subprocess.call(['mmseqs', 'msa2profile', str(files.res) + '_' + str(iter_counter) +'_neigh_only_db' + '_clu_msa_db', str(files.res) + '_' + str(iter_counter) +'_neigh_only_db' + '_clu_msa_db_profile'])
 
     # that's to reject sequence clusters when the fraction of cluster matches in which they occur is smaller than frac_occ_min
     subprocess.call(['mmseqs', 'createtsv', 
@@ -1211,10 +1196,52 @@ def add_new_profiles():
      str(files.res) + '_' + str(iter_counter) +'_neigh_only_db',
      str(files.res) + '_' + str(iter_counter) +'_neigh_only_db' + '_clu',
      str(files.res) + '_' + str(iter_counter) +'_neigh_only_db' + '_clu.tsv'])
-
+    
+    clu_tsv = pd.read_csv(str(files.res) + '_' + str(iter_counter) +'_neigh_only_db' + '_clu.tsv', dtype=None, sep='\t', header = None)
+    clu_tsv.columns = ['rep', 'real_prot_id']
+    # now let's merge the clustering results df with the df containing counts of spatial clusters per protein
+    clu_tsv_spatial_clu_counts = pd.merge(clu_tsv, clu_indices_for_frac_occ_min_df, on='real_prot_id')
+    #print(clu_tsv_spatial_clu_counts)
     frac_occ_min = float(args.frac_occ_min)
     print(frac_occ_min)
-    print(x)
+    # count in how many spatial clusters every profile occurs
+    fraction_df = pd.DataFrame()
+    print(clu_tsv_spatial_clu_counts)
+    #fraction_df = clu_tsv_spatial_clu_counts.groupby(['rep'])['internal_clu_ind'].expanding().count().reset_index(name='spatial_clu_n')
+    fraction_df = clu_tsv_spatial_clu_counts.groupby(['rep'])['internal_clu_ind'].transform('count').reset_index(name='spatial_clu_n')
+    fraction_df['real_prot_id'] = clu_tsv_spatial_clu_counts['real_prot_id']
+    fraction_df['rep'] = clu_tsv_spatial_clu_counts['rep']
+    #print(fraction_df)
+    total_number_of_spatial_clusters = len(clu_tsv_spatial_clu_counts['internal_clu_ind'].unique())
+    #print('total_number_of_spatial_clusters', total_number_of_spatial_clusters)
+    fraction_df['fraction'] = fraction_df['spatial_clu_n']/total_number_of_spatial_clusters
+    #print(fraction_df)
+    prot_filtered_by_fraction = fraction_df.loc[fraction_df['fraction'] > frac_occ_min]['real_prot_id']
+    print(prot_filtered_by_fraction)
+    neigh_lookup = pd.read_csv(str(files.res) + '_' + str(iter_counter) +'_neigh_only_db.lookup', dtype=None, sep='\t', header = None)
+    
+    neigh_lookup.columns = ['int_id', 'real_prot_id', 'source_id']
+    merged_filter_frac_lookup_df = neigh_lookup.merge(prot_filtered_by_fraction, on='real_prot_id', how='inner')
+    print(merged_filter_frac_lookup_df)
+    merged_filter_frac_lookup_df['int_id'].to_csv('seq_clu_filter_fraction_idx', index=False, header=False)  
+
+    subprocess.call(['mmseqs', 'createsubdb', 'seq_clu_filter_fraction_idx',
+     str(files.res) + '_' + str(iter_counter) +'_neigh_only_db' + '_clu',
+     str(files.res) + '_' + str(iter_counter) +'_neigh_only_db' + '_clu' + '_frac_filter'])
+    
+    subprocess.call(['mmseqs', 'result2msa', 
+    str(files.res) + '_' + str(iter_counter) +'_neigh_only_db',
+     str(files.res) + '_' + str(iter_counter) +'_neigh_only_db',
+     str(files.res) + '_' + str(iter_counter) +'_neigh_only_db' + '_clu' + '_frac_filter',
+     str(files.res) + '_' + str(iter_counter) +'_neigh_only_db' + '_clu' + '_frac_filter_msa',
+     '--msa-format-mode', '4'])
+
+    subprocess.call(['mmseqs', 'convertmsa', 
+     str(files.res) + '_' + str(iter_counter) +'_neigh_only_db' + '_clu_frac_filter_msa',
+     str(files.res) + '_' + str(iter_counter) +'_neigh_only_db' + '_clu_frac_filter_msa_db'])
+    
+    subprocess.call(['mmseqs', 'msa2profile', str(files.res) + '_' + str(iter_counter) +'_neigh_only_db' + '_clu_frac_filter_msa_db', str(files.res) + '_' + str(iter_counter) +'_neigh_only_db' + '_clu_msa_db_profile'])
+
 
 
 def make_new_query():
@@ -1844,10 +1871,10 @@ def main(old_query_upd_scores, d_strand_flip_penalty, s_0):
     path_clu_filter = files.res + '_' + str(iter_counter) + '_iter_sign_clusters_enrich_stat_filtered_clu_filter'
     significant_clusters_eval_filter_df_clu.to_csv(path_clu_filter, sep = '\t', index = False)
 
-    arr_mmseqs_ind_matches_in_clu, arr_mmseqs_ind_clu_neigh_only, arr_clu_neigh_prots, arr_matches_in_clu = extract_proteins_cluster_neighborhood(sign_clusters_df, mapped_res)
+    arr_mmseqs_ind_matches_in_clu, arr_mmseqs_ind_clu_neigh_only, arr_clu_neigh_prots, arr_matches_in_clu, clu_indices_for_frac_occ_min_df = extract_proteins_cluster_neighborhood(sign_clusters_df, mapped_res)
     reassign_non_enriched(old_query_upd_scores, bias, s_0)
     update_profiles()
-    add_new_profiles()
+    add_new_profiles(clu_indices_for_frac_occ_min_df)
     make_new_query()
     set_match_threshold(match_score_gap, query_specific_thresholds)
     old_query_upd_scores = initialize_new_prot_score2(old_query_upd_scores, arr_clu_neigh_prots, arr_matches_in_clu, query_specific_thresholds)
