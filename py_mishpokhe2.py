@@ -324,10 +324,6 @@ def find_clusters(mapped_res, old_query_upd_scores, d_strand_flip_penalty, s_0, 
     score_min_cluster = 0
     score_i_minus_1_cluster = 0
 
-    if s_0 is None:
-        #s_0 = -0.01
-        s_0 = -1 - bias
-
     # CHECK if correct (esp if cluster does not start from the 1st gene)
     i_0_cluster_start = int(target_db_h["coord1"].values[0])
     pd.set_option('display.max_columns', None)
@@ -751,7 +747,7 @@ def calculate_karlin_stat(cluster_matches, mapped_res, s_0, bias):
     all_target_prots['score_x'] = s_0
     all_target_prots.update(matched_target_prots)
     enrich_scores = all_target_prots['score_x'].to_numpy()
-
+    print(s_0)
     print(enrich_scores)
     
     logging.debug(f"scores for all res: \n {enrich_scores}")
@@ -1826,9 +1822,8 @@ def main(old_query_upd_scores, d_strand_flip_penalty, s_0):
     #print(significant_cluster_df_enriched)
     
     # UNCOMMENT
-
-    significant_cluster_df_enriched, s_0, old_query_upd_scores, L, l = update_scores_for_cluster_matches(cluster_matches, mapped_res, bias)
     stat_lambda, stat_K = calculate_karlin_stat(cluster_matches, mapped_res, s_0, bias)
+    significant_cluster_df_enriched, s_0, old_query_upd_scores, L, l = update_scores_for_cluster_matches(cluster_matches, mapped_res, bias)
     sign_clusters_df = significant_cluster_df_enriched
     significant_cluster_df_enriched, significant_clusters_eval_filter_df = calculate_e_value(stat_lambda, stat_K, significant_cluster_df_enriched, mapped_res)
 
@@ -1894,7 +1889,6 @@ if __name__ == "__main__":
         old_query_upd_scores[q] = 1
         query_specific_thresholds[q] = 0
         #print(old_query_upd_scores)
-    s_0 = None
     d_strand_flip_penalty = None
 
     # FIX to be the right order of functions (should be after run_search())
@@ -1919,6 +1913,8 @@ if __name__ == "__main__":
     enrichment_bias = 4
     match_threshold = 0
     match_score_gap = 10
+
+    s_0 = -1 - bias
 
     iter_counter = 1
     while iterations > 0:
