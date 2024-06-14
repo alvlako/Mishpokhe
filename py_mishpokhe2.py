@@ -720,8 +720,6 @@ def calculate_karlin_stat(cluster_matches, mapped_res, s_0, bias):
     logging.debug(f"calculating prob for each match")
     logging.debug(f"mapped_results: \n {mapped_results}")
 
-    all_enrich_scores = []
-
     significant_clusters = cluster_matches 
 
     # CHECK if these are right columns
@@ -742,32 +740,21 @@ def calculate_karlin_stat(cluster_matches, mapped_res, s_0, bias):
     l = len(cluster_prots)
     logging.debug(f"len(cluster_prots): {l}")
     aplha_pseudocount = pow(10,np.log10(1/L)-1)
+
+    # Now let's start to do the karlin-altschul statistics properly, not with the updated score but with the target prots scores that are derived from the corresponding query scores (not yet updated)
+    all_target_prots = pd.DataFrame()
+    all_target_prots['ID'] = target_db_lookup['ID']
+    matched_target_prots = mapped_results[['ID', 'query_ID']]
+    matched_target_prots['score_x'] = matched_target_prots['query_ID'].map(old_query_upd_scores)
     
-    # CHECK if it is right that in case of all res probs I should iterate through target
-    # NOT through query as in example above
-    n_target = len(mapped_results['ID'].unique())
-    target_ids = np.array(mapped_results['ID'])
-    target_ids_uniq, target_ids_counts = np.unique(target_ids, return_counts=True)
-    for target_id in target_ids_uniq:
-        logging.debug(f"target_id: {target_id}")
-        M_x = mapped_results['ID'][mapped_results['ID'] == target_id].shape[0]
-        m_x = cluster_prots[cluster_prots['target_id'] == target_id]['target_id'].count()
-        # in this case M_x and m_x are equal as there were no single hits. 
-        # CHECK with other data where would be hits not only in clusters
-        logging.debug(f"M_x, m_x: {M_x, m_x}")
-        # using pseudocounts for m_x/l proportion to avoid zeros in log
-        # ASK Johannes if pseudocount is correct
-        cluster_prot_proportion = np.divide(m_x, l)
-        cluster_prot_proportion = np.divide((m_x+aplha_pseudocount), (l + n_target*aplha_pseudocount))
-        score_x = np.log(np.divide(cluster_prot_proportion, np.divide(M_x, L))) - bias
-        logging.debug(f"updated score for t: {target_id} is {score_x}")
-        all_enrich_scores.append(score_x)
+    all_target_prots['query_ID'] = 0
+    all_target_prots['score_x'] = s_0
+    all_target_prots.update(matched_target_prots)
+    enrich_scores = all_target_prots['score_x'].to_numpy()
+
+    print(enrich_scores)
     
-    logging.debug(f"scores for all res: \n {all_enrich_scores}")
-
-
-
-    enrich_scores = np.array(all_enrich_scores)
+    logging.debug(f"scores for all res: \n {enrich_scores}")
     logging.debug(f"len: {len(enrich_scores)}")
 
     #if 0 not in enrich_scores:
@@ -811,13 +798,6 @@ def calculate_karlin_stat(cluster_matches, mapped_res, s_0, bias):
 
     logging.debug(f"score_counts {score_counts}")
     logging.debug(f"len {len(enrich_scores)}")
-
-    # Add scores for the protein with no match, counts = all proteins in genomes - unique target prots that got matches - that is already included in the loop above
-    unique_scores = np.append(unique_scores, s_0)
-    score_counts = np.append(score_counts, L - len(enrich_scores))
-    logging.debug(f's_0 is {s_0}')
-    logging.debug(f'after s_0 adding,  unique_scores {unique_scores}')
-    logging.debug(f'score_counts is {score_counts}')
 
     #score_prob = score_counts / len(enrich_scores)
     # In fact, here should be all the proteins from all the genomes (incl those without matches)
@@ -1241,7 +1221,6 @@ def add_new_profiles(clu_indices_for_frac_occ_min_df):
      str(files.res) + '_' + str(iter_counter) +'_neigh_only_db' + '_clu_frac_filter_msa_db'])
     
     subprocess.call(['mmseqs', 'msa2profile', str(files.res) + '_' + str(iter_counter) +'_neigh_only_db' + '_clu_frac_filter_msa_db', str(files.res) + '_' + str(iter_counter) +'_neigh_only_db' + '_clu_msa_db_profile'])
-
 
 
 def make_new_query():
