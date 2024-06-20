@@ -546,10 +546,10 @@ def find_clusters(mapped_res, old_query_upd_scores, d_strand_flip_penalty, s_0, 
 
 # it re-defines the scores which I have got in the first iteration 
 # ADD significant clusters determination?
-def update_scores_for_cluster_matches(cluster_matches, mapped_res, bias):
+def update_scores_for_cluster_matches(significant_clusters_eval_filter_df, mapped_res, bias):
 
     # CHANGE for really significant clusters, not as it is?
-    significant_clusters = cluster_matches 
+    #significant_clusters = cluster_matches 
     # ADD query id to mapped results
     mapped_results = mapped_res.res_map_to_header
 
@@ -558,29 +558,15 @@ def update_scores_for_cluster_matches(cluster_matches, mapped_res, bias):
 
     # CHECK if these are right columns
     # CHECK if the query and target assignment is correct
-    K = len(significant_clusters)
+    K = len(significant_clusters_eval_filter_df)
     L = len(target_db_lookup.index)
 
     logging.debug(f"L: {L}")
     
-
-    sign_clusters_df = pd.DataFrame(significant_clusters)
-    sign_clusters_df.columns = ["coord1", "coord2", "score",
-    "query_prots", "target_prots", "strand", "coordS1", "coordS2"]
-    sign_clusters_df["initial_q_or_match"] = False
-
-    logging.debug(f"sign_clusters_df: \n {sign_clusters_df}")
-    sign_clusters_df['new_score_enrich'] = 0
-    sign_clusters_df['list_new_scoreS_enrich'] = ''
-
-    # MAKE faster?
-    sign_clusters_df['queries_string'] = [','.join(map(str, l)) for l in sign_clusters_df['query_prots']]
-    sign_clusters_df['targets_string'] = [','.join(map(str, l)) for l in sign_clusters_df['target_prots']]
-
     # Should cluster prots be done better?
     cluster_prots = pd.DataFrame()
-    cluster_prots['query_id'] = sign_clusters_df['query_prots'].explode()
-    cluster_prots['target_id'] = sign_clusters_df['target_prots'].explode()
+    cluster_prots['query_id'] = significant_clusters_eval_filter_df['query_prots'].explode()
+    cluster_prots['target_id'] = significant_clusters_eval_filter_df['target_prots'].explode()
 
     l = len(cluster_prots)
 
@@ -601,8 +587,8 @@ def update_scores_for_cluster_matches(cluster_matches, mapped_res, bias):
         logging.debug(f"query_id: {query_id}")
         # to avoid empty queries corresponding to prots with no match
         if query_id == '':
-            sign_clusters_df.loc[sign_clusters_df['queries_string'].str.contains(str(query_id)),
-        'list_new_scoreS_enrich'] = sign_clusters_df.loc[sign_clusters_df['queries_string'].str.contains(str(query_id)),
+            significant_clusters_eval_filter_df.loc[significant_clusters_eval_filter_df['queries_string'].str.contains(str(query_id)),
+        'list_new_scoreS_enrich'] = significant_clusters_eval_filter_df.loc[significant_clusters_eval_filter_df['queries_string'].str.contains(str(query_id)),
         'list_new_scoreS_enrich'].astype(str) + ',' + ''
             continue
         M_x = mapped_results['query_ID'][mapped_results['query_ID'] == query_id].shape[0]
@@ -627,21 +613,21 @@ def update_scores_for_cluster_matches(cluster_matches, mapped_res, bias):
 
         for target_id in cluster_prots['target_id'][cluster_prots['query_id'] == query_id]:
             if iter_counter == 1:
-                sign_clusters_df.loc[sign_clusters_df['targets_string'].str.contains(str(target_id)),
+                significant_clusters_eval_filter_df.loc[significant_clusters_eval_filter_df['targets_string'].str.contains(str(target_id)),
                     'initial_q_or_match'] = True
             else:
                 if query_id in q_and_matches:
-                    sign_clusters_df.loc[sign_clusters_df['targets_string'].str.contains(str(target_id)),
+                    significant_clusters_eval_filter_df.loc[significant_clusters_eval_filter_df['targets_string'].str.contains(str(target_id)),
                     'initial_q_or_match'] = True
 
         # MAKE faster?
         # adding score of the query prot to get summarized score for the cluster
         # CHECK if correct
-        sign_clusters_df.loc[sign_clusters_df['queries_string'].str.contains(str(query_id)),
-        'new_score_enrich'] = sign_clusters_df.loc[sign_clusters_df['queries_string'].str.contains(str(query_id)),
+        significant_clusters_eval_filter_df.loc[significant_clusters_eval_filter_df['queries_string'].str.contains(str(query_id)),
+        'new_score_enrich'] = significant_clusters_eval_filter_df.loc[significant_clusters_eval_filter_df['queries_string'].str.contains(str(query_id)),
         'new_score_enrich'] + score_x
-        sign_clusters_df.loc[sign_clusters_df['queries_string'].str.contains(str(query_id)),
-        'list_new_scoreS_enrich'] = sign_clusters_df.loc[sign_clusters_df['queries_string'].str.contains(str(query_id)),
+        significant_clusters_eval_filter_df.loc[significant_clusters_eval_filter_df['queries_string'].str.contains(str(query_id)),
+        'list_new_scoreS_enrich'] = significant_clusters_eval_filter_df.loc[significant_clusters_eval_filter_df['queries_string'].str.contains(str(query_id)),
         'list_new_scoreS_enrich'].astype(str) + ',' + str(score_x)
 
         #print(sign_clusters_df['list_new_scoreS_enrich'])
@@ -674,9 +660,9 @@ def update_scores_for_cluster_matches(cluster_matches, mapped_res, bias):
             logging.debug(f"updates s_0 for: {target_id} is= {s_0}")
             #logging.debug(f"sign_clusters_df[pd.DataFrame(sign_clusters_df['target_prots'].tolist()).isin(target_id.split()).any(1).values]")
             #tmp_df = sign_clusters_df[pd.DataFrame(sign_clusters_df['target_prots'].tolist()).isin(target_id.split()).any(1).values]['new_score_enrich'] + s_0
-            array_of_bool = pd.DataFrame(sign_clusters_df['target_prots'].tolist()).isin(target_id.split()).any(axis=1).values
+            array_of_bool = pd.DataFrame(significant_clusters_eval_filter_df['target_prots'].tolist()).isin(target_id.split()).any(axis=1).values
             index_of_row = int(np.where(array_of_bool == True)[0])
-            sign_clusters_df.loc[sign_clusters_df.index[index_of_row],'new_score_enrich'] = sign_clusters_df.loc[sign_clusters_df.index[index_of_row],'new_score_enrich'] + s_0
+            significant_clusters_eval_filter_df.loc[significant_clusters_eval_filter_df.index[index_of_row],'new_score_enrich'] = significant_clusters_eval_filter_df.loc[significant_clusters_eval_filter_df.index[index_of_row],'new_score_enrich'] + s_0
             # FIX to make the cell string 
             #sign_clusters_df.loc[sign_clusters_df.index[index_of_row],'list_new_scoreS_enrich'] = sign_clusters_df.loc[sign_clusters_df.index[index_of_row],'list_new_scoreS_enrich'] + ',' + str(s_0)
             #logging.debug(f"sign_clusters_df: \n {sign_clusters_df}")
@@ -690,9 +676,9 @@ def update_scores_for_cluster_matches(cluster_matches, mapped_res, bias):
     #    s_0 = -1 - bias
     logging.debug(f"s_0: {s_0}")
             
-    logging.debug(f"sign_clusters_df: \n {sign_clusters_df}")
-    sign_clusters_df.to_csv('sign_clusters_df', sep = '\t')
-    return(sign_clusters_df, s_0, old_query_upd_scores, L, l)
+    logging.debug(f"sign_clusters_df: \n {significant_clusters_eval_filter_df}")
+    significant_clusters_eval_filter_df.to_csv(files.res + '_' + str(iter_counter) + '_sign_clusters_df_filter_upd', sep = '\t')
+    return(significant_clusters_eval_filter_df, s_0, old_query_upd_scores, L, l)
 
 
 # CHANGE to not duplicate so much the func above
@@ -945,7 +931,7 @@ def set_strand_flip_penalty(cluster_matches, mapped_res):
 
 
 # ASK Johannes if in e-value calculations the L should actually be the L, not like L*L
-def calculate_e_value(stat_lambda, stat_K, significant_cluster_df_enriched, mapped_res):
+def calculate_e_value(stat_lambda, stat_K, cluster_matches, mapped_res):
     # FIX to be variable taken from number of prots in target
     # CHANGE it to be linked and the same with the used in calculate_karlin_stat
     # THINK if I should give an option to set the multiplying param to an user
@@ -953,43 +939,55 @@ def calculate_e_value(stat_lambda, stat_K, significant_cluster_df_enriched, mapp
     print('calculating e-value')
     target_db_lookup = mapped_res.target_db_lookup
     L = len(target_db_lookup.index)
-    logging.debug(f"significant_cluster_df_enriched \n {significant_cluster_df_enriched}")
+
+
+    sign_clusters_df = pd.DataFrame(cluster_matches)
+    sign_clusters_df.columns = ["coord1", "coord2", "score",
+    "query_prots", "target_prots", "strand", "coordS1", "coordS2"]
+    sign_clusters_df["initial_q_or_match"] = False
+
+    logging.debug(f"sign_clusters_df: \n {sign_clusters_df}")
+    sign_clusters_df['new_score_enrich'] = 0
+    sign_clusters_df['list_new_scoreS_enrich'] = ''
+
+    # MAKE faster?
+    sign_clusters_df['queries_string'] = [','.join(map(str, l)) for l in sign_clusters_df['query_prots']]
+    sign_clusters_df['targets_string'] = [','.join(map(str, l)) for l in sign_clusters_df['target_prots']]
+    logging.debug(f"sign_clusters_df \n {sign_clusters_df}")
+    print(sign_clusters_df)
+    
     stat_lambda = stat_lambda.value
     logging.debug(f" {stat_lambda, stat_K}")
-    significant_cluster_df_enriched["e-value"] = 0
+    sign_clusters_df["e-value"] = 0
     # PUT in correct place
     pd.options.display.float_format = '{:,.4f}'.format
-    for r in range(0, len(significant_cluster_df_enriched.index)):
+    for r in range(0, len(sign_clusters_df.index)):
         logging.debug(f"r {r}")
-        enrich_score = significant_cluster_df_enriched["new_score_enrich"][r]
-        # REMOVE if not needed
-        enrich_scores_list = significant_cluster_df_enriched["list_new_scoreS_enrich"][r].split(',')
-        # CHANGE to delete 0 happened with creation of pandas column
-        del(enrich_scores_list[0])
+        enrich_score = sign_clusters_df["score"][r]
         # converting enrich score as for karlin stats calculation
         conv_enrich_score = int(np.round(enrich_score*mult_param, decimals = 0))
         logging.debug(f"conv_enrich_score {conv_enrich_score}")
         # is it okay if that's a sum?
         evalue = stat_K*L*np.exp(stat_lambda*(-1)*conv_enrich_score)
-        significant_cluster_df_enriched.iat[r, significant_cluster_df_enriched.columns.get_loc("e-value")] = float(evalue)
+        sign_clusters_df.iat[r, sign_clusters_df.columns.get_loc("e-value")] = float(evalue)
         logging.debug(f"eval = {evalue}")
     # CHANGE the name? 
     # they are not filtered by e-val yet
     cluster_path = files.res + '_' + str(iter_counter) + '_iter_sign_clusters_enrich_stat'
-    significant_cluster_df_enriched.to_csv(cluster_path, sep = '\t', index = False)
+    sign_clusters_df.to_csv(cluster_path, sep = '\t', index = False)
     # Check if e-val = 0.01 is good filtering
     eval_filter = float(args.eval)
     use_eval_filter = args.evalfilteruse
     if use_eval_filter == '1':
-        significant_clusters_eval_filter_df = significant_cluster_df_enriched.loc[(significant_cluster_df_enriched['e-value'] <eval_filter) & (significant_cluster_df_enriched['e-value'] >= 0)]
+        significant_clusters_eval_filter_df = sign_clusters_df.loc[(sign_clusters_df['e-value'] <eval_filter) & (sign_clusters_df['e-value'] >= 0)]
         cluster_path2 = files.res + '_' + str(iter_counter) + '_iter_sign_clusters_enrich_stat_filtered'
         significant_clusters_eval_filter_df.to_csv(cluster_path2, sep = '\t', index = False)
     else:
         print('e-value filter disabled')
-        significant_clusters_eval_filter_df = significant_cluster_df_enriched.copy()
-    logging.debug(f"significant_cluster_df_enriched \n {significant_cluster_df_enriched}")
+        significant_clusters_eval_filter_df = sign_clusters_df.copy()
+    logging.debug(f"significant_cluster_df_enriched \n {sign_clusters_df}")
     logging.debug(f"significant_clusters_eval_filter_df \n {significant_clusters_eval_filter_df}")
-    return significant_cluster_df_enriched, significant_clusters_eval_filter_df
+    return sign_clusters_df, significant_clusters_eval_filter_df
 
 
 def extract_proteins_cluster_neighborhood(sign_clusters_df, mapped_res):
@@ -1417,9 +1415,9 @@ def preprocess_singleton_main():
 def cluster_clusters(significant_cluster_df_enriched):
     print('clustering clusters')
     if args.evalfilteruse == '1':
-        path_to = cluster_path2 = files.res + '_' + str(iter_counter) + '_iter_sign_clusters_enrich_stat_filtered'
+        path_to = files.res + '_' + str(iter_counter) + '_sign_clusters_df_filter_upd'
     else:
-        path_to = files.res + '_' + str(iter_counter) + '_iter_sign_clusters_enrich_stat'
+        path_to = files.res + '_' + str(iter_counter) + '_sign_clusters_df_filter_upd'
     path_to_test = path_to
     #path_to_test = '/Users/Sasha/Documents/GitHub/mishpokhe_test/anti_crispr_res_wOld_6_guo1iter_res_2_iter_sign_clusters_enrich_stat_filtered'
     # ast.literal_eval is used to read rows looking like [1,2,3] as python list
@@ -1823,9 +1821,10 @@ def main(old_query_upd_scores, d_strand_flip_penalty, s_0):
     
     # UNCOMMENT
     stat_lambda, stat_K = calculate_karlin_stat(cluster_matches, mapped_res, s_0, bias)
-    significant_cluster_df_enriched, s_0, old_query_upd_scores, L, l = update_scores_for_cluster_matches(cluster_matches, mapped_res, bias)
+    significant_cluster_df, significant_clusters_eval_filter_df = calculate_e_value(stat_lambda, stat_K, cluster_matches, mapped_res)
+    significant_cluster_df_enriched, s_0, old_query_upd_scores, L, l = update_scores_for_cluster_matches(significant_clusters_eval_filter_df, mapped_res, bias)
     sign_clusters_df = significant_cluster_df_enriched
-    significant_cluster_df_enriched, significant_clusters_eval_filter_df = calculate_e_value(stat_lambda, stat_K, significant_cluster_df_enriched, mapped_res)
+    
 
     significant_clusters_eval_filter_df_clu = cluster_clusters(significant_cluster_df_enriched)
     #if iter_counter == 2:
