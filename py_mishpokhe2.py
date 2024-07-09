@@ -356,6 +356,7 @@ def find_clusters(mapped_res, old_query_upd_scores, d_strand_flip_penalty, s_0, 
     # have empty line at the ened of the results file???
     # FIX genes ids retrieval
     #logging.debug(f"target lookup: \n {target_db_lookup.iloc[:, 1]}")
+    # that's for debugging
     for i in range(0, len(target_db_lookup.iloc[:, 1])):
         #logging.debug(f"NEW cycle starts")
         logging.debug(f"i: {i}")
@@ -675,9 +676,9 @@ def update_scores_for_cluster_matches(significant_clusters_eval_filter_df, mappe
     #    logging.debug(f"0 target in clusters")
     #    s_0 = -1 - bias
     logging.debug(f"s_0: {s_0}")
-            
+    print('significant_clusters_eval_filter_df2 \n', significant_clusters_eval_filter_df)
     logging.debug(f"sign_clusters_df: \n {significant_clusters_eval_filter_df}")
-    significant_clusters_eval_filter_df.to_csv(files.res + '_' + str(iter_counter) + '_sign_clusters_df_filter_upd', sep = '\t')
+    significant_clusters_eval_filter_df.to_csv(files.res + '_' + str(iter_counter) + '_sign_clusters_df_filter_upd', sep = '\t', index = False)
     return(significant_clusters_eval_filter_df, s_0, old_query_upd_scores, L, l)
 
 
@@ -971,6 +972,16 @@ def calculate_e_value(stat_lambda, stat_K, cluster_matches, mapped_res):
         evalue = stat_K*L*np.exp(stat_lambda*(-1)*conv_enrich_score)
         sign_clusters_df.iat[r, sign_clusters_df.columns.get_loc("e-value")] = float(evalue)
         logging.debug(f"eval = {evalue}")
+    # here I will try to calculate the q-value suggested by Johannes and replace e-value with them. It is a temporary option, just to try out
+    # ----disabled for now as I have to figure out the problem with e-val
+    #sign_clusters_df_sorted_by_eval = sign_clusters_df.sort_values('e-value')
+    #sign_clusters_df_sorted_by_eval['divided'] = sign_clusters_df_sorted_by_eval['e-value'].divide(sign_clusters_df.index + 1, axis="rows")
+    #sign_clusters_df_sorted_by_eval['min_fdr'] = np.minimum.accumulate(sign_clusters_df_sorted_by_eval.divided[::-1])
+    #print('sign_clusters_df_sorted_by_eval', sign_clusters_df_sorted_by_eval)
+    #sign_clusters_df_sorted_by_eval['e-value'] = sign_clusters_df_sorted_by_eval['min_fdr']
+    #sign_clusters_df = sign_clusters_df_sorted_by_eval.drop(columns=['divided', 'min_fdr'])
+    #print(sign_clusters_df)
+    # -----------
     # CHANGE the name? 
     # they are not filtered by e-val yet
     cluster_path = files.res + '_' + str(iter_counter) + '_iter_sign_clusters_enrich_stat'
@@ -1045,13 +1056,13 @@ def extract_proteins_cluster_neighborhood(sign_clusters_df, mapped_res):
             l_all_indices_clu_neigh.extend(list(range(first_ind_for_this_genome,right_border)))
             l_all_indices_clu_neigh.extend(list(range((last_ind_for_this_genome-(first_ind_for_this_genome - left_border)+1),last_ind_for_this_genome+1)))
         elif right_border > last_ind_for_this_genome:
-            l_all_indices_clu_neigh.extend(list(range(left_border,last_ind_for_this_genome)))
-            l_all_indices_clu_neigh.extend(list(range(first_ind_for_this_genome,first_ind_for_this_genome+(right_border-target_lookup_len)+1)))
+            l_all_indices_clu_neigh.extend(list(range(left_border,last_ind_for_this_genome+1)))
+            l_all_indices_clu_neigh.extend(list(range(first_ind_for_this_genome,first_ind_for_this_genome+(right_border-last_ind_for_this_genome))))
             #print('arr_prot_id_right', arr_prot_id_right[i], 'genome_id', genome_id, 'first_ind_for_this_genome', first_ind_for_this_genome)
             #print('l_all_indices_clu_neigh', l_all_indices_clu_neigh)
         # here is the normal expected in most cases situation, not the edge case
         else:
-            l_all_indices_clu_neigh.extend(list(range(left_border,right_border)))
+            l_all_indices_clu_neigh.extend(list(range(left_border,right_border+1)))
         clu_indices_for_frac_occ_min.extend([init_clu_ind]*len(range(left_border,right_border)))
         init_clu_ind = init_clu_ind + 1
         print('l_all_indices_clu_neigh', l_all_indices_clu_neigh)
@@ -1267,7 +1278,7 @@ def initialize_new_prot_score2(old_query_upd_scores, arr_clu_neigh_prots, arr_ma
     
     # Unlike before, here I just set slightly positive scores for the new proteins from the neighbourhood and non-matches from inside, i dont calculate the concrete scores anymore as i dont do searches anymore
     arr_score_x = np.empty(len(arr_prot_to_add))
-    arr_score_x.fill(0.1)
+    arr_score_x.fill(0.4)
     print('arr_score_x', arr_score_x)
     
 
@@ -1913,7 +1924,7 @@ if __name__ == "__main__":
     match_threshold = 0
     match_score_gap = 10
 
-    s_0 = -1 - bias
+    s_0 = -0.4 - bias
 
     iter_counter = 1
     while iterations > 0:
