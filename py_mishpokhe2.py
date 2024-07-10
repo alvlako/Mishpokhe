@@ -1053,7 +1053,7 @@ def extract_proteins_cluster_neighborhood(sign_clusters_df, mapped_res):
         #print('arr_prot_id_left[i]', arr_prot_id_left[i], 'arr_prot_id_right[i]', arr_prot_id_right[i], 'last_ind_for_this_genome', last_ind_for_this_genome, 'first_ind_for_this_genome', first_ind_for_this_genome)
         #print('left_border right_border', left_border, right_border)
         if left_border < first_ind_for_this_genome:
-            l_all_indices_clu_neigh.extend(list(range(first_ind_for_this_genome,right_border)))
+            l_all_indices_clu_neigh.extend(list(range(first_ind_for_this_genome,right_border+1)))
             l_all_indices_clu_neigh.extend(list(range((last_ind_for_this_genome-(first_ind_for_this_genome - left_border)+1),last_ind_for_this_genome+1)))
         elif right_border > last_ind_for_this_genome:
             l_all_indices_clu_neigh.extend(list(range(left_border,last_ind_for_this_genome+1)))
@@ -1063,7 +1063,7 @@ def extract_proteins_cluster_neighborhood(sign_clusters_df, mapped_res):
         # here is the normal expected in most cases situation, not the edge case
         else:
             l_all_indices_clu_neigh.extend(list(range(left_border,right_border+1)))
-        clu_indices_for_frac_occ_min.extend([init_clu_ind]*len(range(left_border,right_border)))
+        clu_indices_for_frac_occ_min.extend([init_clu_ind]*len(range(left_border,right_border+1)))
         init_clu_ind = init_clu_ind + 1
         print('l_all_indices_clu_neigh', l_all_indices_clu_neigh)
         print('clu_indices_for_frac_occ_min', clu_indices_for_frac_occ_min)
