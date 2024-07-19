@@ -116,6 +116,7 @@ def run_search():
      files.target_db,
      files.res + '_prof_search',
      'tmp', '-a', '--mask', '0', '--comp-bias-corr', '0', '--max-seqs', '10000', '-c', '0.8', '-e', '0.001'])
+    print(f'command on the {iter_counter} is mmseqs search  {files.query_db}_clu_msa_db_profile {files.target_db} {files.res}_prof_search tmp -a --mask 0 --comp-bias-corr 0 --max-seqs 10000 -c 0.8 -e 0.001')
     #, '--min-seq-id', '0.5'
     #subprocess.call(['mmseqs', 'search', files.target_db,
     #files.query_db + '_clu' + '_rep' + '_profile',
@@ -649,7 +650,8 @@ def update_scores_for_cluster_matches(significant_clusters_eval_filter_df, mappe
     #s_0 = np.log(np.divide(np.divide((l-m_x_sum),l), np.divide((L-M_x_sum),L))) - bias
     #print(x)
     # added pseudocount for the rare case when there are no gaps in cluster
-    s_0 = np.log(np.divide(np.divide((l-m_x_sum),l), np.divide((L-M_x_sum),L))+aplha_pseudocount) - bias
+    # Other pseudocounts are added to have adequate value when all prots in cluster are matches
+    s_0 = np.log(np.divide(np.divide((l-m_x_sum+aplha_pseudocount),l + x_number_of_queries*aplha_pseudocount), np.divide((L-M_x_sum),L))+aplha_pseudocount) - bias
     logging.debug(f's_0 {s_0}, m_x_sum {m_x_sum}, M_x_sum {M_x_sum}, L {L}, l {l} ')
     print(f's_0 {s_0}, m_x_sum {m_x_sum}, M_x_sum {M_x_sum}, L {L}, l {l} ')
     for target_id in cluster_prots['target_id']:
@@ -1278,7 +1280,8 @@ def initialize_new_prot_score2(old_query_upd_scores, arr_clu_neigh_prots, arr_ma
     
     # Unlike before, here I just set slightly positive scores for the new proteins from the neighbourhood and non-matches from inside, i dont calculate the concrete scores anymore as i dont do searches anymore
     arr_score_x = np.empty(len(arr_prot_to_add))
-    arr_score_x.fill(0.4)
+    #arr_score_x.fill(0.4)
+    arr_score_x.fill(1)
     print('arr_score_x', arr_score_x)
     
 
@@ -1768,6 +1771,9 @@ def cluster_clusters(significant_cluster_df_enriched):
 
 def main(old_query_upd_scores, d_strand_flip_penalty, s_0):
 
+    import time
+    start_time = time.time()
+
     #if iter_counter > 1:
     if if_singleton == 1:
         if iter_counter == 0:
@@ -1776,24 +1782,26 @@ def main(old_query_upd_scores, d_strand_flip_penalty, s_0):
         if iter_counter == 1:
             make_profiles()
             
-    
+    print("--- %s seconds for make_profiles() ---" % (time.time() - start_time))
     # CHECK if it works with multihitdb (just from command line it worked)
     # CHECK why there are more results with multihitdb (target is converted to profiles??)
     #if iter_counter > 1:
+    start_time1 = time.time()
     run_search()
-
+    print("--- %s seconds for run_search() ---" % (time.time() - start_time1))
     # this class is to have order and strand for target proteins
     # FIX best query hit is needed
     
     # real mapping, uncomment? DELETE? as there are duplicates of this command in init
 
     # MAKE coord and strand integers
-
+    start_time2 = time.time()
     mapped_res = ResultsMapping.map_target_to_coord(query_specific_thresholds)
     mapped_res.res_map_to_header.to_csv('mapped_results_mish', sep = '\t')
+    print("--- %s seconds for map_target_to_coord() ---" % (time.time() - start_time2))
 
     # Is it ok to assign to None?
-
+    start_time3 = time.time()
     use_intermediate = 0
     cluster_matches_fname = str(files.res) + str(iter_counter) + 'cluster_matches'
     if use_intermediate == 1 and iter_counter == 1:
@@ -1806,7 +1814,7 @@ def main(old_query_upd_scores, d_strand_flip_penalty, s_0):
         f=open(cluster_matches_fname,"w")
         f.write(str(cluster_matches))
         f.close()
-
+    print("--- %s seconds for find_clusters() ---" % (time.time() - start_time3))
     
     pd.set_option('display.max_rows', None)
     pd.set_option('display.max_columns', None)
@@ -1831,13 +1839,20 @@ def main(old_query_upd_scores, d_strand_flip_penalty, s_0):
     #print(significant_cluster_df_enriched)
     
     # UNCOMMENT
+    start_time4 = time.time()
     stat_lambda, stat_K = calculate_karlin_stat(cluster_matches, mapped_res, s_0, bias)
+    print("--- %s seconds for calculate_karlin_stat() ---" % (time.time() - start_time4))
+    start_time5 = time.time()
     significant_cluster_df, significant_clusters_eval_filter_df = calculate_e_value(stat_lambda, stat_K, cluster_matches, mapped_res)
+    print("--- %s seconds for calculate_e_value() ---" % (time.time() - start_time5))
+    start_time6 = time.time()
     significant_cluster_df_enriched, s_0, old_query_upd_scores, L, l = update_scores_for_cluster_matches(significant_clusters_eval_filter_df, mapped_res, bias)
+    print("--- %s seconds for update_scores_for_cluster_matches() ---" % (time.time() - start_time6))
     sign_clusters_df = significant_cluster_df_enriched
     
-
+    start_time7 = time.time()
     significant_clusters_eval_filter_df_clu = cluster_clusters(significant_cluster_df_enriched)
+    print("--- %s seconds for cluster_clusters() ---" % (time.time() - start_time7))
     #if iter_counter == 2:
     #    print(x)
 
@@ -1950,5 +1965,7 @@ if __name__ == "__main__":
         main(old_query_upd_scores, d_strand_flip_penalty, s_0)
         iterations -= 1
         iter_counter += 1
+    
+    # Here it is to merge the results from all iteration to one file (I have to take care of the competitive things as well)
 
 
