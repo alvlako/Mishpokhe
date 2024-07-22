@@ -314,7 +314,7 @@ def find_clusters(mapped_res, old_query_upd_scores, d_strand_flip_penalty, s_0, 
 
     cluster_matches = list()
     # CHECK if score max cluster set up correct
-    score_max_cluster = 0
+    score_max_cluster = 0 - bias
     # OPTIMIZE how to set the strand penalty
     if d_strand_flip_penalty is None:
         d_strand_flip_penalty = 1
@@ -322,8 +322,8 @@ def find_clusters(mapped_res, old_query_upd_scores, d_strand_flip_penalty, s_0, 
         d_strand_flip_penalty = -1*d_strand_flip_penalty
     
     # CHECK if it was set up correctly
-    score_min_cluster = 0
-    score_i_minus_1_cluster = 0
+    score_min_cluster = 0 - bias
+    score_i_minus_1_cluster = 0 - bias
 
     # CHECK if correct (esp if cluster does not start from the 1st gene)
     i_0_cluster_start = int(target_db_h["coord1"].values[0])
@@ -1769,7 +1769,10 @@ def cluster_clusters(significant_cluster_df_enriched):
     return significant_clusters_eval_filter_df_clu
 
 
-def main(old_query_upd_scores, d_strand_flip_penalty, s_0):
+def main(old_query_upd_scores, UpdatedStats):
+
+    s_0 = UpdatedStats['s_0']
+    d_strand_flip_penalty = UpdatedStats['d_strand_flip_penalty']
 
     import time
     start_time = time.time()
@@ -1819,6 +1822,7 @@ def main(old_query_upd_scores, d_strand_flip_penalty, s_0):
     pd.set_option('display.max_rows', None)
     pd.set_option('display.max_columns', None)
     
+    logging.debug(f'checking global {len(old_query_upd_scores)} {d_strand_flip_penalty}, {s_0}')
     cluster_matches_df = pd.DataFrame(cluster_matches)
     cluster_matches_df.to_csv(str(files.res) + str(iter_counter) + 'cluster_matches_raw', sep = '\t', index = False)
     print('number of clusters', len(cluster_matches_df.index))
@@ -1914,7 +1918,7 @@ if __name__ == "__main__":
         old_query_upd_scores[q] = 1
         query_specific_thresholds[q] = 0
         #print(old_query_upd_scores)
-    d_strand_flip_penalty = None
+
 
     # FIX to be the right order of functions (should be after run_search())
 
@@ -1939,7 +1943,10 @@ if __name__ == "__main__":
     match_threshold = 0
     match_score_gap = 10
 
-    s_0 = -0.4 - bias
+    #Keeps and updates d_strand_flip_penalty and s_0
+    UpdatedStats = dict()
+    UpdatedStats['d_strand_flip_penalty'] = None
+    UpdatedStats['s_0'] = -0.4 - bias
 
     iter_counter = 1
     while iterations > 0:
@@ -1962,7 +1969,7 @@ if __name__ == "__main__":
             files.res = res_path + str(iter_counter-1) + 'iter_res'
         logging.debug(f"files.query_db in main: {files.query_db}")
 
-        main(old_query_upd_scores, d_strand_flip_penalty, s_0)
+        main(old_query_upd_scores, UpdatedStats)
         iterations -= 1
         iter_counter += 1
     
