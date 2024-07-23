@@ -1882,6 +1882,9 @@ def main(old_query_upd_scores, UpdatedStats):
     set_match_threshold(match_score_gap, query_specific_thresholds)
     old_query_upd_scores = initialize_new_prot_score2(old_query_upd_scores, arr_clu_neigh_prots, arr_matches_in_clu, query_specific_thresholds)
 
+    UpdatedStats['s_0'] = s_0
+    UpdatedStats['d_strand_flip_penalty'] = d_strand_flip_penalty
+
 
     #generate_mmseqs_ffindex(sign_clusters_df)
 
