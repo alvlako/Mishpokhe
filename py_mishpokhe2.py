@@ -413,11 +413,6 @@ def find_clusters(mapped_res, old_query_upd_scores, d_strand_flip_penalty, s_0, 
         #score_x_i = -np.log(score_x_i)
         # CHECK in evalue section how to initialize this score
 
-        if iter_counter == 2 and target_prot_id_i == 'NC_004087.1_40':
-            logging.debug(f"problem NC_004087.1_40, score is {score_x_i}")
-            logging.debug(f" query is {curr_query_id}, score orig is {old_query_upd_scores[curr_query_id]}")
-        
-
         # gap changed to use gene number, not the coordinate diff
         #gap = abs(int(mapped_results["coord1"].values[i])- int((mapped_results["coord2"].values[i-1]))) - 1
         # CHECK if i need 1 or 2 column after split (for now it is for id looks like NC_015295.1_78)
