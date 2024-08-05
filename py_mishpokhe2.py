@@ -1383,10 +1383,15 @@ def initialize_singleton_score(sign_clusters_df, mapped_res):
     return(old_query_upd_scores)
 
 
-def preprocess_singleton_main():
+def preprocess_singleton_main(old_query_upd_scores, UpdatedStats):
+
+    s_0 = UpdatedStats['s_0']
+    d_strand_flip_penalty = UpdatedStats['d_strand_flip_penalty']
+
+
     make_profiles()
     run_search()
-    mapped_res = ResultsMapping.map_target_to_coord()
+    mapped_res = ResultsMapping.map_target_to_coord(query_specific_thresholds)
     mapped_res.res_map_to_header.to_csv('mapped_results_mish', sep = '\t')
 
     cluster_matches = find_singletons(mapped_res)
@@ -1408,13 +1413,16 @@ def preprocess_singleton_main():
 
     #
     
-    significant_cluster_df_enriched, s_0, old_query_upd_scores, L, l = update_scores_for_cluster_matches(cluster_matches, mapped_res)
-    d_strand_flip_penalty = set_strand_flip_penalty(cluster_matches, mapped_res)
-    sign_clusters_df = significant_cluster_df_enriched
-    extract_proteins_cluster_neighborhood(sign_clusters_df, mapped_res)
+    arr_mmseqs_ind_matches_in_clu, arr_mmseqs_ind_clu_neigh_only, arr_clu_neigh_prots, arr_matches_in_clu, clu_indices_for_frac_occ_min_df = extract_proteins_cluster_neighborhood(sign_clusters_df, mapped_res)
+    reassign_non_enriched(old_query_upd_scores, bias, s_0)
+    update_profiles()
+    add_new_profiles(clu_indices_for_frac_occ_min_df)
     make_new_query()
-    old_query_upd_scores = initialize_new_prot_score2(sign_clusters_df, old_query_upd_scores, L, l, mapped_res)
+    set_match_threshold(match_score_gap, query_specific_thresholds)
+    old_query_upd_scores = initialize_new_prot_score2(old_query_upd_scores, arr_clu_neigh_prots, arr_matches_in_clu, query_specific_thresholds)
 
+    UpdatedStats['s_0'] = s_0
+    UpdatedStats['d_strand_flip_penalty'] = d_strand_flip_penalty
 
     #old_query_upd_scores = initialize_singleton_score(sign_clusters_df, mapped_res)
 
@@ -1917,24 +1925,15 @@ if __name__ == "__main__":
         query_specific_thresholds[q] = 0
         #print(old_query_upd_scores)
 
+    # that is to write all the INITIAL queries to this list which allow later filter in the clustering of clusters. The filter would keep those clusters  which are clustered together with those having match to the initial query/another match to the initial query
+    query_db_lookup = pd.read_csv(str(files.query_db)+str(".lookup"), dtype=None, sep='\t', header = None)
+    q_and_matches = query_db_lookup.iloc[:, 1].tolist()
 
     # FIX to be the right order of functions (should be after run_search())
 
     # UNCOMMENT, real mapping!
     #mapped_res = ResultsMapping.map_target_to_coord()
 
-    # For 0th iteration with query containing singletons
-    print(if_singleton)
-    if if_singleton == 1:
-        print('doing singletons')
-        iter_counter = 0
-        # that is to not mix 0 and 1 iter res
-        saved_files_res = files.res
-        files.res = str(files.res) + '0iter'
-        preprocess_singleton_main()
-    
-        files.query_db = str(files.query_db) + str(iter_counter) + 'iter_db'
-        files.res = saved_files_res
     # Make changeable
     bias = 4
     enrichment_bias = 4
@@ -1946,15 +1945,25 @@ if __name__ == "__main__":
     UpdatedStats['d_strand_flip_penalty'] = None
     UpdatedStats['s_0'] = -0.4 - bias
 
+    # For 0th iteration with query containing singletons
+    print(if_singleton)
+    if if_singleton == 1:
+        print('doing singletons')
+        iter_counter = 0
+        # that is to not mix 0 and 1 iter res
+        saved_files_res = files.res
+        files.res = str(files.res) + '0iter'
+        preprocess_singleton_main(old_query_upd_scores, UpdatedStats)
+    
+        files.query_db = str(files.query_db) + str(iter_counter) + 'iter_db'
+        files.res = saved_files_res
+
     iter_counter = 1
     while iterations > 0:
         print('iter_counter:',iter_counter)
         logging.debug(f"iter_counter, files.query_db: {iter_counter, files.query_db}")
         if iter_counter == 1:
             files.query_db = files.query_db
-            # that is to write all the INITIAL queries to this list which allow later filter in the clustering of clusters. The filter would keep those clusters  which are clustered together with those having match to the initial query/another match to the initial query
-            query_db_lookup = pd.read_csv(str(files.query_db)+str(".lookup"), dtype=None, sep='\t', header = None)
-            q_and_matches = query_db_lookup.iloc[:, 1].tolist()
         if iter_counter == 2:
             files.query_db = str(files.query_db) + str(iter_counter-1) + 'iter_db'
             files.res = str(files.res) + str(iter_counter-1) + 'iter_res'
