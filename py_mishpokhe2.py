@@ -41,9 +41,11 @@ def arg_parser():
     parser.add_argument("-u", "--evalfilteruse",
      help="Set to 1 if you want to use mishpokhe clusters e-value filter, default is 1",  default=1)
     parser.add_argument("-e", "--eval",
-     help="Specify the e-value threshold, default is 1",  default=1)
+     help="Specify the e-value threshold, default is 100",  default=100)
     parser.add_argument("-f", "--frac_occ_min",
      help="Specify the threshold for the fraction of the cluster matches in which each sequence cluster occurs, default is 0",  default=0)
+    parser.add_argument("-c", "--search_cov",
+     help="Specify the coverage threshold for the mmseqs search",  default=0.8)
     # make separate func?
     # CHECK is it ok to make global?
     global args
@@ -52,7 +54,7 @@ def arg_parser():
     for argument in vars(args):
         arg_path = getattr(args, argument)
         if not os.path.exists((arg_path)):
-            if argument not in ['res', 'iter', 'singleton', 'evalfilteruse', 'eval', 'frac_occ_min']:
+            if argument not in ['res', 'iter', 'singleton', 'evalfilteruse', 'eval', 'frac_occ_min', 'search_cov']:
                 sys.exit(f"{arg_path} not found")
 
 class FilePath:
@@ -110,12 +112,13 @@ def run_search():
     # Ask Johannes if it is correct to search TARGET against Query
     # FIX, --max-accept 1 does not work for now
     # now the coverage and the e-value threshold is just as for the clustering
+    search_cov = float(args.search_cov)
     subprocess.call(['mmseqs', 'search', 
     #files.query_db + '_clu' + '_rep' + '_profile',
     files.query_db + '_clu_msa_db_profile',
      files.target_db,
      files.res + '_prof_search',
-     'tmp', '-a', '--mask', '0', '--comp-bias-corr', '0', '--max-seqs', '10000', '-c', '0.8', '-e', '0.001'])
+     'tmp', '-a', '--mask', '0', '--comp-bias-corr', '0', '--max-seqs', '10000', '-c', search_cov, '-e', '0.001'])
     print(f'command on the {iter_counter} is mmseqs search  {files.query_db}_clu_msa_db_profile {files.target_db} {files.res}_prof_search tmp -a --mask 0 --comp-bias-corr 0 --max-seqs 10000 -c 0.8 -e 0.001')
     #, '--min-seq-id', '0.5'
     #subprocess.call(['mmseqs', 'search', files.target_db,
@@ -1347,11 +1350,12 @@ def run_singleton_search():
      files.query_db + '_clu' + '_rep' + '_h'])
     subprocess.call(['mmseqs', 'result2profile', files.query_db + '_clu' + '_rep',
      files.query_db, files.query_db + '_clu', files.query_db + '_clu' + '_rep' + '_profile' ])
+    search_cov = float(args.search_cov)
     subprocess.call(['mmseqs', 'search', 
     files.query_db + '_clu' + '_rep' + '_profile',
      files.target_db,
      files.res + '_prof_search',
-     'tmp', '-a', '--mask', '0', '--comp-bias-corr', '0', '--max-seqs', '10000', '-c', '0.8', '-e', '0.001'])
+     'tmp', '-a', '--mask', '0', '--comp-bias-corr', '0', '--max-seqs', '10000', '-c', search_cov, '-e', '0.001'])
     subprocess.call(['mmseqs', 'convertalis', files.query_db + '_clu' + '_rep' + '_profile',
      files.target_db, files.res + '_singleton_prof_search',
       files.res + '_singleton_prof_search' +'.m8'])
