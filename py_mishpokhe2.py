@@ -45,7 +45,7 @@ def arg_parser():
     parser.add_argument("-f", "--frac_occ_min",
      help="Specify the threshold for the fraction of the cluster matches in which each sequence cluster occurs, default is 0",  default=0)
     parser.add_argument("-c", "--search_cov",
-     help="Specify the coverage threshold for the mmseqs search",  default=0.8)
+     help="Specify the coverage threshold for the mmseqs search",  default='0.8')
     # make separate func?
     # CHECK is it ok to make global?
     global args
@@ -112,7 +112,7 @@ def run_search():
     # Ask Johannes if it is correct to search TARGET against Query
     # FIX, --max-accept 1 does not work for now
     # now the coverage and the e-value threshold is just as for the clustering
-    search_cov = float(args.search_cov)
+    search_cov = str(args.search_cov)
     subprocess.call(['mmseqs', 'search', 
     #files.query_db + '_clu' + '_rep' + '_profile',
     files.query_db + '_clu_msa_db_profile',
@@ -1350,7 +1350,7 @@ def run_singleton_search():
      files.query_db + '_clu' + '_rep' + '_h'])
     subprocess.call(['mmseqs', 'result2profile', files.query_db + '_clu' + '_rep',
      files.query_db, files.query_db + '_clu', files.query_db + '_clu' + '_rep' + '_profile' ])
-    search_cov = float(args.search_cov)
+    search_cov = str(args.search_cov)
     subprocess.call(['mmseqs', 'search', 
     files.query_db + '_clu' + '_rep' + '_profile',
      files.target_db,
