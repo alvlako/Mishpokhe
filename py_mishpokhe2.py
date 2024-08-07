@@ -1976,7 +1976,7 @@ if __name__ == "__main__":
             #query_db_path = str(files.query_db)[:str(files.query_db).find(str(iter_counter-2))]
             query_db_path = str(files.query_db)
             files.query_db = query_db_path + str(iter_counter-1) + 'iter_db'
-            res_path = str(files.res)[:str(files.res).find(str(iter_counter-2))]
+            res_path = str(files.res)[:str(files.res).rfind(str(iter_counter-2))]
             files.res = res_path + str(iter_counter-1) + 'iter_res'
         logging.debug(f"files.query_db in main: {files.query_db}")
 
