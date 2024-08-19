@@ -448,7 +448,7 @@ def find_clusters(mapped_res, old_query_upd_scores, d_strand_flip_penalty, s_0, 
         logging.debug(f"{score_i_minus_1_cluster - f_strand_flip*d_strand_flip_penalty + score_x_i}")
         logging.debug(f" {max(0, score_x_i)}")
 
-        if (score_i_minus_1_cluster - f_strand_flip*d_strand_flip_penalty + score_x_i - diff_genomes_penalty) >= max(0, score_x_i):
+        if (score_i_minus_1_cluster - f_strand_flip*d_strand_flip_penalty + score_x_i - diff_genomes_penalty) > max(0, score_x_i):
             score_i_cluster = score_i_minus_1_cluster - f_strand_flip*d_strand_flip_penalty + score_x_i - diff_genomes_penalty
             logging.debug(f"proceed: {score_i_cluster, score_max_cluster}")
             logging.debug(f"score i-1: {score_i_minus_1_cluster}")
@@ -475,8 +475,8 @@ def find_clusters(mapped_res, old_query_upd_scores, d_strand_flip_penalty, s_0, 
 
         else:
             logging.debug(f"second")
-            score_i_cluster = score_i_minus_1_cluster - f_strand_flip*d_strand_flip_penalty + score_x_i - diff_genomes_penalty
-            logging.debug(f"second_proceed {score_i_cluster, score_max_cluster}")
+            #score_i_cluster = score_i_minus_1_cluster - f_strand_flip*d_strand_flip_penalty + score_x_i - diff_genomes_penalty
+            #logging.debug(f"second_proceed {score_i_cluster, score_max_cluster}")
             logging.debug(f"score i-1: {score_i_minus_1_cluster}")
             score_i_cluster = score_x_i - diff_genomes_penalty
 
@@ -497,9 +497,11 @@ def find_clusters(mapped_res, old_query_upd_scores, d_strand_flip_penalty, s_0, 
                 logging.debug([i_0_cluster_start,
                 i_1_cluster_end, score_max_cluster,
                 query_genes_ids, target_genes_ids, prots_strands, coords1, coords2])
-            # THINK if it is okay to be here or above
-            # for some reasons if here it gives proper result
+            while score_x_i <= 0 and (int(target_db_h_coord1_list[i]) < len(target_db_lookup.iloc[:, 1])):
+                i = i + 1
+            score_i_cluster = score_i_minus_1_cluster - f_strand_flip*d_strand_flip_penalty + score_x_i - diff_genomes_penalty
             i_0_cluster_start = int(target_db_h_coord1_list[i])
+            logging.debug(f"second_proceed {score_i_cluster, score_max_cluster}")
 
             #first_target_gene = mapped_results["ID"].values[i]
             query_genes_ids = []
