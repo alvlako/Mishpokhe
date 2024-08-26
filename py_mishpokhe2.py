@@ -325,7 +325,8 @@ def find_clusters(mapped_res, old_query_upd_scores, d_strand_flip_penalty, s_0, 
         d_strand_flip_penalty = -1*d_strand_flip_penalty
     
     # CHECK if it was set up correctly
-    score_min_cluster = 0 - bias
+    score_min_cluster = 0 
+    #- bias
     score_i_minus_1_cluster = 0 - bias
 
     # CHECK if correct (esp if cluster does not start from the 1st gene)
@@ -343,6 +344,7 @@ def find_clusters(mapped_res, old_query_upd_scores, d_strand_flip_penalty, s_0, 
     coords1 = []
     coords2 = []
 
+    L_space = len(target_db_lookup.iloc[:, 1])
 
     matches_ids_list = mapped_results['ID'].tolist()
     logging.debug(f"matches_ids_list: {matches_ids_list}")
@@ -361,7 +363,8 @@ def find_clusters(mapped_res, old_query_upd_scores, d_strand_flip_penalty, s_0, 
     # FIX genes ids retrieval
     #logging.debug(f"target lookup: \n {target_db_lookup.iloc[:, 1]}")
     # that's for debugging
-    for i in range(0, len(target_db_lookup.iloc[:, 1])):
+    i = 0
+    while i < L_space:
         #logging.debug(f"NEW cycle starts")
         logging.debug(f"i: {i}")
         #logging.debug(f"target_db_lookup.iloc[:, 1].values[i]: {target_db_lookup.iloc[:, 1].values[i]}")
@@ -478,7 +481,7 @@ def find_clusters(mapped_res, old_query_upd_scores, d_strand_flip_penalty, s_0, 
             #score_i_cluster = score_i_minus_1_cluster - f_strand_flip*d_strand_flip_penalty + score_x_i - diff_genomes_penalty
             #logging.debug(f"second_proceed {score_i_cluster, score_max_cluster}")
             logging.debug(f"score i-1: {score_i_minus_1_cluster}")
-            score_i_cluster = score_x_i - diff_genomes_penalty
+            #score_i_cluster = score_x_i - diff_genomes_penalty
 
             # CHECK if correct, CHANGE to get right coord
             # CHECK, maybe I have to take i-1 coord? otherwise
@@ -497,11 +500,23 @@ def find_clusters(mapped_res, old_query_upd_scores, d_strand_flip_penalty, s_0, 
                 logging.debug([i_0_cluster_start,
                 i_1_cluster_end, score_max_cluster,
                 query_genes_ids, target_genes_ids, prots_strands, coords1, coords2])
-            while score_x_i <= 0 and (int(target_db_h_coord1_list[i]) < len(target_db_lookup.iloc[:, 1])):
+            while score_x_i <= 0 and (i < L_space-1):
                 i = i + 1
+                print('i2', i)
+                target_prot_id_i = target_db_h_id_list[i]
+                if target_prot_id_i in matches_ids_list:
+                    curr_query_id = mapped_results.loc[mapped_results['ID'] == target_prot_id_i, 'query_ID'].iloc[0]
+                    print(f"target_prot_id_i: {target_prot_id_i}, curr_query_id: {curr_query_id}")
+                    score_x_i = old_query_upd_scores[curr_query_id]
+                else:
+                    score_x_i = s_0
+                print('i, target_db_h_id_list[i]',i, target_db_h_id_list[i])
+            # THINK if it is okay to be here or above
+            # for some reasons if here it gives proper result
             score_i_cluster = score_i_minus_1_cluster - f_strand_flip*d_strand_flip_penalty + score_x_i - diff_genomes_penalty
-            i_0_cluster_start = int(target_db_h_coord1_list[i])
+            score_i_cluster = score_x_i - diff_genomes_penalty
             logging.debug(f"second_proceed {score_i_cluster, score_max_cluster}")
+            i_0_cluster_start = int(target_db_h_coord1_list[i])
 
             #first_target_gene = mapped_results["ID"].values[i]
             query_genes_ids = []
@@ -528,6 +543,7 @@ def find_clusters(mapped_res, old_query_upd_scores, d_strand_flip_penalty, s_0, 
             diff_genomes_penalty = 0
             score_max_cluster = score_i_cluster
             logging.debug(f"set to 0")
+        i = i + 1
 
     if score_max_cluster > score_min_cluster:
         logging.debug(f"second 2nd append")
