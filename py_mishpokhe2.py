@@ -394,12 +394,12 @@ def find_clusters(mapped_res, old_query_upd_scores, d_strand_flip_penalty, s_0, 
         logging.debug(f"target_genome_id_i: {target_genome_id_i}")
         diff_genomes_penalty = 0
         #if iter_counter == 2 and target_genome_id_i == 'NC_004086.1' and target_genome_id_i_plus_1 == 'NC_004087.1':
-        logging.debug(f"problem {target_genome_id_i}, {target_genome_id_i_minus_1}")
         if  target_genome_id_i != target_genome_id_i_minus_1:
             #logging.debug(f"different genomes!!!")
             # That should actually replace the line from above
             diff_genomes_penalty = 10000
             init_strand = strand
+            logging.debug(f"diff_genomes_penalty {diff_genomes_penalty}")
             #continue
         # CHANGE this score (to 0 and 1 for 1st iter?)
         #score_x_i = float(results.iloc[i,10])
@@ -506,10 +506,12 @@ def find_clusters(mapped_res, old_query_upd_scores, d_strand_flip_penalty, s_0, 
                 target_prot_id_i = target_db_h_id_list[i]
                 if target_prot_id_i in matches_ids_list:
                     curr_query_id = mapped_results.loc[mapped_results['ID'] == target_prot_id_i, 'query_ID'].iloc[0]
-                    print(f"target_prot_id_i: {target_prot_id_i}, curr_query_id: {curr_query_id}")
                     score_x_i = old_query_upd_scores[curr_query_id]
                 else:
                     score_x_i = s_0
+                logging.debug(f"while target_while_prot_id_i: {target_prot_id_i}, curr_query_id: {curr_query_id}, score_x_i: {score_x_i}")
+                if score_x_i > 0:
+                    i = i - 1
                 print('i, target_db_h_id_list[i]',i, target_db_h_id_list[i])
             # THINK if it is okay to be here or above
             # for some reasons if here it gives proper result
