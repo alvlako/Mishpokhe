@@ -46,6 +46,8 @@ def arg_parser():
      help="Specify the threshold for the fraction of the cluster matches in which each sequence cluster occurs, default is 0",  default=0)
     parser.add_argument("-c", "--search_cov",
      help="Specify the coverage threshold for the mmseqs search",  default='0.8')
+    parser.add_argument("-af", "--arc_filter",
+     help="Set to 0 if you do NOT want to use architecture clustering and filtering, default is 1",  default=1)
     # make separate func?
     # CHECK is it ok to make global?
     global args
@@ -54,7 +56,7 @@ def arg_parser():
     for argument in vars(args):
         arg_path = getattr(args, argument)
         if not os.path.exists((arg_path)):
-            if argument not in ['res', 'iter', 'singleton', 'evalfilteruse', 'eval', 'frac_occ_min', 'search_cov']:
+            if argument not in ['res', 'iter', 'singleton', 'evalfilteruse', 'eval', 'frac_occ_min', 'search_cov', 'arc_filter']:
                 sys.exit(f"{arg_path} not found")
 
 class FilePath:
@@ -1889,9 +1891,12 @@ def main(old_query_upd_scores, UpdatedStats):
     print("--- %s seconds for update_scores_for_cluster_matches() ---" % (time.time() - start_time6))
     sign_clusters_df = significant_cluster_df_enriched
     
-    start_time7 = time.time()
-    significant_clusters_eval_filter_df_clu = cluster_clusters(significant_cluster_df_enriched)
-    print("--- %s seconds for cluster_clusters() ---" % (time.time() - start_time7))
+    # Checking if user wants to use architecture clustering-filtering
+    arc_filter = int(args.arc_filter)
+    if arc_filter == 1:
+        start_time7 = time.time()
+        significant_clusters_eval_filter_df_clu = cluster_clusters(significant_cluster_df_enriched)
+        print("--- %s seconds for cluster_clusters() ---" % (time.time() - start_time7))
     #if iter_counter == 2:
     #    print(x)
 
@@ -1902,12 +1907,14 @@ def main(old_query_upd_scores, UpdatedStats):
     # CHECK do I need this step??
     #sign_clusters_df = set_strand_flip_penalty(cluster_matches)
 
-    # Is it okay to use e-val filtering here?
-    sign_clusters_df = significant_clusters_eval_filter_df_clu
-    ###sign_clusters_df = significant_cluster_df_enriched
+    if arc_filter == 1: 
+        # Is it okay to use e-val filtering here?
+        sign_clusters_df = significant_clusters_eval_filter_df_clu
+        ###sign_clusters_df = significant_cluster_df_enriched
 
-    path_clu_filter = files.res + '_' + str(iter_counter) + '_iter_sign_clusters_enrich_stat_filtered_clu_filter'
-    significant_clusters_eval_filter_df_clu.to_csv(path_clu_filter, sep = '\t', index = False)
+        path_clu_filter = files.res + '_' + str(iter_counter) + '_iter_sign_clusters_enrich_stat_filtered_clu_filter'
+        significant_clusters_eval_filter_df_clu.to_csv(path_clu_filter, sep = '\t', index = False)
+
 
     arr_mmseqs_ind_matches_in_clu, arr_mmseqs_ind_clu_neigh_only, arr_clu_neigh_prots, arr_matches_in_clu, clu_indices_for_frac_occ_min_df = extract_proteins_cluster_neighborhood(sign_clusters_df, mapped_res)
     reassign_non_enriched(old_query_upd_scores, bias, s_0)
