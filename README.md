@@ -69,7 +69,7 @@ Fasta can be linearized with:
 
 It is important to keep mishpokhe together with other accessory scripts in one directory. 
 
-If you run mishpokhe again on the same dataset, it is important to delete the "tmp" folder as well as query database starting from the first iteration (simply do rm {QUERYDB}1*, it removes also the later databases) and all results files (do rm {RES}*).
+If you run mishpokhe again on the same dataset, it is important to delete the "tmp" folder as well as query database starting from the first iteration (simply do `rm {QUERYDB}1*`, it removes also the later databases) and all results files (do `rm {RES}*`).
 
 
 # Credits
