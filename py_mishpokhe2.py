@@ -510,18 +510,9 @@ def find_clusters(mapped_res, old_query_upd_scores, d_strand_flip_penalty, s_0, 
                 if target_prot_id_i in matches_ids_list:
                     i = i - 1
                     break
-                if target_prot_id_i in matches_ids_list:
-                    curr_query_id = mapped_results.loc[mapped_results['ID'] == target_prot_id_i, 'query_ID'].iloc[0]
-                    score_x_i = old_query_upd_scores[curr_query_id]
                 else:
                     score_x_i = s_0
                 logging.debug(f"while target_while_prot_id_i: {target_prot_id_i}, curr_query_id: {curr_query_id}, score_x_i: {score_x_i}")
-                if score_x_i > 0:
-                    i = i - 1
-                # that's to not let the first positive to be lost, and also to start freshly new with the cycle for the positive
-                #if target_db_h_id_list[i + 1] in matches_ids_list:
-                #    i = i - 1
-                #    break
                 print('i, target_db_h_id_list[i]',i, target_db_h_id_list[i])
             # THINK if it is okay to be here or above
             # for some reasons if here it gives proper result
