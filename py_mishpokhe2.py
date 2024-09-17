@@ -590,6 +590,11 @@ def update_scores_for_cluster_matches(significant_clusters_eval_filter_df, mappe
     cluster_prots['target_id'] = significant_clusters_eval_filter_df['target_prots'].explode()
 
     l = len(cluster_prots)
+    # adding new pseudocounts here
+    m_pseudocount = 4
+    # each cluster should have number of prots + pseudocount
+    l = l + 4*K
+
 
     #logging.debug(f"K, L, l: {K, L, l}")
     
@@ -1965,15 +1970,15 @@ if __name__ == "__main__":
     #mapped_res = ResultsMapping.map_target_to_coord()
 
     # Make changeable
-    bias = 4
-    enrichment_bias = 4
+    bias = 0 #4
+    enrichment_bias = 0 #4
     match_threshold = 0
     match_score_gap = 10
 
     #Keeps and updates d_strand_flip_penalty and s_0
     UpdatedStats = dict()
     UpdatedStats['d_strand_flip_penalty'] = None
-    UpdatedStats['s_0'] = -0.4 - bias
+    UpdatedStats['s_0'] = -1 #-4.4 #-0.4 - bias
 
     # For 0th iteration with query containing singletons
     print(if_singleton)
