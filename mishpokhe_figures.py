@@ -38,11 +38,20 @@ import seaborn as sns
 
 # Let's load the padloc ground truth 
 path_to_padloc = '/Users/Sasha/Downloads/padloc_res_ncbi_bact_chr_repr_short'
+#path_to_padloc = 'example_systems'
 padloc_systems = pd.read_csv(path_to_padloc, dtype=None, sep='\t', header = None)
 padloc_systems.columns = ['genome', 'coord1', 'coord2', 'type']
+
+# let's try to first make a column that has a more broad classification of types
+padloc_systems.replace(['AbiD', 'AbiE','AbiJ','AbiL', 'AbiO', 'AbiQ','AbiU','AbiV'], 'Abi', inplace=True)
+padloc_systems['type_to_split'] = padloc_systems['type'].astype(str)+'_'
+#padloc_systems['general_type'] = padloc_systems['type_to_split'].str.split('_',expand=True)[0]
+padloc_systems['type'] = padloc_systems['type_to_split'].str.split('_',expand=True)[0]
+
 print(padloc_systems)
 uniq_padloc_systems = pd.DataFrame(padloc_systems['type'].value_counts()).reset_index()
 uniq_padloc_systems.columns = ['type', 'counts']
+
 # make a column for colors
 uniq_padloc_systems['colors'] = uniq_padloc_systems.index
 # Let's assign intervals for random generation
@@ -86,14 +95,9 @@ print('padloc_systems_exploded', padloc_systems_exploded)
 #plt.show()
 
 # plot
-# let's try to first make a column that has a more broad classification of types
-padloc_systems_exploded['type_to_split'] = padloc_systems_exploded['type'].astype(str)+'_'
-print(padloc_systems_exploded)
-print(padloc_systems_exploded['type_to_split'].str.split('_',expand=True)[0])
-padloc_systems_exploded['general_type'] = padloc_systems_exploded['type_to_split'].str.split('_',expand=True)[0]
 
 pio.renderers.default = "chrome"
 
-fig = px.scatter(padloc_systems_exploded, x="x_coord_array", y="y_coord_array", color="general_type", size='counts')
+fig = px.scatter(padloc_systems_exploded, x="x_coord_array", y="y_coord_array", color="type", size='counts')
 fig.show()
 
