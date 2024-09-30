@@ -517,7 +517,7 @@ def find_clusters(mapped_res, old_query_upd_scores, d_strand_flip_penalty, s_0, 
             # THINK if it is okay to be here or above
             # for some reasons if here it gives proper result
             score_i_cluster = score_i_minus_1_cluster - f_strand_flip*d_strand_flip_penalty + score_x_i - diff_genomes_penalty
-            score_i_cluster = score_x_i - diff_genomes_penalty
+            score_i_cluster = score_x_i # - diff_genomes_penalty
             logging.debug(f"second_proceed {score_i_cluster, score_max_cluster}")
             i_0_cluster_start = int(target_db_h_coord1_list[i])
 
@@ -535,16 +535,21 @@ def find_clusters(mapped_res, old_query_upd_scores, d_strand_flip_penalty, s_0, 
             coords2.append(coord2)
             #query_genes_ids.append(mapped_results["query_ID"].values[i])
             #target_genes_ids.append(mapped_results["ID"].values[i])
+            #score_max_cluster = score_x_i
+            score_i_minus_1_cluster = score_i_cluster
         # CHECK if correct, not as in latex
-        score_i_minus_1_cluster = score_i_cluster
+        #score_i_minus_1_cluster = score_i_cluster
+        # NOT AS IN LATEX, check
+            if score_x_i > 0 and score_x_i > score_max_cluster:
+                score_max_cluster = score_x_i
         logging.debug(f"max and min scores: {score_max_cluster, score_min_cluster}")
         logging.debug(f"cluster coord: {i_0_cluster_start, i_1_cluster_end}")
         #print('cluster matches', cluster_matches)
 
         if diff_genomes_penalty == 10000:
-            score_i_minus_1_cluster = 1
+            #score_i_minus_1_cluster = 1
             diff_genomes_penalty = 0
-            score_max_cluster = score_i_cluster
+            #score_max_cluster = score_i_cluster
             logging.debug(f"set to 0")
         i = i + 1
 
@@ -589,11 +594,13 @@ def update_scores_for_cluster_matches(significant_clusters_eval_filter_df, mappe
     cluster_prots['query_id'] = significant_clusters_eval_filter_df['query_prots'].explode()
     cluster_prots['target_id'] = significant_clusters_eval_filter_df['target_prots'].explode()
 
-    l = len(cluster_prots)
+    l_orig = len(cluster_prots)
+    logging.debug(f"l1: {l_orig}")
     # adding new pseudocounts here
     m_pseudocount = 4
     # each cluster should have number of prots + pseudocount
-    l = l + 4*K
+    l = l_orig + m_pseudocount*K
+    logging.debug(f"l2: {l}")
 
 
     #logging.debug(f"K, L, l: {K, L, l}")
@@ -667,7 +674,7 @@ def update_scores_for_cluster_matches(significant_clusters_eval_filter_df, mappe
     # Counting all target cluster prots having query matches. The first line had problems as it counted all the proteins in the clusters, also the one that had no matches to the query
     #m_x_sum = len(cluster_prots['query_id'])
     non_match_counter = len(cluster_prots[cluster_prots['query_id'] == ''])  
-    m_x_sum = l - non_match_counter
+    m_x_sum = l_orig - non_match_counter
     logging.debug(f"m_x_sum is: {m_x_sum} , non_match_counter is {non_match_counter}")
     # Counting all target proteins with matches to some queries
     M_x_sum = len(mapped_results['ID'])
@@ -757,6 +764,9 @@ def calculate_karlin_stat(cluster_matches, mapped_res, s_0, bias):
     matched_target_prots['score_x'] = matched_target_prots['query_ID'].map(old_query_upd_scores)
     
     all_target_prots['query_ID'] = 0
+    # That is to artificially round s_0 not to 0 if s_0 is negative (otherwise it violates karlin-altschul requiremens of the expected negative score)
+    if s_0 > -0.5 and s_0 < 0:
+        s_0 = -0.51
     all_target_prots['score_x'] = s_0
     all_target_prots.update(matched_target_prots)
     enrich_scores = all_target_prots['score_x'].to_numpy()
