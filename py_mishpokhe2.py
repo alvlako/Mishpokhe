@@ -323,6 +323,7 @@ def find_clusters(mapped_res, old_query_upd_scores, d_strand_flip_penalty, s_0, 
     # Now, let's have another dict where it would be scores instead of just queries for the target
     #old_query_upd_scores = {'QIN93248.1': 1, 'QIN93249.1': 2, 'QIN93250.1': 3, 'QIN93251.1': 4}
     s_0 = -1
+    print('old_query_upd_scores', old_query_upd_scores)
     matches_t_scores_dict = {t:old_query_upd_scores[matches_t_q_ids_dict[t]] for t in matches_t_q_ids_dict.keys()}
     logging.debug(f"old_query_upd_scores {old_query_upd_scores}")
     #print(matches_t_scores_dict)
@@ -480,13 +481,9 @@ def find_clusters(mapped_res, old_query_upd_scores, d_strand_flip_penalty, s_0, 
     cluster_matches_df = pd.DataFrame({0:cluster_starts, 1:cluster_ends, 2:cluster_matches_s_max, 3:query_genes_ids, 4:target_genes_ids, 5:prots_strands, 6:coords1, 7:coords2})
     print(cluster_matches_df)
     logging.debug(f"cluster_matches_df: \n {cluster_matches_df}")
-
-    print(x)
-
     
-    print(cluster_matches)
-    print(len(cluster_matches))
-    return cluster_matches
+    print(len(cluster_matches_df))
+    return cluster_matches_df
 
 
 # it re-defines the scores which I have got in the first iteration 
@@ -635,7 +632,7 @@ def update_scores_for_cluster_matches(significant_clusters_eval_filter_df, mappe
 
 
 # CHANGE to not duplicate so much the func above
-def calculate_karlin_stat(cluster_matches, mapped_res, s_0, bias):
+def calculate_karlin_stat(cluster_matches_df, mapped_res, s_0, bias):
     print('using c code for Karlin-Altschul statistics')
 
     curr_file_path = os.path.realpath(__file__)
@@ -655,16 +652,16 @@ def calculate_karlin_stat(cluster_matches, mapped_res, s_0, bias):
     logging.debug(f"calculating prob for each match")
     logging.debug(f"mapped_results: \n {mapped_results}")
 
-    significant_clusters = cluster_matches 
+    #significant_clusters = cluster_matches 
 
     # CHECK if these are right columns
     # CHECK if the query and target assignment is correct
-    K = len(significant_clusters)
+    K = len(cluster_matches_df)
     
     target_db_lookup = mapped_res.target_db_lookup
     L = len(target_db_lookup.index)
     
-    sign_clusters_df = pd.DataFrame(significant_clusters)
+    sign_clusters_df = cluster_matches_df.copy()
     sign_clusters_df.columns = ["coord1", "coord2", "score",
     "query_prots", "target_prots", "strand", "coordS1", "coordS2"]
 
@@ -839,7 +836,7 @@ def calculate_karlin_stat(cluster_matches, mapped_res, s_0, bias):
 
 
 # ASK where strand flip penalty goes? next iter?
-def set_strand_flip_penalty(cluster_matches, mapped_res):
+def set_strand_flip_penalty(cluster_matches_df, mapped_res):
     target_db_h = mapped_res.target_db_h
     mapped_results = mapped_res.res_map_to_header
     #print(target_db_h)
@@ -848,8 +845,9 @@ def set_strand_flip_penalty(cluster_matches, mapped_res):
     F = len([key for key, _group in itertools.groupby(target_db_h["strand"])]) - 1
     logging.debug(f"F = {F}")
     # CHANGE to not duplicate update_scores
-    significant_clusters = cluster_matches
-    sign_clusters_df = pd.DataFrame(significant_clusters)
+    #significant_clusters = cluster_matches
+    sign_clusters_df = cluster_matches_df.copy()
+    print(cluster_matches_df)
     sign_clusters_df.columns = ["coord1", "coord2", "score",
     "query_prots", "target_prots", "strand", "coordS1", "coordS2"]
     logging.debug(f"sign_clusters_df \n {sign_clusters_df}")
@@ -861,7 +859,7 @@ def set_strand_flip_penalty(cluster_matches, mapped_res):
         f = f + n_flips_cluster
     logging.debug(f"f = {f}")
     # CHANGE to not duplicate scores updating
-    K = len(significant_clusters)
+    K = len(cluster_matches_df)
     cluster_prots = pd.DataFrame()
     cluster_prots['query_id'] = sign_clusters_df['query_prots'].explode()
     l = len(cluster_prots)
@@ -892,7 +890,7 @@ def set_strand_flip_penalty(cluster_matches, mapped_res):
 
 
 # ASK Johannes if in e-value calculations the L should actually be the L, not like L*L
-def calculate_e_value(stat_lambda, stat_K, cluster_matches, mapped_res):
+def calculate_e_value(stat_lambda, stat_K, cluster_matches_df, mapped_res):
     # FIX to be variable taken from number of prots in target
     # CHANGE it to be linked and the same with the used in calculate_karlin_stat
     # THINK if I should give an option to set the multiplying param to an user
@@ -902,7 +900,7 @@ def calculate_e_value(stat_lambda, stat_K, cluster_matches, mapped_res):
     L = len(target_db_lookup.index)
 
 
-    sign_clusters_df = pd.DataFrame(cluster_matches)
+    sign_clusters_df = cluster_matches_df.copy()
     sign_clusters_df.columns = ["coord1", "coord2", "score",
     "query_prots", "target_prots", "strand", "coordS1", "coordS2"]
     sign_clusters_df["initial_q_or_match"] = False
@@ -1773,32 +1771,32 @@ def main(old_query_upd_scores, UpdatedStats):
     # Is it ok to assign to None?
     start_time3 = time.time()
     use_intermediate = 0
-    cluster_matches_fname = str(files.res) + str(iter_counter) + 'cluster_matches'
+    #cluster_matches_fname = str(files.res) + str(iter_counter) + 'cluster_matches'
+    cluster_matches_fname = str(files.res) + str(iter_counter) + 'cluster_df'
     if use_intermediate == 1 and iter_counter == 1:
         f=open(cluster_matches_fname,"r")
         lst=f.read()
         f.close()
         cluster_matches=eval(lst)
     else:
-        cluster_matches = find_clusters(mapped_res, old_query_upd_scores, d_strand_flip_penalty, s_0, enrichment_bias)
-        f=open(cluster_matches_fname,"w")
-        f.write(str(cluster_matches))
-        f.close()
+        #cluster_matches = find_clusters(mapped_res, old_query_upd_scores, d_strand_flip_penalty, s_0, enrichment_bias)
+        cluster_matches_df = find_clusters(mapped_res, old_query_upd_scores, d_strand_flip_penalty, s_0, enrichment_bias)
+        #f=open(cluster_matches_fname,"w")
+        #f.write(str(cluster_matches))
+        #f.close()
     print("--- %s seconds for find_clusters() ---" % (time.time() - start_time3))
     
     pd.set_option('display.max_rows', None)
     pd.set_option('display.max_columns', None)
     
     logging.debug(f'checking global {len(old_query_upd_scores)} {d_strand_flip_penalty}, {s_0}')
-    cluster_matches_df = pd.DataFrame(cluster_matches)
+    #cluster_matches_df = pd.DataFrame(cluster_matches)
     cluster_matches_df.to_csv(str(files.res) + str(iter_counter) + 'cluster_matches_raw', sep = '\t', index = False)
     print('number of clusters', len(cluster_matches_df.index))
 
     # That is to keep intermediate cluster matches files
-    cluster_matches_fname = str(files.res) + str(iter_counter) + 'cluster_matches'
-    f=open(cluster_matches_fname,"w")
-    f.write(str(cluster_matches))
-    f.close()
+    cluster_matches_fname = str(files.res) + str(iter_counter) + 'cluster_df'
+    cluster_matches_df.to_csv(cluster_matches_fname, sep = '\t', index = False)
 
     print(cluster_matches_df)
     # CHECK if it is optimal to divide scores update to few functions
@@ -1811,15 +1809,16 @@ def main(old_query_upd_scores, UpdatedStats):
     
     # UNCOMMENT
     start_time4 = time.time()
-    stat_lambda, stat_K = calculate_karlin_stat(cluster_matches, mapped_res, s_0, bias)
+    stat_lambda, stat_K = calculate_karlin_stat(cluster_matches_df, mapped_res, s_0, bias)
     print("--- %s seconds for calculate_karlin_stat() ---" % (time.time() - start_time4))
     start_time5 = time.time()
-    significant_cluster_df, significant_clusters_eval_filter_df = calculate_e_value(stat_lambda, stat_K, cluster_matches, mapped_res)
+    significant_cluster_df, significant_clusters_eval_filter_df = calculate_e_value(stat_lambda, stat_K, cluster_matches_df, mapped_res)
     print("--- %s seconds for calculate_e_value() ---" % (time.time() - start_time5))
     start_time6 = time.time()
     significant_cluster_df_enriched, s_0, old_query_upd_scores, L, l = update_scores_for_cluster_matches(significant_clusters_eval_filter_df, mapped_res, bias)
     print("--- %s seconds for update_scores_for_cluster_matches() ---" % (time.time() - start_time6))
     sign_clusters_df = significant_cluster_df_enriched
+
     
     # Checking if user wants to use architecture clustering-filtering
     arc_filter = int(args.arc_filter)
@@ -1832,7 +1831,7 @@ def main(old_query_upd_scores, UpdatedStats):
 
     # CHANGE notation for significant clusters??
 
-    d_strand_flip_penalty = set_strand_flip_penalty(cluster_matches, mapped_res)
+    d_strand_flip_penalty = set_strand_flip_penalty(cluster_matches_df, mapped_res)
 
     # CHECK do I need this step??
     #sign_clusters_df = set_strand_flip_penalty(cluster_matches)
