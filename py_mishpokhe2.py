@@ -254,7 +254,7 @@ class ResultsMapping:
         #res_map_to_header = tmp_res_map_to_header.sort_values(by=['ID'])
 
         ##res_map_to_header['ind'] = ind_list.values
-        
+
         # here i have to filter by match score query-specific thresholds
         print('res_map_to_header', res_map_to_header)
         print('query_specific_thresholds', query_specific_thresholds)
@@ -278,7 +278,6 @@ class ResultsMapping:
         target_db_h.sort_values('ID_cat', inplace=True)
         target_db_h.reset_index(inplace=True, drop=True)
         target_db_h = target_db_h.drop(['ID_cat'], axis=1)
-
 
         # get target proteins real ids
         # CLEAN
@@ -317,7 +316,7 @@ def find_clusters(mapped_res, old_query_upd_scores, d_strand_flip_penalty, s_0, 
     # First i make dict of targets from the results and corresponding queries. It should work as every target should only happen to be once in the mappes results, best match
     matches_t_q_ids_dict = pd.Series(mapped_results.query_ID.values,index=mapped_results.ID).to_dict()
     # Okay, i need actually the dict for all the target proteins where I would have '' if they have no match
-    all_t_q_ids_dict = {n:"''" for n in target_db_h["ID"].values}
+    all_t_q_ids_dict = {n:'' for n in target_db_h["ID"].values}
     all_t_q_ids_dict.update(matches_t_q_ids_dict)
     #print(all_t_q_ids_dict)
     # Now, let's have another dict where it would be scores instead of just queries for the target
@@ -376,6 +375,12 @@ def find_clusters(mapped_res, old_query_upd_scores, d_strand_flip_penalty, s_0, 
         print('S_i_minus_1, f_strand_flip, d_strand_flip_penalty', S_i_minus_1, f_strand_flip, d_strand_flip_penalty)
         genome_changed = genome_change_dict[i]
         if genome_changed == 1:
+            # that's for the case when the last cluster of the previous genome was supposed to end with hte last protein of the genome
+            if S_max > S_min:
+                print('genome change, append')
+                cluster_matches_i_0.append(i_0)
+                cluster_matches_i_1.append(i_1)
+                cluster_matches_s_max.append(S_max)
             S_max = 0
             S_min = 0
             S_i_minus_1 = 0
@@ -467,7 +472,7 @@ def find_clusters(mapped_res, old_query_upd_scores, d_strand_flip_penalty, s_0, 
     coords1 = []
     coords2 = []
     query_genes_ids = []
-    cluster_matches = []
+    #cluster_matches = []
     for w in range(0, len(cluster_matches_pd_ids)):
         current_ids_set = cluster_matches_pd_ids[w]
         target_genes_ids.append([all_i_t_dict[y] for y in cluster_matches_pd_ids[w]])
