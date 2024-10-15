@@ -121,7 +121,7 @@ def run_search():
      files.target_db,
      files.res + '_prof_search',
      'tmp', '-a', '--mask', '0', '--comp-bias-corr', '0', '--max-seqs', '10000', '-c', search_cov, '-e', '0.001'])
-    print(f'command on the {iter_counter} is mmseqs search  {files.query_db}_clu_msa_db_profile {files.target_db} {files.res}_prof_search tmp -a --mask 0 --comp-bias-corr 0 --max-seqs 10000 -c 0.8 -e 0.001')
+    print(f'command on the {iter_counter} is mmseqs search  {files.query_db}_clu_msa_db_profile {files.target_db} {files.res}_prof_search tmp -a --mask 0 --comp-bias-corr 0 --max-seqs 10000 -c {search_cov} -e 0.001')
     #, '--min-seq-id', '0.5'
     #subprocess.call(['mmseqs', 'search', files.target_db,
     #files.query_db + '_clu' + '_rep' + '_profile',
@@ -518,7 +518,7 @@ def update_scores_for_cluster_matches(significant_clusters_eval_filter_df, mappe
     l_orig = len(cluster_prots)
     logging.debug(f"l1: {l_orig}")
     # adding new pseudocounts here
-    m_pseudocount = 2
+    m_pseudocount = 4
     # each cluster should have number of prots + pseudocount
     l = l_orig + m_pseudocount*K
     logging.debug(f"l2: {l}")
@@ -884,11 +884,17 @@ def set_strand_flip_penalty(cluster_matches_df, mapped_res):
 
     #if f == 0:
     #    f = F/100000
-    cluster_flips_proportion = np.divide(f_corrected, (l - K))
-    cluster_flips_proportion = np.divide(f_corrected + aplha_pseudocount, (l + n_target*aplha_pseudocount - K))
-    cluster_flips_proportion = np.divide(f_corrected + aplha_pseudocount, l)
+    #cluster_flips_proportion = np.divide(f_corrected, (l - K))
+    #cluster_flips_proportion = np.divide(f_corrected + aplha_pseudocount, #(l + n_target*aplha_pseudocount - K))
+    #cluster_flips_proportion = np.divide(f_corrected + aplha_pseudocount, l)
+    #d = np.log(np.divide(cluster_flips_proportion, np.divide(F, (L - 1))))
+    # new way of calculating with pseudocounts
+    # total number of pseudounts C
+    C = strand_flip_pseudocount*K
+    cluster_flips_proportion = np.divide((f+C), l)
     d = np.log(np.divide(cluster_flips_proportion, np.divide(F, (L - 1))))
-    logging.debug(f'd = {d} f, f_corrected, F, l, K, L {f, f_corrected, F, l, K, L}')
+
+    logging.debug(f'd = {d} f, f_corrected, F, C, l, K, L {f, f_corrected, F, C, l, K, L}')
     # is it a good place to return?
     # CHECK if these are really significant clusters
     return(d)
