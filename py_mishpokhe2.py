@@ -878,8 +878,11 @@ def set_strand_flip_penalty(cluster_matches_df, mapped_res):
     target_db_lookup = mapped_res.target_db_lookup
     L = len(target_db_lookup.index)
 
-    # adding new pseudocounts here to allow more flips
-    strand_flip_pseudocount = 1
+    # adding new pseudocounts here to allow more flips. Will try to only use it in the first iteration
+    if iter_counter == 1:
+        strand_flip_pseudocount = 0.5
+    else:
+        strand_flip_pseudocount = 0
     # each cluster should have number of prots + pseudocount
     f_corrected = f + strand_flip_pseudocount
     # ASK Johannes if pseudocount is correct
@@ -899,8 +902,10 @@ def set_strand_flip_penalty(cluster_matches_df, mapped_res):
     C = strand_flip_pseudocount*K
     cluster_flips_proportion = np.divide((f+C), l)
     d = np.log(np.divide(cluster_flips_proportion, np.divide(F, (L - 1))))
+    if d > 0:
+        d = -0.1
 
-    logging.debug(f'd = {d} f, f_corrected, F, C, l, K, L {f, f_corrected, F, C, l, K, L}')
+    logging.debug(f'd = {d} f, F, C, l, K, L {f, F, C, l, K, L}')
     # is it a good place to return?
     # CHECK if these are really significant clusters
     return(d)
