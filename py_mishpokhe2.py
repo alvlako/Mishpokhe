@@ -418,10 +418,16 @@ def find_clusters(mapped_res, old_query_upd_scores, d_strand_flip_penalty, s_0, 
                 genome_changed = genome_change_dict[i]
                 if genome_changed == 1:
                     print('genome_changed')
+                    if S_max > S_min:
+                        print('genome change in while, append')
+                        cluster_matches_i_0.append(i_0)
+                        cluster_matches_i_1.append(i_1)
+                        cluster_matches_s_max.append(S_max)
                     S_max = 0
                     S_min = 0
                     S_i_minus_1 = 0
                     S_i = 0
+                    i_0 = i
                 #    i = i - 1
                     break
                 if s_x_i > 0:
