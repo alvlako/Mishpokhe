@@ -332,6 +332,8 @@ def find_clusters(mapped_res, old_query_upd_scores, d_strand_flip_penalty, s_0, 
     # Let's make dict with i corresponding to certain target prots
     all_i_t_dict = pd.Series(target_db_h.ID.values,index=target_db_h.index).to_dict()
     #print(all_i_t_dict)
+    # Since mmseqs doesnt necessarily find hits query protein to itself, i need to add this enhancement. Here it should work when I have already added proteins from target
+    all_t_score_dict.update(old_query_upd_scores)
 
     
     # Here I should encode strand flips in the dict
@@ -879,10 +881,7 @@ def set_strand_flip_penalty(cluster_matches_df, mapped_res):
     L = len(target_db_lookup.index)
 
     # adding new pseudocounts here to allow more flips. Will try to only use it in the first iteration
-    if iter_counter == 1:
-        strand_flip_pseudocount = 0.5
-    else:
-        strand_flip_pseudocount = 0
+    strand_flip_pseudocount = 0.5
     # each cluster should have number of prots + pseudocount
     f_corrected = f + strand_flip_pseudocount
     # ASK Johannes if pseudocount is correct
@@ -1251,7 +1250,10 @@ def set_match_threshold(match_score_gap, query_specific_thresholds):
 def initialize_new_prot_score2(old_query_upd_scores, arr_clu_neigh_prots, arr_matches_in_clu, query_specific_thresholds):
     print('initializing new proteins scores')
     # here i get real indices for all the new proteins, from the neighbourhood and inside of the clusters (non-matches)
-    arr_prot_to_add = np.setdiff1d(arr_clu_neigh_prots, arr_matches_in_clu)
+    # it turns out i have to be sure that there are no known queries that got accidentally to the neighbourhood, since mmseqs2 doesnt always find hits to itself
+    arr_prot_to_add_0 = np.setdiff1d(arr_clu_neigh_prots, arr_matches_in_clu)
+    arr_prot_already_updated = np.array([k for k in old_query_upd_scores.keys() if old_query_upd_scores[k]!=1 ])
+    arr_prot_to_add = np.setdiff1d(arr_prot_to_add_0,arr_prot_already_updated)
 
     print('arr_prot_to_add', arr_prot_to_add)
     print('length arr_prot_to_add', len(arr_prot_to_add))
@@ -1262,7 +1264,6 @@ def initialize_new_prot_score2(old_query_upd_scores, arr_clu_neigh_prots, arr_ma
     arr_score_x.fill(1)
     print('arr_score_x', arr_score_x)
     
-
     # Here I add just to the scores dict the dict made out of new prots ids and their scores
     #dict_additional_scores = dict(zip(arr_prot_to_add, arr_score_x))
     dict_additional_scores = dict(zip(arr_prot_to_add, arr_score_x))
@@ -1848,8 +1849,7 @@ def main(old_query_upd_scores, UpdatedStats):
         start_time7 = time.time()
         significant_clusters_eval_filter_df_clu = cluster_clusters(significant_cluster_df_enriched)
         print("--- %s seconds for cluster_clusters() ---" % (time.time() - start_time7))
-    #if iter_counter == 2:
-    #    print(x)
+
 
     # CHANGE notation for significant clusters??
 
