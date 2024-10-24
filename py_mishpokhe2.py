@@ -334,6 +334,12 @@ def find_clusters(mapped_res, old_query_upd_scores, d_strand_flip_penalty, s_0, 
     #print(all_i_t_dict)
     # Since mmseqs doesnt necessarily find hits query protein to itself, i need to add this enhancement. Here it should work when I have already added proteins from target
     all_t_score_dict.update(old_query_upd_scores)
+    # Also i need to artificially make themselves a query for themselves
+    self_t_q_ids_dict = {t:t for t in old_query_upd_scores.keys()}
+    print('self_t_q_ids_dict', self_t_q_ids_dict)
+    print('all_t_q_ids_dict',all_t_q_ids_dict)
+    self_t_q_ids_dict.update(all_t_q_ids_dict)
+    print('all_t_q_ids_dict2',all_t_q_ids_dict)
     
     # Here I should encode strand flips in the dict
     target_db_h_strand_list = target_db_h["strand"].values.tolist()
