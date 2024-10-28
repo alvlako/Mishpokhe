@@ -120,7 +120,7 @@ def run_search():
     files.query_db + '_clu_msa_db_profile',
      files.target_db,
      files.res + '_prof_search',
-     'tmp', '-a', '--mask', '0', '--comp-bias-corr', '0', '--max-seqs', '10000', '-c', search_cov, '-e', '0.001'])
+     'tmp', '-a', '--mask', '0', '--comp-bias-corr', '0', '--max-seqs', '10000', '-c', search_cov, '--cov-mode', '1','-e', '0.001'])
     print(f'command on the {iter_counter} is mmseqs search  {files.query_db}_clu_msa_db_profile {files.target_db} {files.res}_prof_search tmp -a --mask 0 --comp-bias-corr 0 --max-seqs 10000 -c {search_cov} --cov-mode 1 -e 0.001')
     #, '--min-seq-id', '0.5'
     #subprocess.call(['mmseqs', 'search', files.target_db,
@@ -1342,7 +1342,7 @@ def run_singleton_search():
     files.query_db + '_clu' + '_rep' + '_profile',
      files.target_db,
      files.res + '_prof_search',
-     'tmp', '-a', '--mask', '0', '--comp-bias-corr', '0', '--max-seqs', '10000', '-c', search_cov, '-e', '0.001'])
+     'tmp', '-a', '--mask', '0', '--comp-bias-corr', '0', '--max-seqs', '10000', '-c', search_cov, '--cov-mode', '1', '-e', '0.001'])
     subprocess.call(['mmseqs', 'convertalis', files.query_db + '_clu' + '_rep' + '_profile',
      files.target_db, files.res + '_singleton_prof_search',
       files.res + '_singleton_prof_search' +'.m8'])
