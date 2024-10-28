@@ -121,7 +121,7 @@ def run_search():
      files.target_db,
      files.res + '_prof_search',
      'tmp', '-a', '--mask', '0', '--comp-bias-corr', '0', '--max-seqs', '10000', '-c', search_cov, '-e', '0.001'])
-    print(f'command on the {iter_counter} is mmseqs search  {files.query_db}_clu_msa_db_profile {files.target_db} {files.res}_prof_search tmp -a --mask 0 --comp-bias-corr 0 --max-seqs 10000 -c {search_cov} -e 0.001')
+    print(f'command on the {iter_counter} is mmseqs search  {files.query_db}_clu_msa_db_profile {files.target_db} {files.res}_prof_search tmp -a --mask 0 --comp-bias-corr 0 --max-seqs 10000 -c {search_cov} --cov-mode 1 -e 0.001')
     #, '--min-seq-id', '0.5'
     #subprocess.call(['mmseqs', 'search', files.target_db,
     #files.query_db + '_clu' + '_rep' + '_profile',
@@ -316,12 +316,11 @@ def find_clusters(mapped_res, old_query_upd_scores, d_strand_flip_penalty, s_0, 
     # First i make dict of targets from the results and corresponding queries. It should work as every target should only happen to be once in the mappes results, best match
     matches_t_q_ids_dict = pd.Series(mapped_results.query_ID.values,index=mapped_results.ID).to_dict()
     # Okay, i need actually the dict for all the target proteins where I would have '' if they have no match
-    all_t_q_ids_dict = {n:'' for n in target_db_h["ID"].values}
-    all_t_q_ids_dict.update(matches_t_q_ids_dict)
+    all_t_q_ids_dict_init = {n:'' for n in target_db_h["ID"].values}
+    all_t_q_ids_dict_init.update(matches_t_q_ids_dict)
     #print(all_t_q_ids_dict)
     # Now, let's have another dict where it would be scores instead of just queries for the target
     #old_query_upd_scores = {'QIN93248.1': 1, 'QIN93249.1': 2, 'QIN93250.1': 3, 'QIN93251.1': 4}
-    s_0 = -1
     print('old_query_upd_scores', old_query_upd_scores)
     matches_t_scores_dict = {t:old_query_upd_scores[matches_t_q_ids_dict[t]] for t in matches_t_q_ids_dict.keys()}
     logging.debug(f"old_query_upd_scores {old_query_upd_scores}")
@@ -336,10 +335,9 @@ def find_clusters(mapped_res, old_query_upd_scores, d_strand_flip_penalty, s_0, 
     all_t_score_dict.update(old_query_upd_scores)
     # Also i need to artificially make themselves a query for themselves
     self_t_q_ids_dict = {t:t for t in old_query_upd_scores.keys()}
-    print('self_t_q_ids_dict', self_t_q_ids_dict)
-    print('all_t_q_ids_dict',all_t_q_ids_dict)
-    self_t_q_ids_dict.update(all_t_q_ids_dict)
-    print('all_t_q_ids_dict2',all_t_q_ids_dict)
+    self_t_q_ids_dict.update(all_t_q_ids_dict_init)
+    all_t_q_ids_dict = self_t_q_ids_dict.copy()
+
     
     # Here I should encode strand flips in the dict
     target_db_h_strand_list = target_db_h["strand"].values.tolist()
@@ -531,10 +529,12 @@ def update_scores_for_cluster_matches(significant_clusters_eval_filter_df, mappe
     l_orig = len(cluster_prots)
     logging.debug(f"l1: {l_orig}")
     # adding new pseudocounts here
-    m_pseudocount = 4
+    average_cluster_len = significant_clusters_eval_filter_df['target_prots'].apply(len).mean()
+    #m_pseudocount = 4
+    m_pseudocount = average_cluster_len/3
     # each cluster should have number of prots + pseudocount
     l = l_orig + m_pseudocount*K
-    logging.debug(f"l2: {l}")
+    logging.debug(f"l2: {l}, m_pseudocount {m_pseudocount}")
 
 
     #logging.debug(f"K, L, l: {K, L, l}")
@@ -1266,7 +1266,8 @@ def initialize_new_prot_score2(old_query_upd_scores, arr_clu_neigh_prots, arr_ma
     # Unlike before, here I just set slightly positive scores for the new proteins from the neighbourhood and non-matches from inside, i dont calculate the concrete scores anymore as i dont do searches anymore
     arr_score_x = np.empty(len(arr_prot_to_add))
     #arr_score_x.fill(0.4)
-    arr_score_x.fill(1)
+    default_neighbour_score = 0.1
+    arr_score_x.fill(default_neighbour_score)
     print('arr_score_x', arr_score_x)
     
     # Here I add just to the scores dict the dict made out of new prots ids and their scores
