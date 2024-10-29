@@ -327,12 +327,20 @@ def find_clusters(mapped_res, old_query_upd_scores, d_strand_flip_penalty, s_0, 
     #print(matches_t_scores_dict)
     # Now, i need to make a bigger dictionary including s_0 scores for the target proteins with no match
     all_t_score_dict = {n:s_0 for n in target_db_h["ID"].values}
+    # Since mmseqs doesnt necessarily find hits query protein to itself, i need to add this enhancement. Here it should work when I have already added proteins from target
+    all_t_score_dict.update(old_query_upd_scores)
+    # this update should go after the previous to correct for the initialized (=1) values that are assigned at the beginning on non-clustered query
     all_t_score_dict.update(matches_t_scores_dict)
     # Let's make dict with i corresponding to certain target prots
     all_i_t_dict = pd.Series(target_db_h.ID.values,index=target_db_h.index).to_dict()
     #print(all_i_t_dict)
-    # Since mmseqs doesnt necessarily find hits query protein to itself, i need to add this enhancement. Here it should work when I have already added proteins from target
-    all_t_score_dict.update(old_query_upd_scores)
+    #logging.debug(f"old_query_upd_scores[matches_t_q_ids_dict[t] n {old_query_upd_scores[matches_t_q_ids_dict['CP051254.1_1298']]}")
+    #logging.debug(f"matches_t_q_ids_dict n {matches_t_q_ids_dict['CP051254.1_1298']}")
+    #logging.debug(f"matches_t_scores_dict n {matches_t_scores_dict['CP051254.1_1298']}")
+    #logging.debug(f"all_t_score_dict n {all_t_score_dict['CP051254.1_1298']}")
+
+
+
     # Also i need to artificially make themselves a query for themselves
     self_t_q_ids_dict = {t:t for t in old_query_upd_scores.keys()}
     self_t_q_ids_dict.update(all_t_q_ids_dict_init)
