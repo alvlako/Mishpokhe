@@ -11,6 +11,7 @@ import copy
 import glob
 import itertools
 import logging
+import math
 import os
 import re
 import subprocess
@@ -121,6 +122,7 @@ def run_search():
      files.target_db,
      files.res + '_prof_search',
      'tmp', '-a', '--mask', '0', '--comp-bias-corr', '0', '--max-seqs', '10000', '-c', search_cov, '--cov-mode', '1','-e', '0.001'])
+    
     print(f'command on the {iter_counter} is mmseqs search  {files.query_db}_clu_msa_db_profile {files.target_db} {files.res}_prof_search tmp -a --mask 0 --comp-bias-corr 0 --max-seqs 10000 -c {search_cov} --cov-mode 1 -e 0.001')
     #, '--min-seq-id', '0.5'
     #subprocess.call(['mmseqs', 'search', files.target_db,
@@ -581,9 +583,12 @@ def update_scores_for_cluster_matches(significant_clusters_eval_filter_df, mappe
         cluster_prot_proportion = np.divide(m_x, l)
         cluster_prot_proportion = np.divide((m_x+aplha_pseudocount), (l + x_number_of_queries*aplha_pseudocount))
         score_x = np.log(np.divide(cluster_prot_proportion, np.divide(M_x, L))) - bias
+        # NEW way of score calculation
+        score_x = np.log(np.divide(m_x, (M_x - m_x))) - bias
+        if score_x == math.inf:
+            score_x = 4
+
         logging.debug(f"updated score for q: {query_id} is {score_x}")
-
-
         old_query_upd_scores[query_id] = score_x
 
         for target_id in cluster_prots['target_id'][cluster_prots['query_id'] == query_id]:
@@ -625,6 +630,8 @@ def update_scores_for_cluster_matches(significant_clusters_eval_filter_df, mappe
     # added pseudocount for the rare case when there are no gaps in cluster
     # Other pseudocounts are added to have adequate value when all prots in cluster are matches
     s_0 = np.log(np.divide(np.divide((l-m_x_sum+aplha_pseudocount),l + x_number_of_queries*aplha_pseudocount), np.divide((L-M_x_sum),L))+aplha_pseudocount) - bias
+    # NEW WAY of calculating
+    s_0 = np.log(np.divide((l-m_x_sum+aplha_pseudocount), (L-M_x_sum + aplha_pseudocount))) - bias
     logging.debug(f's_0 {s_0}, m_x_sum {m_x_sum}, M_x_sum {M_x_sum}, L {L}, l {l} ')
     print(f's_0 {s_0}, m_x_sum {m_x_sum}, M_x_sum {M_x_sum}, L {L}, l {l} ')
     for target_id in cluster_prots['target_id']:
@@ -734,10 +741,6 @@ def calculate_karlin_stat(cluster_matches_df, mapped_res, s_0, bias):
     #mult_param = 6
     # THINK if I should give an option to set the multiplying parameter to the user
     mult_param = 1
-    scores_bins = np.histogram_bin_edges(enrich_scores, bins='auto')
-    logging.debug(f"BINS: {scores_bins}")
-    logging.debug(f"bins diff: {scores_bins[1]-scores_bins[0]}")
-    # # THINK!
 
     # ASK Johannes, REMOVE later, that's just to fix problem with log when m_x = 0
     # ASK Johannes if it is ok to use binning, no I think, it is NOT ok
@@ -1258,6 +1261,137 @@ def set_match_threshold(match_score_gap, query_specific_thresholds):
     query_specific_thresholds.update(dict_match_thresholds_upd)
     print('query_specific_thresholds', query_specific_thresholds)
 
+
+# I want to try to compare to this function where I pre-set the scores for the added queries in comparison to just assigning some default score to them. Because basically that biases the results towards accepting these proteins
+def search_new_query():
+    print('searching new query')
+    search_cov = str(args.search_cov)
+    # This search is to get values for the neighbourhood prots enrichment scores
+    neigh_only_db_path = str(files.res) + '_' + str(iter_counter) +'_neigh_only_db'
+    logging.debug(f'neigh_only_db {neigh_only_db_path}')
+    # The search of neighbors prots against all prots in clusters (incl neighbors)
+    subprocess.call(['mmseqs', 'search', 
+    neigh_only_db_path, 
+    neigh_only_db_path,
+    neigh_only_db_path + '_ag_clusters_res',
+     'tmp', '-a', '--mask', '0', '--comp-bias-corr', '0', '--max-seqs', '10000', '-c', search_cov, '--cov-mode', '1','-e', '0.001'])
+    subprocess.call(['mmseqs', 'convertalis', neigh_only_db_path,
+     neigh_only_db_path,
+     neigh_only_db_path + '_ag_clusters_res',
+      neigh_only_db_path + '_ag_clusters_res' +'.m8'])
+    # The search of neighbors prots against all prots in search space (target)
+    subprocess.call(['mmseqs', 'search', 
+    neigh_only_db_path,
+     files.target_db,
+     neigh_only_db_path + '_ag_target_res',
+     'tmp', '-a', '--mask', '0', '--comp-bias-corr', '0', '--max-seqs', '10000', '-c', search_cov, '--cov-mode', '1','-e', '0.001'])
+    subprocess.call(['mmseqs', 'convertalis', neigh_only_db_path,
+     files.target_db, 
+     neigh_only_db_path + '_ag_target_res',
+      neigh_only_db_path + '_ag_target_res' +'.m8'])
+
+
+def initialize_new_prot_score1(sign_clusters_df, old_query_upd_scores, L, l, bias):
+    print('initializing new proteins scores 1')
+    neigh_only_db_path = str(files.res) + '_' + str(iter_counter) +'_neigh_only_db'
+    logging.debug('neigh_only_db_path', neigh_only_db_path)
+    # it should be _h not lookup since db is filtered version of the bigger db and _lookup has it all
+    neigh_only_db_h = pd.read_csv(str(neigh_only_db_path) +'_h', sep='\s+#\s+', header=None, engine='python')
+    # Somehow _h files always have unprintable character as the last line
+    neigh_only_db_h.columns = ['ID','coord1','coord2','strand','comment']
+    neigh_only_db_h.drop(neigh_only_db_h.tail(1).index,inplace=True)
+    # that's to remove non-printable characters in line
+    neigh_only_db_h['ID']= neigh_only_db_h['ID'].str.replace('\x00', '')
+    print(neigh_only_db_h)
+
+    cluster_prots = pd.DataFrame()
+    cluster_prots['target_id'] = sign_clusters_df['target_prots'].explode()
+
+    aplha_pseudocount = pow(10,np.log10(1/L)-1)
+
+    x_number_of_new_prots = len(neigh_only_db_h['ID'])
+    logging.debug(f"x_number_of_new_prots {x_number_of_new_prots}")
+
+    # changing l, as given l is for cluster matches, not including the neighbors
+    l = l + x_number_of_new_prots
+    logging.debug(f"updated l including neighbors is {l}")
+
+    neighbors_clusters_matches_path = neigh_only_db_path + '_ag_clusters_res' +'.m8'
+    neighbors_target_matches_path = neigh_only_db_path + '_ag_target_res' +'.m8'
+
+    
+    neighbors_clusters_matches_res = pd.read_csv(neighbors_clusters_matches_path, dtype={'str':'float'}, sep='\t', header = None)
+    neighbors_clusters_matches_res.columns = ["query_id", "target_id","seq_ident", "score",
+         "smth1", "smth2", "smth3", "smth4", "smth5", "smth6", "eval","score2"]
+    # I have to drop the rows where query hits itself, cause it is very unstable in mmseqs2
+    #neighbors_clusters_matches_res = neighbors_clusters_matches_res[neighbors_clusters_matches_res['query_id'] != neighbors_clusters_matches_res['target_id']]
+
+    q_arr_neighbors_clusters_matches_res = neighbors_clusters_matches_res["query_id"].to_numpy()
+
+    neighbors_target_matches_res = pd.read_csv(neighbors_target_matches_path, dtype={'str':'float'}, sep='\t', header = None)
+    neighbors_target_matches_res.columns = ["query_id", "target_id","seq_ident", "score",
+         "smth1", "smth2", "smth3", "smth4", "smth5", "smth6", "eval","score2"]
+    # I have to drop the rows where query hits itself, cause it is very unstable in mmseqs2
+    #neighbors_target_matches_res = neighbors_target_matches_res[neighbors_target_matches_res['query_id'] != neighbors_target_matches_res['target_id']]
+    q_arr_neighbors_target_matches_res = neighbors_target_matches_res["query_id"].to_numpy()
+
+
+    # To keep only 1 best-matched query per each target, as in procedures for clusters
+    neighbors_clusters_matches_res = neighbors_clusters_matches_res.loc[neighbors_clusters_matches_res.groupby('target_id')['eval'].idxmin()].reset_index(drop=True)
+    neighbors_target_matches_res = neighbors_target_matches_res.loc[neighbors_target_matches_res.groupby('target_id')['eval'].idxmin()].reset_index(drop=True)
+
+
+    # Here I make arrays of queries from search res for neighbours prots 
+    # against clusters/target. The queries sorted to be unique, the counts for 
+    # every unique query are returned
+    clusters_search_uniq_q, clusters_search_uniq_q_counts = np.unique(q_arr_neighbors_clusters_matches_res, return_counts=True)
+    target_search_uniq_q0, target_search_uniq_q_counts0 = np.unique(q_arr_neighbors_target_matches_res, return_counts=True)
+
+    # since mmseqs doesnt always find all hits, i need to come up with the fix
+    lost_q = np.setxor1d(clusters_search_uniq_q,target_search_uniq_q0)
+    add_ind = np.where(np.in1d(clusters_search_uniq_q, lost_q))[0]
+    target_search_uniq_q = np.concatenate([target_search_uniq_q0,lost_q])
+    add_counts = np.take(clusters_search_uniq_q_counts, add_ind)
+    target_search_uniq_q_counts = np.concatenate([target_search_uniq_q_counts0, add_counts])
+
+
+    # Here I find which proteins from the new query (added neighbours) are
+    # not yet in scores and need a score
+    arr_new_query_db_h = neigh_only_db_h['ID'].to_numpy()
+    arr_old_query_upd_scores_keys = np.array(list(old_query_upd_scores.keys()))
+    arr_prot_to_add = np.setdiff1d(arr_new_query_db_h, arr_old_query_upd_scores_keys)
+
+    # Here I extract the indices of queries in clusters/target matches res that intersect with
+    # the new neighbours proteins that need a score to calculate
+    # The indices should be used to access the counts to calculate the score
+    xy, x_ind, y_ind = np.intersect1d(clusters_search_uniq_q,
+     arr_prot_to_add, return_indices=True)
+    xy1, x_ind1, y_ind1 = np.intersect1d(target_search_uniq_q,
+     arr_prot_to_add, return_indices=True)
+    
+    # That was just for checking
+    #mask1 = np.in1d(arr_prot_to_add, target_search_uniq_q, invert=True)
+    #mask2 = np.in1d(arr_prot_to_add, clusters_search_uniq_q, invert=True)
+
+    arr_m_x = np.take(clusters_search_uniq_q_counts, x_ind)
+    arr_M_x = np.take(target_search_uniq_q_counts, x_ind1)
+
+    logging.debug(f"arr_M_x \n {arr_M_x}")
+    logging.debug(f"arr_m_x \n {arr_m_x}")
+    logging.debug(f"x_ind,x_ind1 \n {x_ind, x_ind1}")
+    logging.debug(f"l, L, len(arr_m_x), len(arr_M_x) \n {l, L, len(arr_m_x), len(arr_M_x)}")
+
+    arr_score_x = np.log(np.divide(np.divide((arr_m_x),l), np.divide((arr_M_x), L))) - bias
+    # NEW WAY of calculating scores
+    arr_alpha_ps = np.repeat(aplha_pseudocount, len(arr_m_x))
+    arr_score_x = np.log(np.divide(arr_m_x, (arr_M_x - arr_m_x))) - bias
+    arr_score_x[np.where(arr_score_x == math.inf)] = 4
+    # Here I add just to the scores dict the dict made out of new prots ids and their scores
+    dict_additional_scores = dict(zip(arr_prot_to_add, arr_score_x))
+    old_query_upd_scores.update(dict_additional_scores)
+    logging.debug(f"old_query_upd_scores updated with neighbours \n {old_query_upd_scores}")
+    print(old_query_upd_scores)
+    return(old_query_upd_scores)
 
 
 def initialize_new_prot_score2(old_query_upd_scores, arr_clu_neigh_prots, arr_matches_in_clu, query_specific_thresholds):
@@ -1887,7 +2021,9 @@ def main(old_query_upd_scores, UpdatedStats):
     add_new_profiles(clu_indices_for_frac_occ_min_df)
     make_new_query()
     set_match_threshold(match_score_gap, query_specific_thresholds)
-    old_query_upd_scores = initialize_new_prot_score2(old_query_upd_scores, arr_clu_neigh_prots, arr_matches_in_clu, query_specific_thresholds)
+    search_new_query()
+    old_query_upd_scores = initialize_new_prot_score1(sign_clusters_df, old_query_upd_scores, L, l, bias)
+    #old_query_upd_scores = initialize_new_prot_score2(old_query_upd_scores, arr_clu_neigh_prots, arr_matches_in_clu, query_specific_thresholds)
 
     UpdatedStats['s_0'] = s_0
     UpdatedStats['d_strand_flip_penalty'] = d_strand_flip_penalty
