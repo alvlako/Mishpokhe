@@ -1037,7 +1037,7 @@ def extract_proteins_cluster_neighborhood(sign_clusters_df, mapped_res):
         left_ind = int(np.where(arr_target_db_lookup_real_ids == arr_prot_id_left[i])[0])
         right_ind = int(np.where(arr_target_db_lookup_real_ids == arr_prot_id_right[i])[0])
         left_border = left_ind-neighbors_number_1side
-        right_border = right_ind+neighbors_number_1side+1
+        right_border = right_ind+neighbors_number_1side #+1
         # that is for the edge cases, protein id must be prodigal_derived to get the genome id
         genome_id = '_'.join(arr_prot_id_left[i].split('_')[:-1])
         last_ind_for_this_genome = target_db_lookup[target_db_lookup['ID'].str.contains(genome_id)].index[-1]
