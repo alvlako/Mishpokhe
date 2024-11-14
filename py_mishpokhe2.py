@@ -44,6 +44,8 @@ def arg_parser():
      help="Specify the e-value threshold, default is 100",  default=100)
     parser.add_argument("-f", "--frac_occ_min",
      help="Specify the threshold for the fraction of the cluster matches in which each sequence cluster occurs, default is 0",  default=0)
+    parser.add_argument("-if", "--min_frac_inside",
+     help="Specify the threshold for the fraction of the cluster matches in which each sequence cluster occurs, default is 0",  default=0)
     parser.add_argument("-c", "--search_cov",
      help="Specify the coverage threshold for the mmseqs search",  default='0.8')
     parser.add_argument("-af", "--arc_filter",
@@ -56,7 +58,7 @@ def arg_parser():
     for argument in vars(args):
         arg_path = getattr(args, argument)
         if not os.path.exists((arg_path)):
-            if argument not in ['res', 'iter', 'singleton', 'evalfilteruse', 'eval', 'frac_occ_min', 'search_cov', 'arc_filter']:
+            if argument not in ['res', 'iter', 'singleton', 'evalfilteruse', 'eval', 'frac_occ_min', 'search_cov', 'arc_filter', 'min_frac_inside']:
                 sys.exit(f"{arg_path} not found")
 
 class FilePath:
@@ -1230,9 +1232,21 @@ def make_new_query():
     #    query_db_path = str(files.query_db)[:(str(files.query_db).find(str(iter_counter-1)))]
     logging.debug(f"query_db_path {query_db_path}")
 
-    subprocess.call(['mmseqs', 'concatdbs', str(files.res) + '_' + str(iter_counter) + '_matches_only_db' + '_upd_res_msa_db_profile', str(files.res) + '_' + str(iter_counter) +'_neigh_only_db' + '_clu_msa_db_profile', query_db_path + str(iter_counter) + 'iter_db_clu_msa_db_profile'])
+    # Since I now have a new parameter, min_frac_inside, the update query db get filtered in apply_min_frac_inside
+    filtered_upd_query_db_path = str(files.res) + '_' + str(iter_counter) + '_matches_only_db' + '_upd_res_msa_db_profile' + '_frac_inside_filter'
 
-    subprocess.call(['mmseqs', 'concatdbs', str(files.res) + '_' + str(iter_counter) + '_matches_only_db' + '_upd_res_msa_db_profile_h', str(files.res) + '_' + str(iter_counter) +'_neigh_only_db' + '_clu_msa_db_profile_h', query_db_path + str(iter_counter) + 'iter_db_clu_msa_db_profile_h'])
+    subprocess.call(['mmseqs', 'concatdbs', 
+    #str(files.res) + '_' + str(iter_counter) + '_matches_only_db' + '_upd_res_msa_db_profile',
+    filtered_upd_query_db_path,
+     str(files.res) + '_' + str(iter_counter) +'_neigh_only_db' + '_clu_msa_db_profile',
+      query_db_path + str(iter_counter) + 'iter_db_clu_msa_db_profile'])
+
+    subprocess.call(['mmseqs', 'concatdbs',
+     #str(files.res) + '_' + str(iter_counter) + '_matches_only_db' + '_upd_res_msa_db_profile_h',
+     filtered_upd_query_db_path + '_h',
+     str(files.res) + '_' + str(iter_counter) +'_neigh_only_db' + '_clu_msa_db_profile_h',
+      query_db_path + str(iter_counter) + 'iter_db_clu_msa_db_profile_h'])
+
 
 def set_match_threshold(match_score_gap, query_specific_thresholds):
     # the function calculates the simple heuristic to set profile-specific match score threshold. That is needed to only have positionally ortholodous families
@@ -1258,6 +1272,81 @@ def set_match_threshold(match_score_gap, query_specific_thresholds):
     query_specific_thresholds.update(dict_match_thresholds_upd)
     print('query_specific_thresholds', query_specific_thresholds)
 
+
+def apply_min_frac_inside(query_specific_thresholds, mapped_res, significant_clusters_eval_filter_df):
+    # Here I should remove query that have m/M < min_frac_inside after filtering search results with query_specific_thresholds
+    min_frac_inside = float(args.min_frac_inside)
+    mapped_results = mapped_res.res_map_to_header
+
+    # here i have to filter by match score query-specific thresholds, both general results and specifically clusters dataframe
+    print('res_map_to_header', mapped_results)
+    print('query_specific_thresholds', query_specific_thresholds)
+    mapped_results['match_thresholds'] = mapped_results['query_ID'].map(query_specific_thresholds)
+    print('res_map_to_header2', mapped_results)
+    mapped_results = mapped_results.drop(mapped_results[mapped_results['bit_score'] < mapped_results['match_thresholds']].index)
+    # renaming here to merge with cluster_prots
+    mapped_results.rename(columns={'ID': 'target_id'}, inplace=True)
+    print('res_map_to_header3', mapped_results)
+
+    cluster_prots1 = pd.DataFrame()
+    cluster_prots1['query_id'] = significant_clusters_eval_filter_df['query_prots'].explode()
+    cluster_prots1['target_id'] = significant_clusters_eval_filter_df['target_prots'].explode()
+    cluster_prots_bit_scores = (mapped_results.merge(cluster_prots1, left_on='target_id', right_on = 'target_id').reindex(columns=['query_id', 'target_id', 'bit_score']))
+    cluster_prots_bit_scores['match_thresholds'] = cluster_prots_bit_scores['query_id'].map(query_specific_thresholds)
+    cluster_prots_bit_scores = cluster_prots_bit_scores.drop(cluster_prots_bit_scores[cluster_prots_bit_scores['bit_score'] < cluster_prots_bit_scores['match_thresholds']].index)
+    print('cluster_prots_bit_scores', cluster_prots_bit_scores)
+
+    # Let's now make m_x and M_x arrays
+    q_arr_target = mapped_results['query_ID'].to_numpy()
+    q_arr_clusters = cluster_prots_bit_scores['query_id'].to_numpy()
+    print('q_arr_target', q_arr_target)
+    print('q_arr_clusters', q_arr_clusters)
+    target_uniq_q0, target_uniq_q_counts0 = np.unique(q_arr_target, return_counts=True)
+    clusters_uniq_q, clusters_uniq_q_counts = np.unique(q_arr_clusters, return_counts=True)
+    # I need an array of all possible queries
+    new_query_db_h_path = str(files.res) + '_' + str(iter_counter) + '_matches_only_db' + '_upd_res_msa_db_profile_h'
+    new_query_db_profile_h = pd.read_csv(new_query_db_h_path, sep='\s+#\s+', header=None, engine='python')
+    new_query_db_profile_h.columns = ['ID']
+    new_query_db_profile_h["ID"] = new_query_db_profile_h["ID"].str.replace('\x00', '')
+    # last row is always empty for whatever reason
+    new_query_db_profile_h.drop(new_query_db_profile_h.tail(1).index,inplace=True)
+    print('query_db_profile_h', new_query_db_profile_h)
+    arr_all_queries = new_query_db_profile_h['ID'].to_numpy()
+    print('all_queries', arr_all_queries)
+    arr_m_x = np.zeros(len(arr_all_queries))
+    arr_M_x =np.zeros(len(arr_all_queries))
+    print('arr_m_x, arr_M_x', arr_m_x, arr_M_x)
+
+    # I need to get indices (in arr_all_queries) for clusters queries and general target queries to then replace 0 in m_x and M_x with the corresponding counts
+    xy, x_ind, y_ind = np.intersect1d(clusters_uniq_q,
+     arr_all_queries, return_indices=True)
+    xy1, x_ind1, y_ind1 = np.intersect1d(target_uniq_q0,
+     arr_all_queries, return_indices=True)
+
+    np.put(arr_m_x, y_ind, clusters_uniq_q_counts)
+    np.put(arr_M_x, y_ind1, target_uniq_q_counts0)
+    print('arr_m_x, arr_M_x', arr_m_x, arr_M_x)
+    
+    arr_proportion = np.nan_to_num((arr_m_x/arr_M_x), nan=0, posinf=0, neginf=0)
+    print('arr_proportion', arr_proportion)
+    # Now let's filter by min_frac_inside
+    print('min_frac_inside', min_frac_inside)
+    filtered_indices = np.where(arr_proportion > min_frac_inside)[0]
+    print('filtered_indices', filtered_indices)
+    #filtered_queries = np.take(arr_all_queries, filtered_indices)
+    #print('filtered_queries', filtered_queries)
+
+    # Now I need to have a file of mmseqs indices to actually keep in mmseqs files only those queries that passed the threshold
+    np.savetxt('min_frac_inside_idx_to_filter', filtered_indices, fmt='%i')
+
+    # Now let's filter the updated db
+    subprocess.call(['mmseqs', 'createsubdb', 'min_frac_inside_idx_to_filter', 
+     str(files.res) + '_' + str(iter_counter) + '_matches_only_db' + '_upd_res_msa_db_profile',
+      str(files.res) + '_' + str(iter_counter) + '_matches_only_db' + '_upd_res_msa_db_profile'+'_frac_inside_filter'])
+
+    subprocess.call(['mmseqs', 'createsubdb', 'min_frac_inside_idx_to_filter', 
+     str(files.res) + '_' + str(iter_counter) + '_matches_only_db' + '_upd_res_msa_db_profile_h',
+      str(files.res) + '_' + str(iter_counter) + '_matches_only_db' + '_upd_res_msa_db_profile'+'_frac_inside_filter_h'])
 
 
 def initialize_new_prot_score2(old_query_upd_scores, arr_clu_neigh_prots, arr_matches_in_clu, query_specific_thresholds):
@@ -1885,8 +1974,12 @@ def main(old_query_upd_scores, UpdatedStats):
     reassign_non_enriched(old_query_upd_scores, bias, s_0)
     update_profiles()
     add_new_profiles(clu_indices_for_frac_occ_min_df)
-    make_new_query()
+
     set_match_threshold(match_score_gap, query_specific_thresholds)
+    apply_min_frac_inside(query_specific_thresholds, mapped_res, significant_clusters_eval_filter_df)
+
+    make_new_query()
+
     old_query_upd_scores = initialize_new_prot_score2(old_query_upd_scores, arr_clu_neigh_prots, arr_matches_in_clu, query_specific_thresholds)
 
     UpdatedStats['s_0'] = s_0
