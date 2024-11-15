@@ -50,6 +50,8 @@ def arg_parser():
      help="Specify the coverage threshold for the mmseqs search",  default='0.8')
     parser.add_argument("-af", "--arc_filter",
      help="Set to 0 if you do NOT want to use architecture clustering and filtering, default is 1",  default=1)
+    parser.add_argument("-b", "--bias",
+     help="Specify bias for enrichment scores calculation, default is 0",  default=0)
     # make separate func?
     # CHECK is it ok to make global?
     global args
@@ -58,7 +60,7 @@ def arg_parser():
     for argument in vars(args):
         arg_path = getattr(args, argument)
         if not os.path.exists((arg_path)):
-            if argument not in ['res', 'iter', 'singleton', 'evalfilteruse', 'eval', 'frac_occ_min', 'search_cov', 'arc_filter', 'min_frac_inside']:
+            if argument not in ['res', 'iter', 'singleton', 'evalfilteruse', 'eval', 'frac_occ_min', 'search_cov', 'arc_filter', 'min_frac_inside', 'bias']:
                 sys.exit(f"{arg_path} not found")
 
 class FilePath:
@@ -2032,7 +2034,7 @@ if __name__ == "__main__":
     #mapped_res = ResultsMapping.map_target_to_coord()
 
     # Make changeable
-    bias = 0 #4
+    bias = float(args.bias) #4
     enrichment_bias = 0 #4
     match_threshold = 0
     match_score_gap = 10
