@@ -1121,7 +1121,7 @@ def extract_proteins_cluster_neighborhood(sign_clusters_df, mapped_res):
      str(args.targetdb)+'_h', str(files.res) + '_' + str(iter_counter)+'_matches_only_db_h'])
 
     #target_clusters_neighbourhood.close()
-    return arr_mmseqs_ind_matches_in_clu, arr_mmseqs_ind_clu_neigh_only, arr_clu_neigh_prots, arr_matches_in_clu, clu_indices_for_frac_occ_min_df
+    return arr_mmseqs_ind_matches_in_clu, arr_mmseqs_ind_clu_neigh_only, arr_clu_neigh_prots, arr_matches_in_clu, clu_indices_for_frac_occ_min_df, arr_clu_neigh_prots_non_uniq
 
 
 def reassign_non_enriched(old_query_upd_scores, bias, s_0):
@@ -1381,6 +1381,69 @@ def initialize_new_prot_score2(old_query_upd_scores, arr_clu_neigh_prots, arr_ma
 
     logging.debug(f"old_query_upd_scores updated with neighbours \n {old_query_upd_scores}")
     return(old_query_upd_scores)
+
+
+def calc_approx_enrichments(old_query_upd_scores, mapped_res):
+    # Is ORDER really kept CORRECTLY everywhere in this function??
+    # Let's load data from previous iterations
+    l_prev = ValuesForApproxEnrich['l']
+    print('l_prev', l_prev)
+    prev_queries = ValuesForApproxEnrich['prev_queries']
+    print('prev_queries', prev_queries)
+
+    # Get L
+    target_db_lookup = mapped_res.target_db_lookup
+    L = len(target_db_lookup.index)
+    print('L calc_approx_enrichments', L)
+    
+    # Let's see what profiles are new. For this I just have to subtract queries of the previous iteration from the current old_upd_scores
+    new_neighbours = np.array(list(set(old_query_upd_scores.keys()).difference(set(prev_queries))))
+    print('new_neighbours', new_neighbours)
+    
+    # Let's get number of matches in newly run search (M_x)
+    mapped_results = mapped_res.res_map_to_header
+    #print(mapped_results)
+    query_ids_search_res = mapped_results['query_ID'].to_numpy()
+    print('query_ids_search_res', query_ids_search_res)
+    # Let's get counts per query
+    query_ids_search_res_q, query_ids_search_res_counts = np.unique(query_ids_search_res, return_counts=True)
+    print('query_ids_search_res_q', query_ids_search_res_q) 
+    print('query_ids_search_res_counts', query_ids_search_res_counts)
+
+    new_neighbours_sorted, x_ind, y_ind = np.intersect1d(query_ids_search_res_q, new_neighbours, return_indices=True)
+    arr_M_x = np.take(query_ids_search_res_counts, x_ind)
+    print('arr_M_x', arr_M_x)
+    print('new_neighbours_sorted', new_neighbours_sorted)
+    
+    # Now I have to get m_x. For this I should rely on the fact that every line in filtered clusters file corresponds to 6 neighbours
+    clu_prots_n = ValuesForApproxEnrich['clu_prots_n']
+    print('clu_prots_n', clu_prots_n)
+    # I NEED A CORRECT order of NEIGHBOURS here, corresponding to their clusters. I have already such (I had it for frac_occ_min)
+    prev_clu_indices_for_frac_occ_min_df = ValuesForApproxEnrich['clu_indices_for_frac_occ_min_df']
+    # Here i should filter it, to keep only neighbours, and only profile reps
+    prev_clu_indices_for_frac_occ_min_df_neigh_profile_reps = prev_clu_indices_for_frac_occ_min_df[prev_clu_indices_for_frac_occ_min_df['real_prot_id'].isin(list(new_neighbours_sorted))]
+    prev_clu_indices_neigh_rep_uniq = pd.unique(prev_clu_indices_for_frac_occ_min_df['internal_clu_ind'])
+    clu_prots_n_neigh_rep = np.array(clu_prots_n)[list(prev_clu_indices_neigh_rep_uniq)]
+    print('clu_prots_n_neigh_rep', clu_prots_n_neigh_rep)
+    arr_m_x = np.repeat(clu_prots_n_neigh_rep, 6)
+    print('arr_m_x', arr_m_x)
+    
+    # Let's finally calculate the scores
+    arr_scores_x = np.log(np.divide((arr_m_x/l_prev),(arr_M_x/L)))
+
+    dict_additional_scores = dict(zip(new_neighbours_sorted, arr_scores_x))
+    old_query_upd_scores.update(dict_additional_scores)
+    logging.debug(f"old_query_upd_scores updated with calc_approx_enrichments \n {old_query_upd_scores}")
+
+    return(old_query_upd_scores)
+
+
+def count_prots_per_cluster(sign_clusters_df):
+    # this function is simply to help calc_approx_enrichments and should calculate number of proteins in each spatial cluster
+    clu_prots_n = list()
+    for i in sign_clusters_df['target_prots']:
+        clu_prots_n.append(len(i))
+    return(clu_prots_n)
 
 
 # This part is for "iteration 0", flag which is switched when 
@@ -1896,6 +1959,12 @@ def main(old_query_upd_scores, UpdatedStats):
     mapped_res.res_map_to_header.to_csv('mapped_results_mish', sep = '\t')
     print("--- %s seconds for map_target_to_coord() ---" % (time.time() - start_time2))
 
+    # Approximate log enrichments for newly added profiles (from the previous iteration, neigbours)
+    if (if_singleton == 1 and iter_counter > 0) or (if_singleton == 0 and iter_counter > 1):
+        start_time21 = time.time()
+        calc_approx_enrichments(old_query_upd_scores, mapped_res)
+        print("--- %s seconds for calc_approx_enrichments() ---" % (time.time() - start_time2))
+
     # Is it ok to assign to None?
     start_time3 = time.time()
     use_intermediate = 0
@@ -1971,14 +2040,15 @@ def main(old_query_upd_scores, UpdatedStats):
         path_clu_filter = files.res + '_' + str(iter_counter) + '_iter_sign_clusters_enrich_stat_filtered_clu_filter'
         significant_clusters_eval_filter_df_clu.to_csv(path_clu_filter, sep = '\t', index = False)
 
+    clu_prots_n = count_prots_per_cluster(sign_clusters_df)
 
-    arr_mmseqs_ind_matches_in_clu, arr_mmseqs_ind_clu_neigh_only, arr_clu_neigh_prots, arr_matches_in_clu, clu_indices_for_frac_occ_min_df = extract_proteins_cluster_neighborhood(sign_clusters_df, mapped_res)
+    arr_mmseqs_ind_matches_in_clu, arr_mmseqs_ind_clu_neigh_only, arr_clu_neigh_prots, arr_matches_in_clu, clu_indices_for_frac_occ_min_df, arr_clu_neigh_prots_non_uniq = extract_proteins_cluster_neighborhood(sign_clusters_df, mapped_res)
     reassign_non_enriched(old_query_upd_scores, bias, s_0)
     update_profiles()
     add_new_profiles(clu_indices_for_frac_occ_min_df)
 
     set_match_threshold(match_score_gap, query_specific_thresholds)
-    apply_min_frac_inside(query_specific_thresholds, mapped_res, significant_clusters_eval_filter_df)
+    apply_min_frac_inside(query_specific_thresholds, mapped_res, sign_clusters_df)
 
     make_new_query()
 
@@ -1986,6 +2056,11 @@ def main(old_query_upd_scores, UpdatedStats):
 
     UpdatedStats['s_0'] = s_0
     UpdatedStats['d_strand_flip_penalty'] = d_strand_flip_penalty
+
+    ValuesForApproxEnrich['l'] = l
+    ValuesForApproxEnrich['clu_prots_n'] = clu_prots_n
+    ValuesForApproxEnrich['arr_clu_neigh_prots_non_uniq'] = arr_clu_neigh_prots_non_uniq
+    ValuesForApproxEnrich['clu_indices_for_frac_occ_min_df'] = clu_indices_for_frac_occ_min_df
 
 
     #generate_mmseqs_ffindex(sign_clusters_df)
@@ -2043,6 +2118,12 @@ if __name__ == "__main__":
     UpdatedStats = dict()
     UpdatedStats['d_strand_flip_penalty'] = None
     UpdatedStats['s_0'] = -1 #-4.4 #-0.4 - bias
+
+    # Keeps values from the previous iteration for calculating approximate enrichments for newly added neighbours
+    ValuesForApproxEnrich = dict()
+    ValuesForApproxEnrich['l'] = None
+    ValuesForApproxEnrich['prev_queries'] = np.array(list(old_query_upd_scores.keys()))
+    ValuesForApproxEnrich['arr_m_x'] = None
 
     # For 0th iteration with query containing singletons
     print(if_singleton)
