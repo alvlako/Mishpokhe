@@ -1398,23 +1398,36 @@ def calc_approx_enrichments(old_query_upd_scores, mapped_res):
     
     # Let's see what profiles are new. For this I just have to subtract queries of the previous iteration from the current old_upd_scores
     new_neighbours = np.array(list(set(old_query_upd_scores.keys()).difference(set(prev_queries))))
-    print('new_neighbours', new_neighbours)
+    print('new_neighbours', len(new_neighbours), new_neighbours)
+
+    if new_neighbours.size == 0:
+        logging.debug(f'no new neighbours')
+        return old_query_upd_scores
+
     
     # Let's get number of matches in newly run search (M_x)
     mapped_results = mapped_res.res_map_to_header
     #print(mapped_results)
     query_ids_search_res = mapped_results['query_ID'].to_numpy()
     print('query_ids_search_res', query_ids_search_res)
-    # Let's get counts per query
-    query_ids_search_res_q, query_ids_search_res_counts = np.unique(query_ids_search_res, return_counts=True)
-    print('query_ids_search_res_q', query_ids_search_res_q) 
-    print('query_ids_search_res_counts', query_ids_search_res_counts)
 
-    new_neighbours_sorted, x_ind, y_ind = np.intersect1d(query_ids_search_res_q, new_neighbours, return_indices=True)
-    arr_M_x = np.take(query_ids_search_res_counts, x_ind)
-    print('arr_M_x', arr_M_x)
+    # I should initialize arr_M_x with 1 since mmseqs2 doesnt always find the hits to itself. For this I will merge search results queries with all the neighbour profiles I have, and then I simply subtract 1 for values > 1
+    # Let's get counts per query
+    merged_res_query_neighbours = np.concatenate((query_ids_search_res, new_neighbours))
+    #print('merged_res_query_neighbours', merged_res_query_neighbours)
+    merged_res_query_neighbours_q, merged_res_query_neighbours_counts = np.unique(merged_res_query_neighbours, return_counts=True)
+    print('merged_res_query_neighbours_q', len(merged_res_query_neighbours_q),  merged_res_query_neighbours_q) 
+    print('merged_res_query_neighbours_counts', merged_res_query_neighbours_counts)
+
+    np.subtract(merged_res_query_neighbours_counts, 1, out=merged_res_query_neighbours_counts, where=merged_res_query_neighbours_counts>1)
+    print('merged_res_query_neighbours_counts_corrected', merged_res_query_neighbours_counts)
+
+    new_neighbours_sorted, x_ind, y_ind = np.intersect1d(merged_res_query_neighbours_q, new_neighbours, return_indices=True)
+
+    arr_M_x = np.take(merged_res_query_neighbours_counts, x_ind)
+    print('arr_M_x', len(arr_M_x), arr_M_x)
     print('new_neighbours_sorted', new_neighbours_sorted)
-    
+
     # Now I have to get m_x. For this I should rely on the fact that every line in filtered clusters file corresponds to 6 neighbours
     clu_prots_n = ValuesForApproxEnrich['clu_prots_n']
     print('clu_prots_n', clu_prots_n)
@@ -1426,7 +1439,7 @@ def calc_approx_enrichments(old_query_upd_scores, mapped_res):
     clu_prots_n_neigh_rep = np.array(clu_prots_n)[list(prev_clu_indices_neigh_rep_uniq)]
     print('clu_prots_n_neigh_rep', clu_prots_n_neigh_rep)
     arr_m_x = np.repeat(clu_prots_n_neigh_rep, 6)
-    print('arr_m_x', arr_m_x)
+    print('arr_m_x', len(arr_m_x), arr_m_x)
     
     # Let's finally calculate the scores
     arr_scores_x = np.log(np.divide((arr_m_x/l_prev),(arr_M_x/L)))
@@ -1962,8 +1975,8 @@ def main(old_query_upd_scores, UpdatedStats):
     # Approximate log enrichments for newly added profiles (from the previous iteration, neigbours)
     if (if_singleton == 1 and iter_counter > 0) or (if_singleton == 0 and iter_counter > 1):
         start_time21 = time.time()
-        calc_approx_enrichments(old_query_upd_scores, mapped_res)
-        print("--- %s seconds for calc_approx_enrichments() ---" % (time.time() - start_time2))
+        old_query_upd_scores = calc_approx_enrichments(old_query_upd_scores, mapped_res)
+        print("--- %s seconds for calc_approx_enrichments() ---" % (time.time() - start_time21))
 
     # Is it ok to assign to None?
     start_time3 = time.time()
@@ -2061,6 +2074,7 @@ def main(old_query_upd_scores, UpdatedStats):
     ValuesForApproxEnrich['clu_prots_n'] = clu_prots_n
     ValuesForApproxEnrich['arr_clu_neigh_prots_non_uniq'] = arr_clu_neigh_prots_non_uniq
     ValuesForApproxEnrich['clu_indices_for_frac_occ_min_df'] = clu_indices_for_frac_occ_min_df
+    ValuesForApproxEnrich['prev_queries'] = np.array(list(old_query_upd_scores.keys()))
 
 
     #generate_mmseqs_ffindex(sign_clusters_df)
