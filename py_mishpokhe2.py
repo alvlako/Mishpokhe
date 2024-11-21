@@ -125,7 +125,7 @@ def run_search():
      files.target_db,
      files.res + '_prof_search',
      'tmp', '-a', '--mask', '0', '--comp-bias-corr', '0', '--max-seqs', '10000', '-c', search_cov, '--cov-mode', '1','-e', '0.001'])
-    print(f'command on the {iter_counter} is mmseqs search  {files.query_db}_clu_msa_db_profile {files.target_db} {files.res}_prof_search tmp -a --mask 0 --comp-bias-corr 0 --max-seqs 10000 -c {search_cov} --cov-mode 1 -e 0.001')
+    #!print(f'command on the {iter_counter} is mmseqs search  {files.query_db}_clu_msa_db_profile {files.target_db} {files.res}_prof_search tmp -a --mask 0 --comp-bias-corr 0 --max-seqs 10000 -c {search_cov} --cov-mode 1 -e 0.001')
     #, '--min-seq-id', '0.5'
     #subprocess.call(['mmseqs', 'search', files.target_db,
     #files.query_db + '_clu' + '_rep' + '_profile',
@@ -207,14 +207,14 @@ class ResultsMapping:
         #add_row = ['SEWIN93251.1','MT006214.1_2','0.991','207','8','0','1','207','1','207', '2.364000e-178', '501']
         #search_result_file.loc[len(search_result_file)] = add_row
         search_result_file["eval"] = pd.to_numeric(search_result_file["eval"])
-        logging.debug(f'search_result_file with cols: {search_result_file}')
+        #logging.debug(f'search_result_file with cols: {search_result_file}')
         #print(search_result_file.groupby('target_id')["eval"].transform('min'))
         # that is to only get best-matching query
         search_result_file = search_result_file.loc[search_result_file.groupby('target_id')['eval'].idxmin()].reset_index(drop=True)
 
         # REMOVE unique? it's unique from the prev step
         real_id_list = pd.Series(pd.unique(search_result_file.iloc[:, 1]))
-        logging.debug(f'real ids list: {real_id_list}')
+        #logging.debug(f'real ids list: {real_id_list}')
         # map by 1st (0) column with real ids from search res
         # print(target_db_h.loc[target_db_h.iloc[:, 0].astype(str) == 'MT006214.1_1'])
         # dropping duplicates for these weird cases when prodigal proteins have duplicates with different comments
@@ -237,12 +237,6 @@ class ResultsMapping:
 
         def natural_keys(text):
             return [ atoi(c) for c in re.split(r'(\d+)', text) ]
-        
-        print(' ')
-        print(' ')
-        print(' ')
-        print('start sorting')
-        print(' ')
 
         # set is added to have only unique ids here in case there are duplicates in
         # target db
@@ -260,12 +254,12 @@ class ResultsMapping:
         ##res_map_to_header['ind'] = ind_list.values
 
         # here i have to filter by match score query-specific thresholds
-        print('res_map_to_header', res_map_to_header)
-        print('query_specific_thresholds', query_specific_thresholds)
+        #!print('res_map_to_header', res_map_to_header)
+        #!print('query_specific_thresholds', query_specific_thresholds)
         res_map_to_header['match_thresholds'] = res_map_to_header['query_ID'].map(query_specific_thresholds)
-        print('res_map_to_header2', res_map_to_header)
+        #!print('res_map_to_header2', res_map_to_header)
         res_map_to_header = res_map_to_header.drop(res_map_to_header[res_map_to_header['bit_score'] < res_map_to_header['match_thresholds']].index)
-        print('res_map_to_header3', res_map_to_header)
+        #!print('res_map_to_header3', res_map_to_header)
 
         # sorting target db lookup to iterate correctly in find_clusters()
         # DOUBLE check?
@@ -325,9 +319,9 @@ def find_clusters(mapped_res, old_query_upd_scores, d_strand_flip_penalty, s_0, 
     #print(all_t_q_ids_dict)
     # Now, let's have another dict where it would be scores instead of just queries for the target
     #old_query_upd_scores = {'QIN93248.1': 1, 'QIN93249.1': 2, 'QIN93250.1': 3, 'QIN93251.1': 4}
-    print('old_query_upd_scores', old_query_upd_scores)
+    #!print('old_query_upd_scores', old_query_upd_scores)
     matches_t_scores_dict = {t:old_query_upd_scores[matches_t_q_ids_dict[t]] for t in matches_t_q_ids_dict.keys()}
-    logging.debug(f"old_query_upd_scores {old_query_upd_scores}")
+    #logging.debug(f"old_query_upd_scores {old_query_upd_scores}")
     #print(matches_t_scores_dict)
     # Now, i need to make a bigger dictionary including s_0 scores for the target proteins with no match
     all_t_score_dict = {n:s_0 for n in target_db_h["ID"].values}
@@ -387,14 +381,14 @@ def find_clusters(mapped_res, old_query_upd_scores, d_strand_flip_penalty, s_0, 
     while i < L_space:
         target_prot_id = all_i_t_dict[i]
         s_x_i = all_t_score_dict[target_prot_id]
-        print('target_prot_id, s_x_i', target_prot_id, s_x_i)
+        #!print('target_prot_id, s_x_i', target_prot_id, s_x_i)
         f_strand_flip = strand_flips_dict[i]
-        print('S_i_minus_1, f_strand_flip, d_strand_flip_penalty', S_i_minus_1, f_strand_flip, d_strand_flip_penalty)
+        #!print('S_i_minus_1, f_strand_flip, d_strand_flip_penalty', S_i_minus_1, f_strand_flip, d_strand_flip_penalty)
         genome_changed = genome_change_dict[i]
         if genome_changed == 1:
             # that's for the case when the last cluster of the previous genome was supposed to end with hte last protein of the genome
             if S_max > S_min:
-                print('genome change, append')
+                #!print('genome change, append')
                 cluster_matches_i_0.append(i_0)
                 cluster_matches_i_1.append(i_1)
                 cluster_matches_s_max.append(S_max)
@@ -404,37 +398,37 @@ def find_clusters(mapped_res, old_query_upd_scores, d_strand_flip_penalty, s_0, 
             S_i = 0
 
         if S_i_minus_1 - f_strand_flip*d_strand_flip_penalty + s_x_i > max(0, s_x_i):
-            print('first')
+            #!print('first')
             S_i = S_i_minus_1 - f_strand_flip*d_strand_flip_penalty + s_x_i
-            print('S_i, S_max', S_i, S_max)
+            #!print('S_i, S_max', S_i, S_max)
             if S_i > S_max:
-                print('first second if')
+                #!print('first second if')
                 S_max = S_i
                 i_1 = i
-                print('i_1 = i', i_1, i)
+                #!print('i_1 = i', i_1, i)
             # not as in latex
             #else:
             #    S_max = s_x_i
             # end
         else:
-            print('second')
-            print('S_max, S_min', S_max, S_min)
+            #!print('second')
+            #!print('S_max, S_min', S_max, S_min)
             if S_max > S_min:
-                print('second, append')
+                #!print('second, append')
                 cluster_matches_i_0.append(i_0)
                 cluster_matches_i_1.append(i_1)
                 cluster_matches_s_max.append(S_max)
                 S_max = 0
-                print(cluster_matches_i_0)
-                print(cluster_matches_i_1)
+                #!print(cluster_matches_i_0)
+                #!print(cluster_matches_i_1)
             while s_x_i <= 0 and i < L_space - 1:
                 #i = i + 1
                 target_prot_id = all_i_t_dict[i]
                 s_x_i = all_t_score_dict[target_prot_id]
-                print('while, s_x_i', s_x_i, target_prot_id)
+                #!print('while, s_x_i', s_x_i, target_prot_id)
                 genome_changed = genome_change_dict[i]
                 if genome_changed == 1:
-                    print('genome_changed')
+                    #!print('genome_changed')
                     if S_max > S_min:
                         print('genome change in while, append')
                         cluster_matches_i_0.append(i_0)
@@ -458,14 +452,14 @@ def find_clusters(mapped_res, old_query_upd_scores, d_strand_flip_penalty, s_0, 
             # end of not as in latex
             S_i = s_x_i
             i_0 = i
-            print('i_0', i_0)
+            #!print('i_0', i_0)
         # not as in latex
         #if S_i <= 0:
         #    print('S_i <= 0')
         #    S_i = s_x_i
         #S_max = s_x_i
         S_i_minus_1 = S_i
-        print('end S_i_minus_1', S_i_minus_1)
+        #!print('end S_i_minus_1', S_i_minus_1)
         i = i + 1
     if S_max > S_min:
         cluster_matches_i_0.append(i_0)
@@ -474,11 +468,11 @@ def find_clusters(mapped_res, old_query_upd_scores, d_strand_flip_penalty, s_0, 
 
     # Now let's get the actual info for the clusters
     # MAKE FASTER
-    print('cluster_matches_i_0', cluster_matches_i_0, 'cluster_matches_i_1', cluster_matches_i_1)
+    #!print('cluster_matches_i_0', cluster_matches_i_0, 'cluster_matches_i_1', cluster_matches_i_1)
     targets1 = [all_i_t_dict[i] for i in cluster_matches_i_0]
     targets2 = [all_i_t_dict[i] for i in cluster_matches_i_1]
-    print('targets1', targets1)
-    print('targets2', targets2)
+    #!print('targets1', targets1)
+    #!print('targets2', targets2)
     #target_db_h_coord1_list = target_db_h["coord1"].values.tolist()
     #target_db_h_coord2_list = target_db_h["coord2"].values.tolist()
     cluster_starts = target_db_h["coord1"].iloc[cluster_matches_i_0].astype('int').values.tolist()
@@ -507,10 +501,10 @@ def find_clusters(mapped_res, old_query_upd_scores, d_strand_flip_penalty, s_0, 
         query_genes_ids.append([all_t_q_ids_dict[s] for s in target_genes_ids[w]])
         #cluster_matches.append((i_0_cluster_start, i_1_cluster_end, score_max_cluster, query_genes_ids, target_genes_ids, prots_strands, coords1, coords2))
     cluster_matches_df = pd.DataFrame({0:cluster_starts, 1:cluster_ends, 2:cluster_matches_s_max, 3:query_genes_ids, 4:target_genes_ids, 5:prots_strands, 6:coords1, 7:coords2})
-    print(cluster_matches_df)
-    logging.debug(f"cluster_matches_df: \n {cluster_matches_df}")
+    #!print(cluster_matches_df)
+    #logging.debug(f"cluster_matches_df: \n {cluster_matches_df}")
     
-    print(len(cluster_matches_df))
+    #!print(len(cluster_matches_df))
     return cluster_matches_df
 
 
@@ -630,7 +624,7 @@ def update_scores_for_cluster_matches(significant_clusters_eval_filter_df, mappe
     # Other pseudocounts are added to have adequate value when all prots in cluster are matches
     s_0 = np.log(np.divide(np.divide((l-m_x_sum+aplha_pseudocount),l + x_number_of_queries*aplha_pseudocount), np.divide((L-M_x_sum),L))+aplha_pseudocount) - bias
     logging.debug(f's_0 {s_0}, m_x_sum {m_x_sum}, M_x_sum {M_x_sum}, L {L}, l {l} ')
-    print(f's_0 {s_0}, m_x_sum {m_x_sum}, M_x_sum {M_x_sum}, L {L}, l {l} ')
+    #!print(f's_0 {s_0}, m_x_sum {m_x_sum}, M_x_sum {M_x_sum}, L {L}, l {l} ')
     for target_id in cluster_prots['target_id']:
         logging.debug(f"the cycle is running")
         if target_id not in matches_ids_list:
@@ -655,8 +649,8 @@ def update_scores_for_cluster_matches(significant_clusters_eval_filter_df, mappe
     #    logging.debug(f"0 target in clusters")
     #    s_0 = -1 - bias
     logging.debug(f"s_0: {s_0}")
-    print('significant_clusters_eval_filter_df2 \n', significant_clusters_eval_filter_df)
-    logging.debug(f"sign_clusters_df: \n {significant_clusters_eval_filter_df}")
+    #!print('significant_clusters_eval_filter_df2 \n', significant_clusters_eval_filter_df)
+    #logging.debug(f"sign_clusters_df: \n {significant_clusters_eval_filter_df}")
     significant_clusters_eval_filter_df.to_csv(files.res + '_' + str(iter_counter) + '_sign_clusters_df_filter_upd', sep = '\t', index = False)
     return(significant_clusters_eval_filter_df, s_0, old_query_upd_scores, L, l)
 
@@ -680,7 +674,7 @@ def calculate_karlin_stat(cluster_matches_df, mapped_res, s_0, bias):
     mapped_results = mapped_res.res_map_to_header
 
     logging.debug(f"calculating prob for each match")
-    logging.debug(f"mapped_results: \n {mapped_results}")
+    #logging.debug(f"mapped_results: \n {mapped_results}")
 
     #significant_clusters = cluster_matches 
 
@@ -716,10 +710,10 @@ def calculate_karlin_stat(cluster_matches_df, mapped_res, s_0, bias):
     all_target_prots['score_x'] = s_0
     all_target_prots.update(matched_target_prots)
     enrich_scores = all_target_prots['score_x'].to_numpy()
-    print(s_0)
-    print(enrich_scores)
+    #!print(s_0)
+    #!print(enrich_scores)
     
-    logging.debug(f"scores for all res: \n {enrich_scores}")
+    #logging.debug(f"scores for all res: \n {enrich_scores}")
     logging.debug(f"len: {len(enrich_scores)}")
 
     #if 0 not in enrich_scores:
@@ -731,7 +725,7 @@ def calculate_karlin_stat(cluster_matches_df, mapped_res, s_0, bias):
 
     # REMOVE later, just for current test
 
-    logging.debug(f"enrich_scores: \n {enrich_scores}")
+    #logging.debug(f"enrich_scores: \n {enrich_scores}")
     # ASK Johannes if I done the scores correctly
      # # expand unique scores in order to have larger range of integer, wider range to calc e-value
     # # multipliying param for log-scores
@@ -739,8 +733,8 @@ def calculate_karlin_stat(cluster_matches_df, mapped_res, s_0, bias):
     # THINK if I should give an option to set the multiplying parameter to the user
     mult_param = 1
     scores_bins = np.histogram_bin_edges(enrich_scores, bins='auto')
-    logging.debug(f"BINS: {scores_bins}")
-    logging.debug(f"bins diff: {scores_bins[1]-scores_bins[0]}")
+    #logging.debug(f"BINS: {scores_bins}")
+    #logging.debug(f"bins diff: {scores_bins[1]-scores_bins[0]}")
     # # THINK!
 
     # ASK Johannes, REMOVE later, that's just to fix problem with log when m_x = 0
@@ -748,7 +742,7 @@ def calculate_karlin_stat(cluster_matches_df, mapped_res, s_0, bias):
     #unique_scores = mult_param*np.unique(enrich_scores)
 
     sorted_scores = np.sort(enrich_scores)
-    logging.debug(f"multiplied, sorted: \n {sorted_scores}")
+    #logging.debug(f"multiplied, sorted: \n {sorted_scores}")
 
     sorted_scores = np.round(sorted_scores, decimals=0)
     unique_scores, score_counts = np.unique(sorted_scores, return_counts=True)
@@ -807,7 +801,7 @@ def calculate_karlin_stat(cluster_matches_df, mapped_res, s_0, bias):
     score_prob = scores_table[:,1]
 
     # ASK Johannes what to do if all the scores are negative?
-    print(unique_scores)
+    #!print(unique_scores)
     index_of_0 = np.where(unique_scores == 0)[0][0]
     
     logging.debug(f"final uniq and prob \n {unique_scores} \n {score_prob}")
@@ -877,10 +871,10 @@ def set_strand_flip_penalty(cluster_matches_df, mapped_res):
     # CHANGE to not duplicate update_scores
     #significant_clusters = cluster_matches
     sign_clusters_df = cluster_matches_df.copy()
-    print(cluster_matches_df)
+    #!print(cluster_matches_df)
     sign_clusters_df.columns = ["coord1", "coord2", "score",
     "query_prots", "target_prots", "strand", "coordS1", "coordS2"]
-    logging.debug(f"sign_clusters_df \n {sign_clusters_df}")
+    #logging.debug(f"sign_clusters_df \n {sign_clusters_df}")
     f = 0
     # this should count number of flips in each cluster
     # think how to speed up this step
@@ -893,7 +887,7 @@ def set_strand_flip_penalty(cluster_matches_df, mapped_res):
     cluster_prots = pd.DataFrame()
     cluster_prots['query_id'] = sign_clusters_df['query_prots'].explode()
     l = len(cluster_prots)
-    print("K, l = ", K, l)
+    #!print("K, l = ", K, l)
     target_db_lookup = mapped_res.target_db_lookup
     L = len(target_db_lookup.index)
 
@@ -943,15 +937,15 @@ def calculate_e_value(stat_lambda, stat_K, cluster_matches_df, mapped_res):
     "query_prots", "target_prots", "strand", "coordS1", "coordS2"]
     sign_clusters_df["initial_q_or_match"] = False
 
-    logging.debug(f"sign_clusters_df: \n {sign_clusters_df}")
+    #logging.debug(f"sign_clusters_df: \n {sign_clusters_df}")
     sign_clusters_df['new_score_enrich'] = 0
     sign_clusters_df['list_new_scoreS_enrich'] = ''
 
     # MAKE faster?
     sign_clusters_df['queries_string'] = [','.join(map(str, l)) for l in sign_clusters_df['query_prots']]
     sign_clusters_df['targets_string'] = [','.join(map(str, l)) for l in sign_clusters_df['target_prots']]
-    logging.debug(f"sign_clusters_df \n {sign_clusters_df}")
-    print(sign_clusters_df)
+    #logging.debug(f"sign_clusters_df \n {sign_clusters_df}")
+    #!print(sign_clusters_df)
     
     stat_lambda = stat_lambda.value
     logging.debug(f" {stat_lambda, stat_K}")
@@ -992,8 +986,8 @@ def calculate_e_value(stat_lambda, stat_K, cluster_matches_df, mapped_res):
     else:
         print('e-value filter disabled')
         significant_clusters_eval_filter_df = sign_clusters_df.copy()
-    logging.debug(f"significant_cluster_df_enriched \n {sign_clusters_df}")
-    logging.debug(f"significant_clusters_eval_filter_df \n {significant_clusters_eval_filter_df}")
+    #logging.debug(f"significant_cluster_df_enriched \n {sign_clusters_df}")
+    #logging.debug(f"significant_clusters_eval_filter_df \n {significant_clusters_eval_filter_df}")
     return sign_clusters_df, significant_clusters_eval_filter_df
 
 
@@ -1001,9 +995,9 @@ def extract_proteins_cluster_neighborhood(sign_clusters_df, mapped_res):
     # that extracts not only the neighbourhood but also what is inside the cluster
     # here i refer to neighbourhood often also including the non-matches from inside the clusters
     print('updating query profile started (extracting prots)')
-    logging.debug(f"significant (?) clusters table \n {sign_clusters_df}")
+    #logging.debug(f"significant (?) clusters table \n {sign_clusters_df}")
     target_fasta = args.targetfa
-    logging.debug(f"{sign_clusters_df['target_prots']}")
+    #logging.debug(f"{sign_clusters_df['target_prots']}")
     neighbourhood_path = files.res + '_' + str(iter_counter) + '_iter_target_clusters_neighbourhood'
 
     # extracting 3 neghbours from each side
@@ -1036,7 +1030,7 @@ def extract_proteins_cluster_neighborhood(sign_clusters_df, mapped_res):
     clu_indices_for_frac_occ_min = []
     init_clu_ind = 0
     target_lookup_len = len(arr_target_db_lookup_real_ids)
-    print('target_lookup_len', target_lookup_len)
+    #!print('target_lookup_len', target_lookup_len)
     for i in range(arr_prot_id_left.size):
         left_ind = int(np.where(arr_target_db_lookup_real_ids == arr_prot_id_left[i])[0])
         right_ind = int(np.where(arr_target_db_lookup_real_ids == arr_prot_id_right[i])[0])
@@ -1061,9 +1055,9 @@ def extract_proteins_cluster_neighborhood(sign_clusters_df, mapped_res):
             l_all_indices_clu_neigh.extend(list(range(left_border,right_border+1)))
         clu_indices_for_frac_occ_min.extend([init_clu_ind]*len(range(left_border,right_border+1)))
         init_clu_ind = init_clu_ind + 1
-        print('l_all_indices_clu_neigh', l_all_indices_clu_neigh)
-        print('clu_indices_for_frac_occ_min', clu_indices_for_frac_occ_min)
-    logging.debug(f"l_all_indices_clu_neigh {l_all_indices_clu_neigh}")
+        #!print('l_all_indices_clu_neigh', l_all_indices_clu_neigh)
+        #!print('clu_indices_for_frac_occ_min', clu_indices_for_frac_occ_min)
+    #logging.debug(f"l_all_indices_clu_neigh {l_all_indices_clu_neigh}")
     # let's get the same indices but now for the matches in cluster only
     indices_matches_in_clu = np.unique(np.where(np.isin(arr_target_db_lookup_real_ids, arr_matches_in_clu)))
     # add indices of proteins between left and right prots of the cluster and keep uniq
@@ -1127,10 +1121,10 @@ def extract_proteins_cluster_neighborhood(sign_clusters_df, mapped_res):
 def reassign_non_enriched(old_query_upd_scores, bias, s_0):
     # the function is used to filter the query profiles (representatives of the clusters) by their enrichment
     # the proteins (profile representatives) that are under the threshold of enrichment/bias should be assigned s_0 as the score (as for the gaps)
-    print('old_query_upd_scores', old_query_upd_scores)
+    #!print('old_query_upd_scores', old_query_upd_scores)
     old_query_upd_scores = {k: s_0 if v < bias else v for (k, v) in old_query_upd_scores.items() }
-    print('bias ', bias, ' s_0 ', s_0)
-    print('old_query_upd_scores', old_query_upd_scores)
+    #!print('bias ', bias, ' s_0 ', s_0)
+    #!print('old_query_upd_scores', old_query_upd_scores)
 
 
 
@@ -1184,10 +1178,10 @@ def add_new_profiles(clu_indices_for_frac_occ_min_df):
     clu_tsv_spatial_clu_counts = pd.merge(clu_tsv, clu_indices_for_frac_occ_min_df, on='real_prot_id')
     #print(clu_tsv_spatial_clu_counts)
     frac_occ_min = float(args.frac_occ_min)
-    print(frac_occ_min)
+    #!print(frac_occ_min)
     # count in how many spatial clusters every profile occurs
     fraction_df = pd.DataFrame()
-    print(clu_tsv_spatial_clu_counts)
+    #!print(clu_tsv_spatial_clu_counts)
     #fraction_df = clu_tsv_spatial_clu_counts.groupby(['rep'])['internal_clu_ind'].expanding().count().reset_index(name='spatial_clu_n')
     fraction_df = clu_tsv_spatial_clu_counts.groupby(['rep'])['internal_clu_ind'].transform('count').reset_index(name='spatial_clu_n')
     fraction_df['real_prot_id'] = clu_tsv_spatial_clu_counts['real_prot_id']
@@ -1198,12 +1192,12 @@ def add_new_profiles(clu_indices_for_frac_occ_min_df):
     fraction_df['fraction'] = fraction_df['spatial_clu_n']/total_number_of_spatial_clusters
     #print(fraction_df)
     prot_filtered_by_fraction = fraction_df.loc[fraction_df['fraction'] > frac_occ_min]['real_prot_id']
-    print(prot_filtered_by_fraction)
+    #!print(prot_filtered_by_fraction)
     neigh_lookup = pd.read_csv(str(files.res) + '_' + str(iter_counter) +'_neigh_only_db.lookup', dtype=None, sep='\t', header = None)
     
     neigh_lookup.columns = ['int_id', 'real_prot_id', 'source_id']
     merged_filter_frac_lookup_df = neigh_lookup.merge(prot_filtered_by_fraction, on='real_prot_id', how='inner')
-    print(merged_filter_frac_lookup_df)
+    #!print(merged_filter_frac_lookup_df)
     merged_filter_frac_lookup_df['int_id'].to_csv('seq_clu_filter_fraction_idx', index=False, header=False)  
 
     subprocess.call(['mmseqs', 'createsubdb', 'seq_clu_filter_fraction_idx',
@@ -1264,12 +1258,12 @@ def set_match_threshold(match_score_gap, query_specific_thresholds):
 
     filtered_search_res_only_clu_matches_df = pd.read_csv(str(filtered_search_res_clu_matches_path)+'.m8', dtype={'str':'float'}, sep='\t', header = None)
     filtered_search_res_only_clu_matches_df.columns = ['query_id', '2','3', '4', '5', '6', '7', '8', '9', '10', '11', 'bit_score']
-    print('filtered_search_res_clu_matches', filtered_search_res_only_clu_matches_df)
+    #!print('filtered_search_res_clu_matches', filtered_search_res_only_clu_matches_df)
     
     min_scores_per_query_df = filtered_search_res_only_clu_matches_df.loc[filtered_search_res_only_clu_matches_df.groupby('query_id').bit_score.idxmin()][['query_id','bit_score']]
     min_scores_per_query_df['bit_score'] = min_scores_per_query_df['bit_score'] - match_score_gap
-    print('min_scores_per_query_df', min_scores_per_query_df)
-    print('query_specific_thresholds', query_specific_thresholds)
+    #!print('min_scores_per_query_df', min_scores_per_query_df)
+    #!print('query_specific_thresholds', query_specific_thresholds)
     dict_match_thresholds_upd = pd.Series(min_scores_per_query_df.bit_score.values,index=min_scores_per_query_df.query_id).to_dict()
     query_specific_thresholds.update(dict_match_thresholds_upd)
     print('query_specific_thresholds', query_specific_thresholds)
@@ -1281,14 +1275,14 @@ def apply_min_frac_inside(query_specific_thresholds, mapped_res, significant_clu
     mapped_results = mapped_res.res_map_to_header
 
     # here i have to filter by match score query-specific thresholds, both general results and specifically clusters dataframe
-    print('res_map_to_header', mapped_results)
-    print('query_specific_thresholds', query_specific_thresholds)
+    #!print('res_map_to_header', mapped_results)
+    #!print('query_specific_thresholds', query_specific_thresholds)
     mapped_results['match_thresholds'] = mapped_results['query_ID'].map(query_specific_thresholds)
-    print('res_map_to_header2', mapped_results)
+    #!print('res_map_to_header2', mapped_results)
     mapped_results = mapped_results.drop(mapped_results[mapped_results['bit_score'] < mapped_results['match_thresholds']].index)
     # renaming here to merge with cluster_prots
     mapped_results.rename(columns={'ID': 'target_id'}, inplace=True)
-    print('res_map_to_header3', mapped_results)
+    #!print('res_map_to_header3', mapped_results)
 
     cluster_prots1 = pd.DataFrame()
     cluster_prots1['query_id'] = significant_clusters_eval_filter_df['query_prots'].explode()
@@ -1296,13 +1290,13 @@ def apply_min_frac_inside(query_specific_thresholds, mapped_res, significant_clu
     cluster_prots_bit_scores = (mapped_results.merge(cluster_prots1, left_on='target_id', right_on = 'target_id').reindex(columns=['query_id', 'target_id', 'bit_score']))
     cluster_prots_bit_scores['match_thresholds'] = cluster_prots_bit_scores['query_id'].map(query_specific_thresholds)
     cluster_prots_bit_scores = cluster_prots_bit_scores.drop(cluster_prots_bit_scores[cluster_prots_bit_scores['bit_score'] < cluster_prots_bit_scores['match_thresholds']].index)
-    print('cluster_prots_bit_scores', cluster_prots_bit_scores)
+    #!print('cluster_prots_bit_scores', cluster_prots_bit_scores)
 
     # Let's now make m_x and M_x arrays
     q_arr_target = mapped_results['query_ID'].to_numpy()
     q_arr_clusters = cluster_prots_bit_scores['query_id'].to_numpy()
-    print('q_arr_target', q_arr_target)
-    print('q_arr_clusters', q_arr_clusters)
+    #!print('q_arr_target', q_arr_target)
+    #!print('q_arr_clusters', q_arr_clusters)
     target_uniq_q0, target_uniq_q_counts0 = np.unique(q_arr_target, return_counts=True)
     clusters_uniq_q, clusters_uniq_q_counts = np.unique(q_arr_clusters, return_counts=True)
     # I need an array of all possible queries
@@ -1312,12 +1306,12 @@ def apply_min_frac_inside(query_specific_thresholds, mapped_res, significant_clu
     new_query_db_profile_h["ID"] = new_query_db_profile_h["ID"].str.replace('\x00', '')
     # last row is always empty for whatever reason
     new_query_db_profile_h.drop(new_query_db_profile_h.tail(1).index,inplace=True)
-    print('query_db_profile_h', new_query_db_profile_h)
+    #!print('query_db_profile_h', new_query_db_profile_h)
     arr_all_queries = new_query_db_profile_h['ID'].to_numpy()
-    print('all_queries', arr_all_queries)
+    #!print('all_queries', arr_all_queries)
     arr_m_x = np.zeros(len(arr_all_queries))
     arr_M_x =np.zeros(len(arr_all_queries))
-    print('arr_m_x, arr_M_x', arr_m_x, arr_M_x)
+    #!print('arr_m_x, arr_M_x', arr_m_x, arr_M_x)
 
     # I need to get indices (in arr_all_queries) for clusters queries and general target queries to then replace 0 in m_x and M_x with the corresponding counts
     xy, x_ind, y_ind = np.intersect1d(clusters_uniq_q,
@@ -1327,14 +1321,14 @@ def apply_min_frac_inside(query_specific_thresholds, mapped_res, significant_clu
 
     np.put(arr_m_x, y_ind, clusters_uniq_q_counts)
     np.put(arr_M_x, y_ind1, target_uniq_q_counts0)
-    print('arr_m_x, arr_M_x', arr_m_x, arr_M_x)
+    #!print('arr_m_x, arr_M_x', arr_m_x, arr_M_x)
     
     arr_proportion = np.nan_to_num((arr_m_x/arr_M_x), nan=0, posinf=0, neginf=0)
-    print('arr_proportion', arr_proportion)
+    #!print('arr_proportion', arr_proportion)
     # Now let's filter by min_frac_inside
-    print('min_frac_inside', min_frac_inside)
+    #!print('min_frac_inside', min_frac_inside)
     filtered_indices = np.where(arr_proportion > min_frac_inside)[0]
-    print('filtered_indices', filtered_indices)
+    #!print('filtered_indices', filtered_indices)
     #filtered_queries = np.take(arr_all_queries, filtered_indices)
     #print('filtered_queries', filtered_queries)
 
@@ -1359,15 +1353,15 @@ def initialize_new_prot_score2(old_query_upd_scores, arr_clu_neigh_prots, arr_ma
     arr_prot_already_updated = np.array([k for k in old_query_upd_scores.keys() if old_query_upd_scores[k]!=1 ])
     arr_prot_to_add = np.setdiff1d(arr_prot_to_add_0,arr_prot_already_updated)
 
-    print('arr_prot_to_add', arr_prot_to_add)
-    print('length arr_prot_to_add', len(arr_prot_to_add))
+    #!print('arr_prot_to_add', arr_prot_to_add)
+    #!print('length arr_prot_to_add', len(arr_prot_to_add))
     
     # Unlike before, here I just set slightly positive scores for the new proteins from the neighbourhood and non-matches from inside, i dont calculate the concrete scores anymore as i dont do searches anymore
     arr_score_x = np.empty(len(arr_prot_to_add))
     #arr_score_x.fill(0.4)
     default_neighbour_score = 0.1
     arr_score_x.fill(default_neighbour_score)
-    print('arr_score_x', arr_score_x)
+    #!print('arr_score_x', arr_score_x)
     
     # Here I add just to the scores dict the dict made out of new prots ids and their scores
     #dict_additional_scores = dict(zip(arr_prot_to_add, arr_score_x))
@@ -1387,18 +1381,18 @@ def calc_approx_enrichments(old_query_upd_scores, mapped_res):
     # Is ORDER really kept CORRECTLY everywhere in this function??
     # Let's load data from previous iterations
     l_prev = ValuesForApproxEnrich['l']
-    print('l_prev', l_prev)
+    #!print('l_prev', l_prev)
     prev_queries = ValuesForApproxEnrich['prev_queries']
-    print('prev_queries', prev_queries)
+    #!print('prev_queries', prev_queries)
 
     # Get L
     target_db_lookup = mapped_res.target_db_lookup
     L = len(target_db_lookup.index)
-    print('L calc_approx_enrichments', L)
+    #!print('L calc_approx_enrichments', L)
     
     # Let's see what profiles are new. For this I just have to subtract queries of the previous iteration from the current old_upd_scores
     new_neighbours = np.array(list(set(old_query_upd_scores.keys()).difference(set(prev_queries))))
-    print('new_neighbours', len(new_neighbours), new_neighbours)
+    #!print('new_neighbours', len(new_neighbours), new_neighbours)
 
     if new_neighbours.size == 0:
         logging.debug(f'no new neighbours')
@@ -1409,44 +1403,44 @@ def calc_approx_enrichments(old_query_upd_scores, mapped_res):
     mapped_results = mapped_res.res_map_to_header
     #print(mapped_results)
     query_ids_search_res = mapped_results['query_ID'].to_numpy()
-    print('query_ids_search_res', query_ids_search_res)
+    #!print('query_ids_search_res', query_ids_search_res)
 
     # I should initialize arr_M_x with 1 since mmseqs2 doesnt always find the hits to itself. For this I will merge search results queries with all the neighbour profiles I have, and then I simply subtract 1 for values > 1
     # Let's get counts per query
     merged_res_query_neighbours = np.concatenate((query_ids_search_res, new_neighbours))
     #print('merged_res_query_neighbours', merged_res_query_neighbours)
     merged_res_query_neighbours_q, merged_res_query_neighbours_counts = np.unique(merged_res_query_neighbours, return_counts=True)
-    print('merged_res_query_neighbours_q', len(merged_res_query_neighbours_q),  merged_res_query_neighbours_q) 
-    print('merged_res_query_neighbours_counts', merged_res_query_neighbours_counts)
+    #!print('merged_res_query_neighbours_q', len(merged_res_query_neighbours_q),  merged_res_query_neighbours_q) 
+    #!print('merged_res_query_neighbours_counts', merged_res_query_neighbours_counts)
 
     np.subtract(merged_res_query_neighbours_counts, 1, out=merged_res_query_neighbours_counts, where=merged_res_query_neighbours_counts>1)
-    print('merged_res_query_neighbours_counts_corrected', merged_res_query_neighbours_counts)
+    #!print('merged_res_query_neighbours_counts_corrected', merged_res_query_neighbours_counts)
 
     new_neighbours_sorted, x_ind, y_ind = np.intersect1d(merged_res_query_neighbours_q, new_neighbours, return_indices=True)
 
     arr_M_x = np.take(merged_res_query_neighbours_counts, x_ind)
-    print('arr_M_x', len(arr_M_x), arr_M_x)
-    print('new_neighbours_sorted', new_neighbours_sorted)
+    #!print('arr_M_x', len(arr_M_x), arr_M_x)
+    #!print('new_neighbours_sorted', new_neighbours_sorted)
 
     # Now I have to get m_x. For this I should rely on the fact that every line in filtered clusters file corresponds to 6 neighbours
     clu_prots_n = ValuesForApproxEnrich['clu_prots_n']
-    print('clu_prots_n', clu_prots_n)
+    #!print('clu_prots_n', clu_prots_n)
     # I NEED A CORRECT order of NEIGHBOURS here, corresponding to their clusters. I have already such (I had it for frac_occ_min)
     prev_clu_indices_for_frac_occ_min_df = ValuesForApproxEnrich['clu_indices_for_frac_occ_min_df']
     # Here i should filter it, to keep only neighbours, and only profile reps
     prev_clu_indices_for_frac_occ_min_df_neigh_profile_reps = prev_clu_indices_for_frac_occ_min_df[prev_clu_indices_for_frac_occ_min_df['real_prot_id'].isin(list(new_neighbours_sorted))]
     prev_clu_indices_neigh_rep_uniq = pd.unique(prev_clu_indices_for_frac_occ_min_df['internal_clu_ind'])
     clu_prots_n_neigh_rep = np.array(clu_prots_n)[list(prev_clu_indices_neigh_rep_uniq)]
-    print('clu_prots_n_neigh_rep', clu_prots_n_neigh_rep)
+    #!print('clu_prots_n_neigh_rep', clu_prots_n_neigh_rep)
     arr_m_x = np.repeat(clu_prots_n_neigh_rep, 6)
-    print('arr_m_x', len(arr_m_x), arr_m_x)
+    #!print('arr_m_x', len(arr_m_x), arr_m_x)
     
     # Let's finally calculate the scores
     arr_scores_x = np.log(np.divide((arr_m_x/l_prev),(arr_M_x/L)))
 
     dict_additional_scores = dict(zip(new_neighbours_sorted, arr_scores_x))
     old_query_upd_scores.update(dict_additional_scores)
-    logging.debug(f"old_query_upd_scores updated with calc_approx_enrichments \n {old_query_upd_scores}")
+    #logging.debug(f"old_query_upd_scores updated with calc_approx_enrichments \n {old_query_upd_scores}")
 
     return(old_query_upd_scores)
 
@@ -1474,8 +1468,8 @@ def find_singletons(mapped_res):
     target_db_h.reset_index(inplace=True)
 
     # to fix the problem with the nan coming from reading the table
-    logging.debug(f"mapped_results \n {mapped_results}")
-    logging.debug(f"index_list \n {index_list}")
+    #logging.debug(f"mapped_results \n {mapped_results}")
+    #logging.debug(f"index_list \n {index_list}")
 
     cluster_matches = list()
     matches_ids_list = mapped_results['ID'].tolist()
@@ -1496,7 +1490,7 @@ def find_singletons(mapped_res):
          i_1_cluster_end, score_max_cluster, 
          curr_query_id, target_hit, strand, [i_0_cluster_start], [i_1_cluster_end]))
  
-    logging.debug(f"cluster_matches \n {cluster_matches}")
+    #logging.debug(f"cluster_matches \n {cluster_matches}")
     return cluster_matches
 
 
@@ -1570,7 +1564,7 @@ def preprocess_singleton_main(old_query_upd_scores, UpdatedStats):
     sign_clusters_df.columns = ["coord1", "coord2", "score",
      "query", "target_prots", "strand", "coordS1", "coordS2"]
     
-    logging.debug(f"sign_clusters_df \n {sign_clusters_df}")
+    #logging.debug(f"sign_clusters_df \n {sign_clusters_df}")
 
     # For singletons, I do not extract proteins from sides, in the function 
     # if_snigleton = '1' the number of prots from 1 side set to 0. So I only extract matches 
@@ -1647,7 +1641,7 @@ def cluster_clusters(significant_cluster_df_enriched):
         #print(queries_list[ind])
         #print(list_presence_lists[i-1])
         #print(dict_presence_lists)
-    print(len(list_presence_lists))
+    #!print(len(list_presence_lists))
     #print(clusters_dict)
     # shape of stacked array = (214, 167) = (queries number, clusters number)
     array_presence_arrays = np.stack(list_presence_lists, axis=0)
@@ -1686,21 +1680,21 @@ def cluster_clusters(significant_cluster_df_enriched):
                     if dist < cutoff_dist:
                         loc_density = loc_density + 1
                 points[spatial] = loc_density
-            print(points)
+            #!print(points)
             return points, distance_mat_dict
         points, distance_mat_dict = faster_dist_calc()
         
 
         # sort points dict by density
         dens_sort_points = dict(sorted(points.items(), key=lambda item: item[1]))
-        print(dens_sort_points)
+        #!print(dens_sort_points)
         # get the minimum distance to higher density point
         min_distance_from_higher = dict()
         # dictionary to store the nearest neighbours of higher density for later steps
         closest_higher_dens_neigh = dict()
         # that is a list of spatial cluster ids sorted by density
         list_of_sorted_spatials = list(dens_sort_points.keys())
-        print(list_of_sorted_spatials)
+        #!print(list_of_sorted_spatials)
         for spatial in list_of_sorted_spatials:
             current_spatial_ind = list_of_sorted_spatials.index(spatial)
             for i in list_of_sorted_spatials[current_spatial_ind+1:len(list_of_sorted_spatials)]:
@@ -1711,8 +1705,8 @@ def cluster_clusters(significant_cluster_df_enriched):
                         break 
                 else:
                     break
-            print(current_spatial_ind)
-            print('current')
+            #!print(current_spatial_ind)
+            #!print('current')
 
             current_comparisons = list_of_sorted_spatials[current_spatial_ind+1:len(list_of_sorted_spatials)]
             # the intermediate dict to find min contains not so many values as many distances
@@ -1742,10 +1736,10 @@ def cluster_clusters(significant_cluster_df_enriched):
             #print('current_comparisons', current_comparisons)
             #print('distance_mat_dict[spatial]', distance_mat_dict[spatial])
             #print({distance_mat_dict[spatial][k] for k in current_comparisons})
-            print(min_dist)
+            #!print(min_dist)
             min_distance_from_higher[spatial] = min_dist
             #closest_higher_dens_neigh[spatial] = closest_neighbor_high_dens
-        print(min_distance_from_higher)
+        #!print(min_distance_from_higher)
         #for i in closest_higher_dens_neigh.keys():
         #    print(clusters_dict[i], clusters_dict[closest_higher_dens_neigh[i]])
 
@@ -1790,19 +1784,19 @@ def cluster_clusters(significant_cluster_df_enriched):
         if not cluster_centroids_ids:
             cluster_centroids_ids = list(min_distance_from_higher.keys())
             cluster_centroids = [clusters_dict[p] for p in min_distance_from_higher.keys()]
-        print(cluster_centroids)
-        print(len(cluster_centroids))
-        print(cluster_centroids_ids)
+        #!print(cluster_centroids)
+        #!print(len(cluster_centroids))
+        #!print(cluster_centroids_ids)
 
         final_clusters_ids1 = {k: [] for k in cluster_centroids_ids}
         final_clusters_reals1 = {', '.join(k): [] for k in cluster_centroids}
-        print(final_clusters_ids1)
-        print(final_clusters_reals1)
-        print(dens_sort_points)
-        print('assigning points to clusters')
+        #!print(final_clusters_ids1)
+        #!print(final_clusters_reals1)
+        #!print(dens_sort_points)
+        #!print('assigning points to clusters')
         iterate_over1 = list(dens_sort_points.keys())[::-1]
         for point in iterate_over1:
-            print('point', point)
+            #!print('point', point)
             if point not in final_clusters_ids1:
                 distances_to_centroids = {ke: distance_mat_dict[point][ke] for ke in final_clusters_ids1.keys()}
                 min_dist = min(distances_to_centroids.values())
@@ -1813,18 +1807,18 @@ def cluster_clusters(significant_cluster_df_enriched):
                 if min_dist < 1.0:
                     # that is the closest centroid
                     curr_centroid = list(distances_to_centroids.keys())[list(distances_to_centroids.values()).index(min_dist)] 
-                    print('curr_centroid', curr_centroid)
+                    #!print('curr_centroid', curr_centroid)
                     final_clusters_ids1[curr_centroid].append(point)
                     final_clusters_reals1[', '.join(clusters_dict[curr_centroid])].append(clusters_dict[point])
                 else:
-                    print('curr centroid is itself')
+                    #!print('curr centroid is itself')
                     final_clusters_ids1[point] = []
                     final_clusters_reals1[', '.join(clusters_dict[point])] = []
                     cluster_centroids.append(clusters_dict[point])
                     cluster_centroids_ids.append(point)
-        print(final_clusters_ids1)
+        #!print(final_clusters_ids1)
         #print(final_clusters_reals)
-        print('here are your clusters')
+        #!print('here are your clusters')
         raw_clu_of_clu = open(str(files.res) + str(iter_counter) +'_clu_of_clu_all', 'w')
         
         for k in final_clusters_reals1.keys():
@@ -1832,7 +1826,7 @@ def cluster_clusters(significant_cluster_df_enriched):
             for n in final_clusters_reals1[k]:
                 raw_clu_of_clu.write(str(n)+'\n')
             raw_clu_of_clu.write('-------'+'\n')
-        print('number of clusters is', len(cluster_centroids))
+        #!print('number of clusters is', len(cluster_centroids))
         #print('intercentroid dist')
         #for point in final_clusters_ids1.keys():
         #    print({ke: distance_mat_dict[point][ke] for ke in final_clusters_ids1.keys()})
@@ -1855,18 +1849,18 @@ def cluster_clusters(significant_cluster_df_enriched):
                 clu_ids_for_id_file[v] = k
 
 
-        print('clu_ids_for_id_file   ')
-        print(clu_ids_for_id_file) 
+        #!print('clu_ids_for_id_file   ')
+        #!print(clu_ids_for_id_file) 
         
         #print(dict_presence_lists_incl_clu)
         # BE CAREFUL! the last values are cluster centroids
         #  Looks like: {....,291: (array([0., 0., 0., 0., 1., ..., 70),
         # 292: (array([0., 0., 0., ..., 0., 292)} 70 and 292 are centroids of the cluster here
-        print(final_clusters_ids)
+        #!print(final_clusters_ids)
         #print(final_clusters_reals)
-        print(len(final_clusters_ids.keys()))
-        print('iterate_over1', len(iterate_over1))
-        print('dens_sort_points', dens_sort_points)
+        #!print(len(final_clusters_ids.keys()))
+        #!print('iterate_over1', len(iterate_over1))
+        #!print('dens_sort_points', dens_sort_points)
         return final_clusters_ids, clu_ids_for_id_file
     
     final_clusters_ids, clu_ids_for_id_file = R_L_density_clustering(dict_presence_lists)
@@ -1900,7 +1894,7 @@ def cluster_clusters(significant_cluster_df_enriched):
         else:
             not_clustered_to_initial_acrs.append(l)
             not_clustered_to_initial_acrs.extend(final_clusters_ids[l])
-    print(clustered_to_initial_acrs)
+    #!print(clustered_to_initial_acrs)
     positives_filtered = []
 
 
@@ -1924,15 +1918,11 @@ def cluster_clusters(significant_cluster_df_enriched):
     #clu_arc_ind.write('-------'+'\n')
     # do not really understand why sorting needed in the next line. But otherwise it gets errors trying to assess
     # non-existing elements of old_query_scores in the next iter (probably something related to the order?)
-    if iter_counter == 2:
-        for i in sorted(clustered_to_initial_acrs):
-            print(clusters_dict[i])
-        #print(x)
     for c in clustered_to_initial_acrs:
         #print('query string', clusters_dict[c])
-        print([clusters_stat['target_prots'][c], clusters_stat['coord1'][c], clusters_stat['coord2'][c]])
+        #!print([clusters_stat['target_prots'][c], clusters_stat['coord1'][c], clusters_stat['coord2'][c]])
         positives_filtered.append([clusters_stat['target_prots'][c], clusters_stat['coord1'][c], clusters_stat['coord2'][c]])
-    print('filtered positives', len(positives_filtered))
+    #!print('filtered positives', len(positives_filtered))
 
     # --------new clusterting filter
     return significant_clusters_eval_filter_df_clu
@@ -2039,9 +2029,9 @@ def main(old_query_upd_scores, UpdatedStats):
 
 
     # CHANGE notation for significant clusters??
-
+    start_time8 = time.time()
     d_strand_flip_penalty = set_strand_flip_penalty(cluster_matches_df, mapped_res)
-
+    print("--- %s seconds for set_strand_flip_penalty() ---" % (time.time() - start_time8))
     # CHECK do I need this step??
     #sign_clusters_df = set_strand_flip_penalty(cluster_matches)
 
@@ -2053,19 +2043,41 @@ def main(old_query_upd_scores, UpdatedStats):
         path_clu_filter = files.res + '_' + str(iter_counter) + '_iter_sign_clusters_enrich_stat_filtered_clu_filter'
         significant_clusters_eval_filter_df_clu.to_csv(path_clu_filter, sep = '\t', index = False)
 
+    start_time9 = time.time()
     clu_prots_n = count_prots_per_cluster(sign_clusters_df)
+    print("--- %s seconds for count_prots_per_cluster() ---" % (time.time() - start_time9))
 
+    start_time10 = time.time()
     arr_mmseqs_ind_matches_in_clu, arr_mmseqs_ind_clu_neigh_only, arr_clu_neigh_prots, arr_matches_in_clu, clu_indices_for_frac_occ_min_df, arr_clu_neigh_prots_non_uniq = extract_proteins_cluster_neighborhood(sign_clusters_df, mapped_res)
+    print("--- %s seconds for extract_proteins_cluster_neighborhood() ---" % (time.time() - start_time10))
+
+    start_time11 = time.time()
     reassign_non_enriched(old_query_upd_scores, bias, s_0)
+    print("--- %s seconds for reassign_non_enriched() ---" % (time.time() - start_time11))
+
+    start_time12 = time.time()
     update_profiles()
+    print("--- %s seconds for update_profiles() ---" % (time.time() - start_time12))
+
+    start_time13 = time.time()
     add_new_profiles(clu_indices_for_frac_occ_min_df)
+    print("--- %s seconds for add_new_profiles() ---" % (time.time() - start_time13))
 
+    start_time14 = time.time()
     set_match_threshold(match_score_gap, query_specific_thresholds)
+    print("--- %s seconds for set_match_threshold() ---" % (time.time() - start_time14))
+
+    start_time15 = time.time()
     apply_min_frac_inside(query_specific_thresholds, mapped_res, sign_clusters_df)
+    print("--- %s seconds for apply_min_frac_inside() ---" % (time.time() - start_time15))
 
+    start_time16 = time.time()
     make_new_query()
+    print("--- %s seconds for make_new_query() ---" % (time.time() - start_time16))
 
+    start_time17 = time.time()
     old_query_upd_scores = initialize_new_prot_score2(old_query_upd_scores, arr_clu_neigh_prots, arr_matches_in_clu, query_specific_thresholds)
+    print("--- %s seconds for initialize_new_prot_score2() ---" % (time.time() - start_time17))
 
     UpdatedStats['s_0'] = s_0
     UpdatedStats['d_strand_flip_penalty'] = d_strand_flip_penalty
@@ -2082,7 +2094,7 @@ def main(old_query_upd_scores, UpdatedStats):
 
 if __name__ == "__main__":
 
-    print("starting")
+    #print("starting")
     arg_parser()
     iterations = int(args.iter)
     if_singleton = int(args.singleton)
