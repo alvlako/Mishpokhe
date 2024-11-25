@@ -43,9 +43,9 @@ def arg_parser():
     parser.add_argument("-e", "--eval",
      help="Specify the e-value threshold, default is 100",  default=100)
     parser.add_argument("-f", "--frac_occ_min",
-     help="Specify the threshold for the fraction of the cluster matches in which each sequence cluster occurs, default is 0",  default=0)
+     help="Specify the threshold for the fraction of the cluster matches in which each sequence cluster occurs, default is >= 0",  default=0)
     parser.add_argument("-if", "--min_frac_inside",
-     help="Specify the threshold for the fraction of the cluster matches in which each sequence cluster occurs, default is 0",  default=0)
+     help="Specify the threshold for the fraction of the cluster matches in which each sequence cluster occurs, default is >= 0",  default=0)
     parser.add_argument("-c", "--search_cov",
      help="Specify the coverage threshold for the mmseqs search",  default='0.8')
     parser.add_argument("-af", "--arc_filter",
@@ -1191,7 +1191,7 @@ def add_new_profiles(clu_indices_for_frac_occ_min_df):
     #print('total_number_of_spatial_clusters', total_number_of_spatial_clusters)
     fraction_df['fraction'] = fraction_df['spatial_clu_n']/total_number_of_spatial_clusters
     #print(fraction_df)
-    prot_filtered_by_fraction = fraction_df.loc[fraction_df['fraction'] > frac_occ_min]['real_prot_id']
+    prot_filtered_by_fraction = fraction_df.loc[fraction_df['fraction'] >= frac_occ_min]['real_prot_id']
     #!print(prot_filtered_by_fraction)
     neigh_lookup = pd.read_csv(str(files.res) + '_' + str(iter_counter) +'_neigh_only_db.lookup', dtype=None, sep='\t', header = None)
     
@@ -1327,7 +1327,7 @@ def apply_min_frac_inside(query_specific_thresholds, mapped_res, significant_clu
     #!print('arr_proportion', arr_proportion)
     # Now let's filter by min_frac_inside
     #!print('min_frac_inside', min_frac_inside)
-    filtered_indices = np.where(arr_proportion > min_frac_inside)[0]
+    filtered_indices = np.where(arr_proportion >= min_frac_inside)[0]
     #!print('filtered_indices', filtered_indices)
     #filtered_queries = np.take(arr_all_queries, filtered_indices)
     #print('filtered_queries', filtered_queries)
@@ -1963,10 +1963,10 @@ def main(old_query_upd_scores, UpdatedStats):
     print("--- %s seconds for map_target_to_coord() ---" % (time.time() - start_time2))
 
     # Approximate log enrichments for newly added profiles (from the previous iteration, neigbours)
-    if (if_singleton == 1 and iter_counter > 0) or (if_singleton == 0 and iter_counter > 1):
-        start_time21 = time.time()
-        old_query_upd_scores = calc_approx_enrichments(old_query_upd_scores, mapped_res)
-        print("--- %s seconds for calc_approx_enrichments() ---" % (time.time() - start_time21))
+    #if (if_singleton == 1 and iter_counter > 0) or (if_singleton == 0 and iter_counter > 1):
+    #    start_time21 = time.time()
+    #    old_query_upd_scores = calc_approx_enrichments(old_query_upd_scores, mapped_res)
+    #    print("--- %s seconds for calc_approx_enrichments() ---" % (time.time() - start_time21))
 
     # Is it ok to assign to None?
     start_time3 = time.time()
