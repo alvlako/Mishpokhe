@@ -1,0 +1,1 @@
+This directory consists of the files that one can use to test Mishpokhe. The simplest default run would be `python3 py_mishpokhe2.py -q 6old_Guo_acr_db -t all_bact_arch_vir_prot_prodigal_db -r anti_crispr_res_wOld_6_guo -tf all_bact_arch_vir_prot_prodigal.faa_lin -qf 6old_Guo_acr.faa -i 3`
