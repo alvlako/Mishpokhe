@@ -1,1 +1,3 @@
 This directory consists of the files that one can use to test Mishpokhe. The simplest default run would be `python3 py_mishpokhe2.py -q 6old_Guo_acr_db -t d_herelle_viruses_ncbi_lin_prodigal_db -r anti_crispr_res_wOld_6_guo_d_herelle_vir -tf d_herelle_viruses_ncbi.fasta_prodigal.faa_lin -qf 6old_Guo_acr.faa -i 3`
+
+Before running the test, please, create mmseqs databases for query and target: `mmseqs createdb 6old_Guo_acr.faa 6old_Guo_acr_db` and `mmseqs createdb d_herelle_viruses_ncbi.fasta_prodigal.faa_lin d_herelle_viruses_ncbi_lin_prodigal_db`
