@@ -39,6 +39,22 @@ The help can be called with
                         <br /> &emsp;&emsp;&emsp;Set to 1 if you want to use mishpokhe clusters e-value filter, default is 1
   * `e EVAL`, `--eval EVAL`,
                         <br /> &emsp;&emsp;&emsp;Specify the e-value threshold, default is 1
+  * `-f FRAC_OCC_MIN`, `--frac_occ_min FRAC_OCC_MIN`,
+                        Specify the threshold for the fraction of the cluster
+                        matches in which each sequence cluster occurs, default
+                        is >= 0
+  * `-if MIN_FRAC_INSIDE`, `--min_frac_inside MIN_FRAC_INSIDE`,
+                        Specify the threshold for the fraction of the cluster
+                        matches in which each sequence cluster occurs to all
+                        the matches, default is >= 0
+  * `-c SEARCH_COV`, `--search_cov SEARCH_COV`,
+                        Specify the coverage threshold for the mmseqs search
+  * `-af ARC_FILTER`, `--arc_filter ARC_FILTER`,
+                        Set to 0 if you do NOT want to use architecture
+                        clustering and filtering, default is 1
+  * `-b BIAS`, `--bias BIAS`,
+    			Specify bias for enrichment scores calculation,
+                        default is 0
 
 ## How to read the output
 
