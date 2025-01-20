@@ -24,16 +24,16 @@ def arg_parser():
     if len(sys.argv) == 1:
         sys.exit("No arguments provided. You need to provide path to the files (see py_mishpokhe2.py -h)")
     parser = argparse.ArgumentParser(description="Mishpokhe: self-supervised discovery of functional clusters")
-    parser.add_argument("-q", "--querydb",
-     help="Provide path to query MMseqs2 database (protein, unordered)")
-    parser.add_argument("-t", "--targetdb",
-     help="Provide path to target MMseqs2 database (protein, ordered)")
+    #parser.add_argument("-q", "--querydb",
+    # help="Provide path to query MMseqs2 database (protein, unordered)")
+    #parser.add_argument("-t", "--targetdb",
+    # help="Provide path to target MMseqs2 database (protein, ordered)")
     parser.add_argument("-r", "--res",
      help="Specify the name to be given to the results of the search")
-    parser.add_argument("-tf", "--targetfa",
-     help="Provide path to target sequence (fasta (linearized!))")
     parser.add_argument("-qf", "--queryfa",
-     help="Provide path to query sequence (fasta)")
+     help="Provide path to query sequence (fasta, protein, unordered)")
+    parser.add_argument("-tf", "--targetfa",
+     help="Provide path to target sequence (protein, ordered)")
     parser.add_argument("-i", "--iter",
      help="Give the number of iterations, default is 1", default = 1)
     parser.add_argument("-s", "--singleton",
@@ -65,26 +65,31 @@ def arg_parser():
 
 class FilePath:
      """
-     Reading paths to the files
+     Reading paths to the sequence files and making new paths for the db files to make them in main
 
      """
-     def __init__(self, query_db, target_db, res):
+     def __init__(self, query_db, target_db, res, query_fa, target_fa):
         self.query_db = query_db
         self.target_db = target_db
         self.res = res
+        self.query_fa = query_fa
+        self.target_fa = target_fa
 
 
      @classmethod
      def get_path(self):
-         while 1:
+        while 1:
             try:
-                query_db = args.querydb
-                target_db = args.targetdb
+                query_fa = args.queryfa
+                target_fa = args.targetfa
+                query_db = str(query_fa)+'_db'
+                target_db = str(target_fa) + '_db'
                 res = args.res
-                return self(query_db,target_db, res)
+                return self(query_db,target_db, res, query_fa, target_fa)
             except:
                 print('Invalid input!')
                 continue
+    
 
 
 # add parameters adjustment option? error raising?
@@ -1087,9 +1092,9 @@ def extract_proteins_cluster_neighborhood(sign_clusters_df, mapped_res):
 
     # BE careful! this db accessory files are not in order with db seqs
     subprocess.call(['mmseqs', 'createsubdb', 'target_protID_cluster_file_idx_sorted', 
-     args.targetdb, str(neighbourhood_path)+'_db'])
+     files.target_db, str(neighbourhood_path)+'_db'])
     subprocess.call(['mmseqs', 'createsubdb', 'target_protID_cluster_file_idx_sorted', 
-     str(args.targetdb)+'_h', str(neighbourhood_path)+'_db_h'])
+     str(files.target_db)+'_h', str(neighbourhood_path)+'_db_h'])
     subprocess.call(['mmseqs', 'convert2fasta', str(neighbourhood_path)+'_db', 
      neighbourhood_path])
 
@@ -1105,14 +1110,14 @@ def extract_proteins_cluster_neighborhood(sign_clusters_df, mapped_res):
 
     # I do not convert to fasta for these (clu matches/non-matches) as I dont need it later
     subprocess.call(['mmseqs', 'createsubdb', 'target_protID_cluster_file_idx_neigh_only_sorted', 
-     args.targetdb, str(files.res) + '_' + str(iter_counter) +'_neigh_only_db'])
+     files.target_db, str(files.res) + '_' + str(iter_counter) +'_neigh_only_db'])
     subprocess.call(['mmseqs', 'createsubdb', 'target_protID_cluster_file_idx_neigh_only_sorted', 
-     str(args.targetdb)+'_h', str(files.res) + '_' + str(iter_counter) +'_neigh_only_db_h'])
+     str(files.target_db)+'_h', str(files.res) + '_' + str(iter_counter) +'_neigh_only_db_h'])
     
     subprocess.call(['mmseqs', 'createsubdb', 'target_protID_cluster_file_idx_matches_only_sorted', 
-     args.targetdb, str(files.res) + '_' + str(iter_counter)+'_matches_only_db'])
+     files.target_db, str(files.res) + '_' + str(iter_counter)+'_matches_only_db'])
     subprocess.call(['mmseqs', 'createsubdb', 'target_protID_cluster_file_idx_matches_only_sorted', 
-     str(args.targetdb)+'_h', str(files.res) + '_' + str(iter_counter)+'_matches_only_db_h'])
+     str(files.target_db)+'_h', str(files.res) + '_' + str(iter_counter)+'_matches_only_db_h'])
 
     #target_clusters_neighbourhood.close()
     return arr_mmseqs_ind_matches_in_clu, arr_mmseqs_ind_clu_neigh_only, arr_clu_neigh_prots, arr_matches_in_clu, clu_indices_for_frac_occ_min_df, arr_clu_neigh_prots_non_uniq
@@ -2108,6 +2113,16 @@ if __name__ == "__main__":
     print(files.query_db)
     print(files.target_db)
     print(files.res)
+
+    # Make dbs out of sequence fasta
+    subprocess.call(['mmseqs', 'createdb', 
+     files.query_fa,
+     files.query_db])
+    
+    subprocess.call(['mmseqs', 'createdb', 
+     files.target_fa,
+     files.target_db])
+
 
     # get queries ids to fill the scores dict with 1
     sep = r"'\t'"
