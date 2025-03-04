@@ -53,7 +53,7 @@ def arg_parser():
     parser.add_argument("-b", "--bias",
      help="Specify bias for enrichment scores calculation, default is 0",  default=0)
     parser.add_argument("-tmp", "--tmp",
-     help="Specify path for tmp folder. If the path doesnt exist, it is created automatically")
+     help="Specify path for tmp folder. If the path doesnt exist, it is created automatically, default='tmp'", default='tmp/')
     parser.add_argument("-pq", "--processed_query_path",
      help="Specify path to save the results of change to the query files, default start of the name is 'query'", default='query')
     # make separate func?
@@ -96,6 +96,8 @@ class FilePath:
                 # create tmp dir if doesnt exist
                 if not os.path.isdir(tmp_path):
                     os.makedirs(tmp_path)
+                if not tmp_path.endswith('/'):
+                    tmp_path = tmp_path + '/'
                 current_dir = os.getcwd()
                 processed_query = args.processed_query_path
                 query_db = tmp_path + processed_query +'_db'
