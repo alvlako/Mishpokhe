@@ -52,6 +52,10 @@ def arg_parser():
      help="Set to 0 if you do NOT want to use architecture clustering and filtering, default is 1",  default=1)
     parser.add_argument("-b", "--bias",
      help="Specify bias for enrichment scores calculation, default is 0",  default=0)
+    parser.add_argument("-tmp", "--tmp",
+     help="Specify path for tmp folder. If the path doesnt exist, it is created automatically")
+    parser.add_argument("-pq", "--processed_query_path",
+     help="Specify path to save the results of change to the query files, default start of the name is 'query'", default='query')
     # make separate func?
     # CHECK is it ok to make global?
     global args
@@ -60,7 +64,7 @@ def arg_parser():
     for argument in vars(args):
         arg_path = getattr(args, argument)
         if not os.path.exists((arg_path)):
-            if argument not in ['res', 'iter', 'singleton', 'evalfilteruse', 'eval', 'frac_occ_min', 'search_cov', 'arc_filter', 'min_frac_inside', 'bias']:
+            if argument not in ['res', 'iter', 'singleton', 'evalfilteruse', 'eval', 'frac_occ_min', 'search_cov', 'arc_filter', 'min_frac_inside', 'bias', 'tmp', 'processed_query_path']:
                 sys.exit(f"{arg_path} not found")
 
 class FilePath:
@@ -68,12 +72,15 @@ class FilePath:
      Reading paths to the sequence files and making new paths for the db files to make them in main
 
      """
-     def __init__(self, query_db, target_db, res, query_fa, target_fa):
+     def __init__(self, query_db, target_db, res, query_fa, target_fa, tmp_path, current_dir, processed_query):
         self.query_db = query_db
         self.target_db = target_db
         self.res = res
         self.query_fa = query_fa
         self.target_fa = target_fa
+        self.tmp = tmp_path
+        self.curr_dir = current_dir
+        self.proc_q = processed_query
 
 
      @classmethod
@@ -82,10 +89,17 @@ class FilePath:
             try:
                 query_fa = args.queryfa
                 target_fa = args.targetfa
-                query_db = str(query_fa)+'_db'
+                #query_db = str(query_fa)+'_db'
                 target_db = str(target_fa) + '_db'
                 res = args.res
-                return self(query_db,target_db, res, query_fa, target_fa)
+                tmp_path = args.tmp
+                # create tmp dir if doesnt exist
+                if not os.path.isdir(tmp_path):
+                    os.makedirs(tmp_path)
+                current_dir = os.getcwd()
+                processed_query = args.processed_query_path
+                query_db = tmp_path + processed_query +'_db'
+                return self(query_db,target_db, res, query_fa, target_fa, tmp_path, current_dir, processed_query)
             except:
                 print('Invalid input!')
                 continue
@@ -97,13 +111,15 @@ class FilePath:
 def make_profiles():
     print('making query mmseqs profiles')
     # making query profile db from scratch is only for the first iteration
-    subprocess.call(['mmseqs', 'cluster', files.query_db, files.query_db + '_clu', 'tmp', '-c', '0.8', '-e', '0.001'])
-    
+    #subprocess.call(['mmseqs', 'cluster', files.query_db, files.tmp + files.query_db + '_clu', files.tmp +'tmp', '-c', '0.8', '-e', '0.001'])
+    subprocess.call(['mmseqs', 'cluster', files.query_db, files.query_db + '_clu', files.tmp+'mmseqs_tmp', '-c', '0.8', '-e', '0.001'])
     subprocess.call(['mmseqs', 'result2msa', 
     files.query_db,
      files.query_db,
      files.query_db + '_clu',
-     files.query_db + '_clu_msa',
+     #files.tmp + 'query_' +str(iter_counter) +'_clu',
+     files.query_db+ '_clu_msa',
+     #files.query_db + '_clu_msa',
      '--msa-format-mode', '4'])
 
     subprocess.call(['mmseqs', 'convertmsa', 
@@ -128,8 +144,8 @@ def run_search():
     #files.query_db + '_clu' + '_rep' + '_profile',
     files.query_db + '_clu_msa_db_profile',
      files.target_db,
-     files.res + '_prof_search',
-     'tmp', '-a', '--mask', '0', '--comp-bias-corr', '0', '--max-seqs', '10000', '-c', search_cov, '--cov-mode', '1','-e', '0.001'])
+     files.tmp + files.res + '_prof_search',
+     files.tmp+'mmseqs_tmp', '-a', '--mask', '0', '--comp-bias-corr', '0', '--max-seqs', '10000', '-c', search_cov, '--cov-mode', '1','-e', '0.001'])
     #!print(f'command on the {iter_counter} is mmseqs search  {files.query_db}_clu_msa_db_profile {files.target_db} {files.res}_prof_search tmp -a --mask 0 --comp-bias-corr 0 --max-seqs 10000 -c {search_cov} --cov-mode 1 -e 0.001')
     #, '--min-seq-id', '0.5'
     #subprocess.call(['mmseqs', 'search', files.target_db,
@@ -141,8 +157,8 @@ def run_search():
     subprocess.call(['mmseqs', 'convertalis',
     # files.query_db + '_clu' + '_rep' + '_profile',
     files.query_db + '_clu_msa_db_profile',
-     files.target_db, files.res + '_prof_search',
-      files.res + '_prof_search' +'.m8'])
+     files.target_db, files.tmp + files.res + '_prof_search',
+      files.tmp + files.res + '_prof_search' +'.m8'])
     #subprocess.call(['mmseqs', 'convertalis', 
     # files.target_db, files.query_db + '_clu' + '_rep' + '_profile', files.res + '_prof_search',
     #  files.res + '_prof_search' +'.m8'])
@@ -187,7 +203,7 @@ class ResultsMapping:
         #search_result_file = pd.read_csv(str(files.res + '_prof_search'), dtype={'int':'float'}, sep='\t')
         #search_result_file = pd.read_csv('/Users/Sasha/Documents/GitHub/mishpokhe_test/py2_multihit_res', dtype={'int':'float'}, sep='\t')
         #search_result_file = pd.read_csv('/Users/Sasha/Documents/GitHub/mishpokhe_test/py_norm_res_prof_search.m8', dtype={'str':'float'}, sep='\t', header = None)
-        search_result_file = pd.read_csv(files.res + '_prof_search' +'.m8', dtype={'str':'float'}, sep='\t', header = None)
+        search_result_file = pd.read_csv(files.tmp + files.res + '_prof_search' +'.m8', dtype={'str':'float'}, sep='\t', header = None)
         logging.debug(f'search_result_file: {search_result_file}')
         #target_db_lookup = np.genfromtxt(str(files.target_db)+str(".lookup"), dtype = None, delimiter="\t", encoding=None)
         target_db_lookup = pd.read_csv(str(files.target_db)+str(".lookup"), dtype=None, sep='\t', header = None)
@@ -285,7 +301,7 @@ class ResultsMapping:
         # get target proteins real ids
         # CLEAN
         ind_list = real_id_list
-        res_map_to_header.to_csv('res_map_to_header', sep = '\t')
+        res_map_to_header.to_csv(files.tmp +'res_map_to_header', sep = '\t')
         #print(res_map_to_header)
         return self(search_result_file, target_db_lookup, target_db_h, res_map_to_header, ind_list)
         #pass
@@ -656,7 +672,7 @@ def update_scores_for_cluster_matches(significant_clusters_eval_filter_df, mappe
     logging.debug(f"s_0: {s_0}")
     #!print('significant_clusters_eval_filter_df2 \n', significant_clusters_eval_filter_df)
     #logging.debug(f"sign_clusters_df: \n {significant_clusters_eval_filter_df}")
-    significant_clusters_eval_filter_df.to_csv(files.res + '_' + str(iter_counter) + '_sign_clusters_df_filter_upd', sep = '\t', index = False)
+    significant_clusters_eval_filter_df.to_csv(files.tmp + files.res + '_' + str(iter_counter) + '_sign_clusters_df_filter_upd', sep = '\t', index = False)
     return(significant_clusters_eval_filter_df, s_0, old_query_upd_scores, L, l)
 
 
@@ -1003,7 +1019,7 @@ def extract_proteins_cluster_neighborhood(sign_clusters_df, mapped_res):
     #logging.debug(f"significant (?) clusters table \n {sign_clusters_df}")
     target_fasta = args.targetfa
     #logging.debug(f"{sign_clusters_df['target_prots']}")
-    neighbourhood_path = files.res + '_' + str(iter_counter) + '_iter_target_clusters_neighbourhood'
+    neighbourhood_path = files.tmp + files.res + '_' + str(iter_counter) + '_iter_target_clusters_neighbourhood'
 
     # extracting 3 neghbours from each side
     # MAKE a parameter
@@ -1084,40 +1100,40 @@ def extract_proteins_cluster_neighborhood(sign_clusters_df, mapped_res):
 
     # I still want to have the file with all clusters + neighbourhood proteins as I need them later
     # However, I do not proceed here the same way with the matches/non-matches only files, i do it in keep_enriched as I need to filter them before in initialize_new_prot_score2. I will just pass the np arrays
-    np.savetxt('target_protID_cluster_file_idx', arr_mmseqs_ind_clu_neigh, fmt='%i')
+    np.savetxt(files.tmp +'target_protID_cluster_file_idx', arr_mmseqs_ind_clu_neigh, fmt='%i')
  
     #target_protID_cluster_file_idx.close()
-    with open('target_protID_cluster_file_idx_sorted','w') as out0:
-        subprocess.call(['sort', '-u', '-n', 'target_protID_cluster_file_idx'],stdout=out0)
+    with open(files.tmp +'target_protID_cluster_file_idx_sorted','w') as out0:
+        subprocess.call(['sort', '-u', '-n', files.tmp +'target_protID_cluster_file_idx'],stdout=out0)
 
     # BE careful! this db accessory files are not in order with db seqs
-    subprocess.call(['mmseqs', 'createsubdb', 'target_protID_cluster_file_idx_sorted', 
+    subprocess.call(['mmseqs', 'createsubdb', files.tmp +'target_protID_cluster_file_idx_sorted', 
      files.target_db, str(neighbourhood_path)+'_db'])
-    subprocess.call(['mmseqs', 'createsubdb', 'target_protID_cluster_file_idx_sorted', 
+    subprocess.call(['mmseqs', 'createsubdb', files.tmp +'target_protID_cluster_file_idx_sorted', 
      str(files.target_db)+'_h', str(neighbourhood_path)+'_db_h'])
     subprocess.call(['mmseqs', 'convert2fasta', str(neighbourhood_path)+'_db', 
      neighbourhood_path])
 
     # Here there are files with the mmseqs ids for only matches (to update profiles later) and only neighbourhood (to make new profiles)
     # Even though i call it neigh_only, these are not only neighbours but also the non-matches inside of the clusters.
-    np.savetxt('target_protID_cluster_file_idx_neigh_only', arr_mmseqs_ind_clu_neigh_only, fmt='%i')
-    np.savetxt('target_protID_cluster_file_idx_matches_only', arr_mmseqs_ind_matches_in_clu, fmt='%i')
+    np.savetxt(files.tmp +'target_protID_cluster_file_idx_neigh_only', arr_mmseqs_ind_clu_neigh_only, fmt='%i')
+    np.savetxt(files.tmp +'target_protID_cluster_file_idx_matches_only', arr_mmseqs_ind_matches_in_clu, fmt='%i')
 
-    with open('target_protID_cluster_file_idx_neigh_only_sorted','w') as out:
-        subprocess.call(['sort', '-u', '-n', 'target_protID_cluster_file_idx_neigh_only'],stdout=out)
-    with open('target_protID_cluster_file_idx_matches_only_sorted','w') as out1:
-        subprocess.call(['sort', '-u', '-n', 'target_protID_cluster_file_idx_matches_only'],stdout=out1)
+    with open(files.tmp +'target_protID_cluster_file_idx_neigh_only_sorted','w') as out:
+        subprocess.call(['sort', '-u', '-n', files.tmp +'target_protID_cluster_file_idx_neigh_only'],stdout=out)
+    with open(files.tmp +'target_protID_cluster_file_idx_matches_only_sorted','w') as out1:
+        subprocess.call(['sort', '-u', '-n', files.tmp +'target_protID_cluster_file_idx_matches_only'],stdout=out1)
 
     # I do not convert to fasta for these (clu matches/non-matches) as I dont need it later
-    subprocess.call(['mmseqs', 'createsubdb', 'target_protID_cluster_file_idx_neigh_only_sorted', 
-     files.target_db, str(files.res) + '_' + str(iter_counter) +'_neigh_only_db'])
-    subprocess.call(['mmseqs', 'createsubdb', 'target_protID_cluster_file_idx_neigh_only_sorted', 
-     str(files.target_db)+'_h', str(files.res) + '_' + str(iter_counter) +'_neigh_only_db_h'])
+    subprocess.call(['mmseqs', 'createsubdb', files.tmp +'target_protID_cluster_file_idx_neigh_only_sorted', 
+     files.target_db, files.tmp +str(files.res) + '_' + str(iter_counter) +'_neigh_only_db'])
+    subprocess.call(['mmseqs', 'createsubdb', files.tmp +'target_protID_cluster_file_idx_neigh_only_sorted', 
+     str(files.target_db)+'_h', files.tmp +str(files.res) + '_' + str(iter_counter) +'_neigh_only_db_h'])
     
-    subprocess.call(['mmseqs', 'createsubdb', 'target_protID_cluster_file_idx_matches_only_sorted', 
-     files.target_db, str(files.res) + '_' + str(iter_counter)+'_matches_only_db'])
-    subprocess.call(['mmseqs', 'createsubdb', 'target_protID_cluster_file_idx_matches_only_sorted', 
-     str(files.target_db)+'_h', str(files.res) + '_' + str(iter_counter)+'_matches_only_db_h'])
+    subprocess.call(['mmseqs', 'createsubdb', files.tmp +'target_protID_cluster_file_idx_matches_only_sorted', 
+     files.target_db, files.tmp +str(files.res) + '_' + str(iter_counter)+'_matches_only_db'])
+    subprocess.call(['mmseqs', 'createsubdb', files.tmp +'target_protID_cluster_file_idx_matches_only_sorted', 
+     str(files.target_db)+'_h', files.tmp +str(files.res) + '_' + str(iter_counter)+'_matches_only_db_h'])
 
     #target_clusters_neighbourhood.close()
     return arr_mmseqs_ind_matches_in_clu, arr_mmseqs_ind_clu_neigh_only, arr_clu_neigh_prots, arr_matches_in_clu, clu_indices_for_frac_occ_min_df, arr_clu_neigh_prots_non_uniq
@@ -1144,40 +1160,40 @@ def update_profiles():
      #str(files.res) + '_' + str(iter_counter)+'_matches_only_db',
      #str(files.res) + '_' + str(iter_counter) + '_matches_only_db' + '_upd_res',
      #'tmp', '-a', '--mask', '0', '--comp-bias-corr', '0', '--max-seqs', '10000', '-c', '0.8', '-e', '0.001'])
-    subprocess.call(['mmseqs', 'filterdb', str(files.res) + '_prof_search',
-     str(files.res) + '_' + str(iter_counter) + '_matches_only_db' + '_upd_res','--filter-file', 'target_protID_cluster_file_idx_matches_only_sorted'])
+    subprocess.call(['mmseqs', 'filterdb', files.tmp +str(files.res) + '_prof_search',
+     files.tmp +str(files.res) + '_' + str(iter_counter) + '_matches_only_db' + '_upd_res','--filter-file', files.tmp +'target_protID_cluster_file_idx_matches_only_sorted'])
     
     subprocess.call(['mmseqs', 'result2msa', 
     #files.query_db + '_clu' + '_rep' + '_profile',
     files.query_db + '_clu_msa_db_profile',
      files.target_db,
-     str(files.res) + '_' + str(iter_counter) + '_matches_only_db' + '_upd_res',
-     str(files.res) + '_' + str(iter_counter) + '_matches_only_db' + '_upd_res_msa',
+     files.tmp +str(files.res) + '_' + str(iter_counter) + '_matches_only_db' + '_upd_res',
+     files.tmp +str(files.res) + '_' + str(iter_counter) + '_matches_only_db' + '_upd_res_msa',
      '--msa-format-mode', '4'])
 
     subprocess.call(['mmseqs', 'convertmsa', 
-     str(files.res) + '_' + str(iter_counter) + '_matches_only_db' + '_upd_res_msa',
-     str(files.res) + '_' + str(iter_counter) + '_matches_only_db' + '_upd_res_msa_db'])
+     files.tmp +str(files.res) + '_' + str(iter_counter) + '_matches_only_db' + '_upd_res_msa',
+     files.tmp +str(files.res) + '_' + str(iter_counter) + '_matches_only_db' + '_upd_res_msa_db'])
     
-    subprocess.call(['mmseqs', 'msa2profile', str(files.res) + '_' + str(iter_counter) + '_matches_only_db' + '_upd_res_msa_db', str(files.res) + '_' + str(iter_counter) + '_matches_only_db' + '_upd_res_msa_db_profile'])
+    subprocess.call(['mmseqs', 'msa2profile', files.tmp +str(files.res) + '_' + str(iter_counter) + '_matches_only_db' + '_upd_res_msa_db', files.tmp +str(files.res) + '_' + str(iter_counter) + '_matches_only_db' + '_upd_res_msa_db_profile'])
 
 
 
 def add_new_profiles(clu_indices_for_frac_occ_min_df):    
     # now let's construct the msa for the new proteins from the neighbourhood to add them to the query (concatenate with the msa of the old proteins + matches from above in function make_new_query)
     subprocess.call(['mmseqs', 'cluster', 
-    str(files.res) + '_' + str(iter_counter) +'_neigh_only_db',
-     str(files.res) + '_' + str(iter_counter) +'_neigh_only_db' + '_clu',
-     'tmp', '-c', '0.8', '-e', '0.001'])
+    files.tmp +str(files.res) + '_' + str(iter_counter) +'_neigh_only_db',
+     files.tmp +str(files.res) + '_' + str(iter_counter) +'_neigh_only_db' + '_clu',
+     files.tmp+'mmseqs_tmp', '-c', '0.8', '-e', '0.001'])
 
     # that's to reject sequence clusters when the fraction of cluster matches in which they occur is smaller than frac_occ_min
     subprocess.call(['mmseqs', 'createtsv', 
-    str(files.res) + '_' + str(iter_counter) +'_neigh_only_db',
-     str(files.res) + '_' + str(iter_counter) +'_neigh_only_db',
-     str(files.res) + '_' + str(iter_counter) +'_neigh_only_db' + '_clu',
-     str(files.res) + '_' + str(iter_counter) +'_neigh_only_db' + '_clu.tsv'])
+    files.tmp +str(files.res) + '_' + str(iter_counter) +'_neigh_only_db',
+     files.tmp +str(files.res) + '_' + str(iter_counter) +'_neigh_only_db',
+     files.tmp +str(files.res) + '_' + str(iter_counter) +'_neigh_only_db' + '_clu',
+     files.tmp +str(files.res) + '_' + str(iter_counter) +'_neigh_only_db' + '_clu.tsv'])
     
-    clu_tsv = pd.read_csv(str(files.res) + '_' + str(iter_counter) +'_neigh_only_db' + '_clu.tsv', dtype=None, sep='\t', header = None)
+    clu_tsv = pd.read_csv(files.tmp +str(files.res) + '_' + str(iter_counter) +'_neigh_only_db' + '_clu.tsv', dtype=None, sep='\t', header = None)
     clu_tsv.columns = ['rep', 'real_prot_id']
     # now let's merge the clustering results df with the df containing counts of spatial clusters per protein
     clu_tsv_spatial_clu_counts = pd.merge(clu_tsv, clu_indices_for_frac_occ_min_df, on='real_prot_id')
@@ -1198,35 +1214,36 @@ def add_new_profiles(clu_indices_for_frac_occ_min_df):
     #print(fraction_df)
     prot_filtered_by_fraction = fraction_df.loc[fraction_df['fraction'] >= frac_occ_min]['real_prot_id']
     #!print(prot_filtered_by_fraction)
-    neigh_lookup = pd.read_csv(str(files.res) + '_' + str(iter_counter) +'_neigh_only_db.lookup', dtype=None, sep='\t', header = None)
+    neigh_lookup = pd.read_csv(files.tmp +str(files.res) + '_' + str(iter_counter) +'_neigh_only_db.lookup', dtype=None, sep='\t', header = None)
     
     neigh_lookup.columns = ['int_id', 'real_prot_id', 'source_id']
     merged_filter_frac_lookup_df = neigh_lookup.merge(prot_filtered_by_fraction, on='real_prot_id', how='inner')
     #!print(merged_filter_frac_lookup_df)
-    merged_filter_frac_lookup_df['int_id'].to_csv('seq_clu_filter_fraction_idx', index=False, header=False)  
+    merged_filter_frac_lookup_df['int_id'].to_csv(files.tmp +'seq_clu_filter_fraction_idx', index=False, header=False)  
 
-    subprocess.call(['mmseqs', 'createsubdb', 'seq_clu_filter_fraction_idx',
-     str(files.res) + '_' + str(iter_counter) +'_neigh_only_db' + '_clu',
-     str(files.res) + '_' + str(iter_counter) +'_neigh_only_db' + '_clu' + '_frac_filter'])
+    subprocess.call(['mmseqs', 'createsubdb', files.tmp +'seq_clu_filter_fraction_idx',
+     files.tmp +str(files.res) + '_' + str(iter_counter) +'_neigh_only_db' + '_clu',
+     files.tmp +str(files.res) + '_' + str(iter_counter) +'_neigh_only_db' + '_clu' + '_frac_filter'])
     
     subprocess.call(['mmseqs', 'result2msa', 
-    str(files.res) + '_' + str(iter_counter) +'_neigh_only_db',
-     str(files.res) + '_' + str(iter_counter) +'_neigh_only_db',
-     str(files.res) + '_' + str(iter_counter) +'_neigh_only_db' + '_clu' + '_frac_filter',
-     str(files.res) + '_' + str(iter_counter) +'_neigh_only_db' + '_clu' + '_frac_filter_msa',
+    files.tmp +str(files.res) + '_' + str(iter_counter) +'_neigh_only_db',
+     files.tmp +str(files.res) + '_' + str(iter_counter) +'_neigh_only_db',
+     files.tmp +str(files.res) + '_' + str(iter_counter) +'_neigh_only_db' + '_clu' + '_frac_filter',
+     files.tmp +str(files.res) + '_' + str(iter_counter) +'_neigh_only_db' + '_clu' + '_frac_filter_msa',
      '--msa-format-mode', '4'])
 
     subprocess.call(['mmseqs', 'convertmsa', 
-     str(files.res) + '_' + str(iter_counter) +'_neigh_only_db' + '_clu_frac_filter_msa',
-     str(files.res) + '_' + str(iter_counter) +'_neigh_only_db' + '_clu_frac_filter_msa_db'])
+     files.tmp +str(files.res) + '_' + str(iter_counter) +'_neigh_only_db' + '_clu_frac_filter_msa',
+     files.tmp +str(files.res) + '_' + str(iter_counter) +'_neigh_only_db' + '_clu_frac_filter_msa_db'])
     
-    subprocess.call(['mmseqs', 'msa2profile', str(files.res) + '_' + str(iter_counter) +'_neigh_only_db' + '_clu_frac_filter_msa_db', str(files.res) + '_' + str(iter_counter) +'_neigh_only_db' + '_clu_msa_db_profile'])
+    subprocess.call(['mmseqs', 'msa2profile', files.tmp +str(files.res) + '_' + str(iter_counter) +'_neigh_only_db' + '_clu_frac_filter_msa_db', files.tmp +str(files.res) + '_' + str(iter_counter) +'_neigh_only_db' + '_clu_msa_db_profile'])
 
 
 def make_new_query():
     # the function makes the new query database by concatenating (old updated profiles + new proteins) msas from update_profiles() and add_new_profiles()
     print('making new query db')
-    query_db_path = str(files.query_db)
+    #query_db_path = str(files.query_db)
+    query_db_path = files.curr_dir + 'query_' +str(iter_counter+1) 
     logging.debug(f"iter_counter {iter_counter}")
     # this idea from the above comment disabled as it causes problem if there are number in the file name
     #if iter_counter > 1:
@@ -1234,26 +1251,26 @@ def make_new_query():
     logging.debug(f"query_db_path {query_db_path}")
 
     # Since I now have a new parameter, min_frac_inside, the update query db get filtered in apply_min_frac_inside
-    filtered_upd_query_db_path = str(files.res) + '_' + str(iter_counter) + '_matches_only_db' + '_upd_res_msa_db_profile' + '_frac_inside_filter'
+    filtered_upd_query_db_path = files.tmp +str(files.res) + '_' + str(iter_counter) + '_matches_only_db' + '_upd_res_msa_db_profile' + '_frac_inside_filter'
 
     subprocess.call(['mmseqs', 'concatdbs', 
     #str(files.res) + '_' + str(iter_counter) + '_matches_only_db' + '_upd_res_msa_db_profile',
     filtered_upd_query_db_path,
-     str(files.res) + '_' + str(iter_counter) +'_neigh_only_db' + '_clu_msa_db_profile',
-      query_db_path + str(iter_counter) + 'iter_db_clu_msa_db_profile'])
+     files.tmp +str(files.res) + '_' + str(iter_counter) +'_neigh_only_db' + '_clu_msa_db_profile',
+      files.tmp + files.proc_q + str(iter_counter) + 'iter_db_clu_msa_db_profile'])
 
     subprocess.call(['mmseqs', 'concatdbs',
      #str(files.res) + '_' + str(iter_counter) + '_matches_only_db' + '_upd_res_msa_db_profile_h',
      filtered_upd_query_db_path + '_h',
-     str(files.res) + '_' + str(iter_counter) +'_neigh_only_db' + '_clu_msa_db_profile_h',
-      query_db_path + str(iter_counter) + 'iter_db_clu_msa_db_profile_h'])
+     files.tmp +str(files.res) + '_' + str(iter_counter) +'_neigh_only_db' + '_clu_msa_db_profile_h',
+      files.tmp + files.proc_q + str(iter_counter)  + 'iter_db_clu_msa_db_profile_h'])
 
 
 def set_match_threshold(match_score_gap, query_specific_thresholds):
     # the function calculates the simple heuristic to set profile-specific match score threshold. That is needed to only have positionally ortholodous families
     # match score is the mmseqs2 similarity bit score
     # here to calculate the threshold only for matches that were part of the cluster the filtered results file (only with cluster matches, without single matches) is used
-    filtered_search_res_clu_matches_path = str(files.res) + '_' + str(iter_counter) + '_matches_only_db' + '_upd_res'
+    filtered_search_res_clu_matches_path = files.tmp +str(files.res) + '_' + str(iter_counter) + '_matches_only_db' + '_upd_res'
 
     subprocess.call(['mmseqs', 'convertalis',
     # files.query_db + '_clu' + '_rep' + '_profile',
@@ -1305,7 +1322,7 @@ def apply_min_frac_inside(query_specific_thresholds, mapped_res, significant_clu
     target_uniq_q0, target_uniq_q_counts0 = np.unique(q_arr_target, return_counts=True)
     clusters_uniq_q, clusters_uniq_q_counts = np.unique(q_arr_clusters, return_counts=True)
     # I need an array of all possible queries
-    new_query_db_h_path = str(files.res) + '_' + str(iter_counter) + '_matches_only_db' + '_upd_res_msa_db_profile_h'
+    new_query_db_h_path = files.tmp + str(files.res) + '_' + str(iter_counter) + '_matches_only_db' + '_upd_res_msa_db_profile_h'
     new_query_db_profile_h = pd.read_csv(new_query_db_h_path, sep='\s+#\s+', header=None, engine='python')
     new_query_db_profile_h.columns = ['ID']
     new_query_db_profile_h["ID"] = new_query_db_profile_h["ID"].str.replace('\x00', '')
@@ -1338,16 +1355,16 @@ def apply_min_frac_inside(query_specific_thresholds, mapped_res, significant_clu
     #print('filtered_queries', filtered_queries)
 
     # Now I need to have a file of mmseqs indices to actually keep in mmseqs files only those queries that passed the threshold
-    np.savetxt('min_frac_inside_idx_to_filter', filtered_indices, fmt='%i')
+    np.savetxt(files.tmp +'min_frac_inside_idx_to_filter', filtered_indices, fmt='%i')
 
     # Now let's filter the updated db
-    subprocess.call(['mmseqs', 'createsubdb', 'min_frac_inside_idx_to_filter', 
-     str(files.res) + '_' + str(iter_counter) + '_matches_only_db' + '_upd_res_msa_db_profile',
-      str(files.res) + '_' + str(iter_counter) + '_matches_only_db' + '_upd_res_msa_db_profile'+'_frac_inside_filter'])
+    subprocess.call(['mmseqs', 'createsubdb', files.tmp +'min_frac_inside_idx_to_filter', 
+     files.tmp +str(files.res) + '_' + str(iter_counter) + '_matches_only_db' + '_upd_res_msa_db_profile',
+      files.tmp +str(files.res) + '_' + str(iter_counter) + '_matches_only_db' + '_upd_res_msa_db_profile'+'_frac_inside_filter'])
 
-    subprocess.call(['mmseqs', 'createsubdb', 'min_frac_inside_idx_to_filter', 
-     str(files.res) + '_' + str(iter_counter) + '_matches_only_db' + '_upd_res_msa_db_profile_h',
-      str(files.res) + '_' + str(iter_counter) + '_matches_only_db' + '_upd_res_msa_db_profile'+'_frac_inside_filter_h'])
+    subprocess.call(['mmseqs', 'createsubdb', files.tmp +'min_frac_inside_idx_to_filter', 
+     files.tmp +str(files.res) + '_' + str(iter_counter) + '_matches_only_db' + '_upd_res_msa_db_profile_h',
+      files.tmp +str(files.res) + '_' + str(iter_counter) + '_matches_only_db' + '_upd_res_msa_db_profile'+'_frac_inside_filter_h'])
 
 
 def initialize_new_prot_score2(old_query_upd_scores, arr_clu_neigh_prots, arr_matches_in_clu, query_specific_thresholds):
@@ -1504,7 +1521,7 @@ def run_singleton_search():
     # in these "pseudoclusters"
     print('running search for singletons scores')
     subprocess.call(['mmseqs', 'cluster', files.query_db, files.query_db + '_clu',
-     'tmp', '--min-seq-id', '0.9'])
+     files.tmp+'mmseqs_tmp', '--min-seq-id', '0.9'])
     subprocess.call(['mmseqs', 'createsubdb', files.query_db + '_clu', files.query_db,
      files.query_db + '_clu' + '_rep'])
     subprocess.call(['mmseqs', 'createsubdb', files.query_db + '_clu', files.query_db + '_h',
@@ -1516,7 +1533,7 @@ def run_singleton_search():
     files.query_db + '_clu' + '_rep' + '_profile',
      files.target_db,
      files.res + '_prof_search',
-     'tmp', '-a', '--mask', '0', '--comp-bias-corr', '0', '--max-seqs', '10000', '-c', search_cov, '--cov-mode', '1', '-e', '0.001'])
+     files.tmp+'mmseqs_tmp', '-a', '--mask', '0', '--comp-bias-corr', '0', '--max-seqs', '10000', '-c', search_cov, '--cov-mode', '1', '-e', '0.001'])
     subprocess.call(['mmseqs', 'convertalis', files.query_db + '_clu' + '_rep' + '_profile',
      files.target_db, files.res + '_singleton_prof_search',
       files.res + '_singleton_prof_search' +'.m8'])
@@ -1824,7 +1841,7 @@ def cluster_clusters(significant_cluster_df_enriched):
         #!print(final_clusters_ids1)
         #print(final_clusters_reals)
         #!print('here are your clusters')
-        raw_clu_of_clu = open(str(files.res) + str(iter_counter) +'_clu_of_clu_all', 'w')
+        raw_clu_of_clu = open(files.tmp +str(files.res) + str(iter_counter) +'_clu_of_clu_all', 'w')
         
         for k in final_clusters_reals1.keys():
             raw_clu_of_clu.write(f'centroid is {str(k)} \n')
@@ -1964,7 +1981,7 @@ def main(old_query_upd_scores, UpdatedStats):
     # MAKE coord and strand integers
     start_time2 = time.time()
     mapped_res = ResultsMapping.map_target_to_coord(query_specific_thresholds)
-    mapped_res.res_map_to_header.to_csv('mapped_results_mish', sep = '\t')
+    mapped_res.res_map_to_header.to_csv(files.tmp +'mapped_results_mish', sep = '\t')
     print("--- %s seconds for map_target_to_coord() ---" % (time.time() - start_time2))
 
     # Approximate log enrichments for newly added profiles (from the previous iteration, neigbours)
@@ -1977,7 +1994,7 @@ def main(old_query_upd_scores, UpdatedStats):
     start_time3 = time.time()
     use_intermediate = 0
     #cluster_matches_fname = str(files.res) + str(iter_counter) + 'cluster_matches'
-    cluster_matches_fname = str(files.res) + str(iter_counter) + 'cluster_df'
+    cluster_matches_fname = files.tmp +str(files.res) + str(iter_counter) + 'cluster_df'
     if use_intermediate == 1 and iter_counter == 1:
         f=open(cluster_matches_fname,"r")
         lst=f.read()
@@ -1996,11 +2013,11 @@ def main(old_query_upd_scores, UpdatedStats):
     
     logging.debug(f'checking global {len(old_query_upd_scores)} {d_strand_flip_penalty}, {s_0}')
     #cluster_matches_df = pd.DataFrame(cluster_matches)
-    cluster_matches_df.to_csv(str(files.res) + str(iter_counter) + 'cluster_matches_raw', sep = '\t', index = False)
+    cluster_matches_df.to_csv(files.tmp +str(files.res) + str(iter_counter) + 'cluster_matches_raw', sep = '\t', index = False)
     print('number of clusters', len(cluster_matches_df.index))
 
     # That is to keep intermediate cluster matches files
-    cluster_matches_fname = str(files.res) + str(iter_counter) + 'cluster_df'
+    cluster_matches_fname = files.tmp +str(files.res) + str(iter_counter) + 'cluster_df'
     cluster_matches_df.to_csv(cluster_matches_fname, sep = '\t', index = False)
 
     print(cluster_matches_df)
@@ -2117,7 +2134,7 @@ if __name__ == "__main__":
     # Make dbs out of sequence fasta
     subprocess.call(['mmseqs', 'createdb', 
      files.query_fa,
-     files.query_db])
+     files.tmp + files.proc_q+'_db'])
     
     subprocess.call(['mmseqs', 'createdb', 
      files.target_fa,
@@ -2176,7 +2193,7 @@ if __name__ == "__main__":
         files.res = str(files.res) + '0iter'
         preprocess_singleton_main(old_query_upd_scores, UpdatedStats)
     
-        files.query_db = str(files.query_db) + str(iter_counter) + 'iter_db'
+        files.query_db = files.tmp + files.proc_q + str(iter_counter) + 'iter_db'
         files.res = saved_files_res
 
     iter_counter = 1
@@ -2184,14 +2201,14 @@ if __name__ == "__main__":
         print('iter_counter:',iter_counter)
         logging.debug(f"iter_counter, files.query_db: {iter_counter, files.query_db}")
         if iter_counter == 1:
-            files.query_db = files.query_db
+            files.query_db = files.tmp + files.proc_q + '_db'
         if iter_counter == 2:
-            files.query_db = str(files.query_db) + str(iter_counter-1) + 'iter_db'
+            files.query_db = files.tmp + files.proc_q + str(iter_counter-1) + 'iter_db'
             files.res = str(files.res) + str(iter_counter-1) + 'iter_res'
         if iter_counter > 2:
             # The enhancement below is disabled for now as might cause problem if the filepath has other numbers in the name
             #query_db_path = str(files.query_db)[:str(files.query_db).find(str(iter_counter-2))]
-            query_db_path = str(files.query_db)
+            query_db_path = files.tmp + files.proc_q
             files.query_db = query_db_path + str(iter_counter-1) + 'iter_db'
             res_path = str(files.res)[:str(files.res).rfind(str(iter_counter-2))]
             files.res = res_path + str(iter_counter-1) + 'iter_res'
