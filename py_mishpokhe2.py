@@ -56,6 +56,8 @@ def arg_parser():
      help="Specify path for tmp folder. If the path doesnt exist, it is created automatically, default='tmp'", default='tmp/')
     parser.add_argument("-pq", "--processed_query_path",
      help="Specify path to save the results of change to the query files, default start of the name is 'query'", default='query')
+    parser.add_argument("-fr", "--results_folder",
+     help="Specify path to save the main results files", default='.')
     # make separate func?
     # CHECK is it ok to make global?
     global args
@@ -64,7 +66,7 @@ def arg_parser():
     for argument in vars(args):
         arg_path = getattr(args, argument)
         if not os.path.exists((arg_path)):
-            if argument not in ['res', 'iter', 'singleton', 'evalfilteruse', 'eval', 'frac_occ_min', 'search_cov', 'arc_filter', 'min_frac_inside', 'bias', 'tmp', 'processed_query_path']:
+            if argument not in ['res', 'iter', 'singleton', 'evalfilteruse', 'eval', 'frac_occ_min', 'search_cov', 'arc_filter', 'min_frac_inside', 'bias', 'tmp', 'processed_query_path', 'results_folder']:
                 sys.exit(f"{arg_path} not found")
 
 class FilePath:
@@ -72,7 +74,7 @@ class FilePath:
      Reading paths to the sequence files and making new paths for the db files to make them in main
 
      """
-     def __init__(self, query_db, target_db, res, query_fa, target_fa, tmp_path, current_dir, processed_query):
+     def __init__(self, query_db, target_db, res, query_fa, target_fa, tmp_path, current_dir, processed_query, results_folder):
         self.query_db = query_db
         self.target_db = target_db
         self.res = res
@@ -81,6 +83,7 @@ class FilePath:
         self.tmp = tmp_path
         self.curr_dir = current_dir
         self.proc_q = processed_query
+        self.results_folder = results_folder
 
 
      @classmethod
@@ -96,12 +99,17 @@ class FilePath:
                 # create tmp dir if doesnt exist
                 if not os.path.isdir(tmp_path):
                     os.makedirs(tmp_path)
-                if not tmp_path.endswith('/'):
-                    tmp_path = tmp_path + '/'
+                if not tmp_path.endswith(os.sep):
+                    tmp_path = tmp_path + os.sep
                 current_dir = os.getcwd()
                 processed_query = args.processed_query_path
                 query_db = tmp_path + processed_query +'_db'
-                return self(query_db,target_db, res, query_fa, target_fa, tmp_path, current_dir, processed_query)
+                results_folder = args.results_folder
+                if not os.path.isdir(results_folder):
+                    os.makedirs(results_folder)
+                if not results_folder.endswith(os.sep):
+                    results_folder = results_folder + os.sep
+                return self(query_db,target_db, res, query_fa, target_fa, tmp_path, current_dir, processed_query, results_folder)
             except:
                 print('Invalid input!')
                 continue
@@ -997,14 +1005,15 @@ def calculate_e_value(stat_lambda, stat_K, cluster_matches_df, mapped_res):
     # -----------
     # CHANGE the name? 
     # they are not filtered by e-val yet
-    cluster_path = files.res + '_' + str(iter_counter) + '_iter_sign_clusters_enrich_stat'
+    cluster_path = files.results_folder + files.res + '_' + str(iter_counter) + '_iter_sign_clusters_enrich_stat'
+    print('cluster_path', cluster_path)
     sign_clusters_df.to_csv(cluster_path, sep = '\t', index = False)
     # Check if e-val = 0.01 is good filtering
     eval_filter = float(args.eval)
     use_eval_filter = args.evalfilteruse
     if use_eval_filter == '1':
         significant_clusters_eval_filter_df = sign_clusters_df.loc[(sign_clusters_df['e-value'] <eval_filter) & (sign_clusters_df['e-value'] >= 0)]
-        cluster_path2 = files.res + '_' + str(iter_counter) + '_iter_sign_clusters_enrich_stat_filtered'
+        cluster_path2 = files.results_folder + files.res + '_' + str(iter_counter) + '_iter_sign_clusters_enrich_stat_filtered'
         significant_clusters_eval_filter_df.to_csv(cluster_path2, sep = '\t', index = False)
     else:
         print('e-value filter disabled')
@@ -1576,12 +1585,12 @@ def preprocess_singleton_main(old_query_upd_scores, UpdatedStats):
     make_profiles()
     run_search()
     mapped_res = ResultsMapping.map_target_to_coord(query_specific_thresholds)
-    mapped_res.res_map_to_header.to_csv('mapped_results_mish', sep = '\t')
+    #mapped_res.res_map_to_header.to_csv('mapped_results_mish', sep = '\t')
 
     cluster_matches = find_singletons(mapped_res)
     
     cluster_matches_df = pd.DataFrame(cluster_matches)
-    cluster_matches_df.to_csv('single_matches_raw', sep = '\t', index = False)
+    #cluster_matches_df.to_csv('single_matches_raw', sep = '\t', index = False)
     print('number of singletons', len(cluster_matches_df.index))
     
     sign_clusters_df = cluster_matches_df.copy()
@@ -1845,11 +1854,11 @@ def cluster_clusters(significant_cluster_df_enriched):
         #!print('here are your clusters')
         raw_clu_of_clu = open(files.tmp +str(files.res) + str(iter_counter) +'_clu_of_clu_all', 'w')
         
-        for k in final_clusters_reals1.keys():
-            raw_clu_of_clu.write(f'centroid is {str(k)} \n')
-            for n in final_clusters_reals1[k]:
-                raw_clu_of_clu.write(str(n)+'\n')
-            raw_clu_of_clu.write('-------'+'\n')
+        #for k in final_clusters_reals1.keys():
+        #    raw_clu_of_clu.write(f'centroid is {str(k)} \n')
+        #    for n in final_clusters_reals1[k]:
+        #        raw_clu_of_clu.write(str(n)+'\n')
+        #    raw_clu_of_clu.write('-------'+'\n')
         #!print('number of clusters is', len(cluster_centroids))
         #print('intercentroid dist')
         #for point in final_clusters_ids1.keys():
