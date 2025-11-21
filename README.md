@@ -87,6 +87,10 @@ It is important to keep mishpokhe together with other accessory scripts in one d
 
 If you run mishpokhe again on the same dataset, it is important to delete the "tmp" folder as well as query database starting from the first iteration (simply do `rm {QUERYDB}1*`, it removes also the later databases) and all results files (do `rm {RES}*`).
 
+## Troubleshooting and known issues:
+
+For Apple Silicon (chips M1 and higher) users Python=3.7 is not available. Therefore it is recommended to use Python 3.8.
+
 
 # Credits
 
