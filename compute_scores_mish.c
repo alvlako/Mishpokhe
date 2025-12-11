@@ -125,6 +125,3 @@ int find_cluster_matches(int i_0, int i_1, int k, float S_list[], int starts_lis
     }
     return array_space_counter;
 }
-
-
-
